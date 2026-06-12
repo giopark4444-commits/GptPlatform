@@ -15,6 +15,8 @@ from urllib.parse import urlparse, parse_qs
 PORT = 7860
 HOME = Path.home()
 KEY_FILE = HOME / ".openai_key"
+EL_KEY_FILE = HOME / ".elevenlabs_key"
+EL_API = "https://api.elevenlabs.io/v1"
 ROOT = HOME / "image-studio"
 HIST_DIR = ROOT / "historial"
 HIST_JSON = ROOT / "historial.json"
@@ -45,6 +47,10 @@ MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "
 
 def key():
     return KEY_FILE.read_text().strip() if KEY_FILE.exists() else ""
+
+
+def el_key():
+    return EL_KEY_FILE.read_text().strip() if EL_KEY_FILE.exists() else ""
 
 
 def load_json(p, d):
@@ -378,6 +384,9 @@ audio{width:100%;height:40px}
 .ameta{flex:1;min-width:0}
 .at{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .as{font-size:9.5px;color:var(--faint)}
+.vsx{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;padding:0 0 0 3px;line-height:1}
+.vsx:hover{color:var(--bad)}
+#vsAdd{color:var(--accent);border-style:dashed}
 
 /* toasts */
 .toasts{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
@@ -571,6 +580,7 @@ audio{width:100%;height:40px}
     <div class="seg" id="audSeg" style="margin-bottom:18px;width:100%">
       <button class="on" id="audTTS" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Voz</button>
       <button id="audSTT" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>Transcribir</button>
+      <button id="audSFX" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>Efectos</button>
     </div>
 
     <div id="ttsBox">
@@ -578,6 +588,12 @@ audio{width:100%;height:40px}
         <label>Texto <span class="mono" id="ttsCount" style="float:right;text-transform:none;letter-spacing:0">0 / 4096</span></label>
         <textarea id="ttsText" maxlength="4096" style="min-height:110px" placeholder="Escribe lo que quieres que diga…"></textarea>
       </div>
+      <div class="seg" id="provSeg" style="margin-bottom:18px;width:100%">
+        <button class="on" id="provOAI" style="flex:1;justify-content:center">OpenAI</button>
+        <button id="provEL" style="flex:1;justify-content:center">ElevenLabs</button>
+      </div>
+
+      <div id="oaiOpts">
       <div class="field"><label>Modelo</label>
         <select id="ttsModel">
           <option value="gpt-4o-mini-tts" selected>gpt-4o-mini-tts · dirigible con instrucciones</option>
@@ -590,6 +606,7 @@ audio{width:100%;height:40px}
         <label>Instrucciones de tono · opcional</label>
         <textarea id="ttsInstr" style="min-height:58px;font-size:12.5px" placeholder="Ej: locutor de radio enérgico · susurro misterioso · narrador de documental, pausado y cálido…"></textarea>
       </div>
+      <div class="field"><label>Estilos de voz guardados</label><div class="presets" id="vstyles"></div></div>
       <div class="field" id="speedBox">
         <div class="slabel"><label>Velocidad</label><span class="v mono" id="speedv">1.00×</span></div>
         <input type="range" id="ttsSpeed" min="0.25" max="4" step="0.05" value="1">
@@ -598,9 +615,64 @@ audio{width:100%;height:40px}
         <div><label>Formato</label><select id="ttsFmt"><option>mp3</option><option>wav</option><option>aac</option><option>flac</option><option>opus</option><option>pcm</option></select></div>
         <div><label>Probar voz</label><button class="ghost" id="voiceTest" style="width:100%;justify-content:center;padding:10px">Vista previa</button></div>
       </div>
+      </div>
+
+      <div id="elOpts" class="hide">
+        <div id="elConnect" class="hide" style="margin-bottom:18px">
+          <label>Clave de ElevenLabs</label>
+          <div style="display:flex;gap:7px"><input type="password" id="elKeyIn" placeholder="xi-…" autocomplete="off"><button class="ghost" id="elKeySave" style="flex:none">Conectar</button></div>
+          <p class="hint">Se guarda solo en tu equipo (<span class="mono">~/.elevenlabs_key</span>). Consíguela en elevenlabs.io → My Account → API Keys. Hay plan gratis de 10k caracteres/mes.</p>
+        </div>
+        <div id="elMain" class="hide">
+          <div class="field"><label>Voz · incluye tus clonadas <button id="elRefresh" type="button" style="float:right;background:none;border:0;color:var(--faint);cursor:pointer;font-size:9px;letter-spacing:.1em;font-weight:600">REFRESCAR</button></label>
+            <select id="elVoice"></select></div>
+          <div class="field"><label>Modelo</label>
+            <select id="elModel">
+              <option value="eleven_multilingual_v2" selected>Multilingual v2 · máxima calidad</option>
+              <option value="eleven_v3">Eleven v3 · el más expresivo</option>
+              <option value="eleven_turbo_v2_5">Turbo v2.5 · rápido · ½ crédito</option>
+              <option value="eleven_flash_v2_5">Flash v2.5 · ultrarrápido · ½ crédito</option>
+            </select></div>
+          <div class="field"><div class="slabel"><label>Estabilidad</label><span class="v mono" id="elStabV">0.50</span></div>
+            <input type="range" id="elStab" min="0" max="1" step="0.05" value="0.5">
+            <p class="hint" style="margin-top:4px">Baja = más expresiva y variable · alta = más consistente y plana.</p></div>
+          <div class="field"><div class="slabel"><label>Similitud</label><span class="v mono" id="elSimV">0.75</span></div>
+            <input type="range" id="elSim" min="0" max="1" step="0.05" value="0.75"></div>
+          <div class="field"><div class="slabel"><label>Exageración de estilo</label><span class="v mono" id="elStyV">0.00</span></div>
+            <input type="range" id="elSty" min="0" max="1" step="0.05" value="0"></div>
+          <div class="field"><div class="slabel"><label>Velocidad</label><span class="v mono" id="elSpdV">1.00×</span></div>
+            <input type="range" id="elSpd" min="0.7" max="1.2" step="0.05" value="1"></div>
+          <label class="check"><input type="checkbox" id="elBoost" checked> Speaker boost · realza la claridad de la voz</label>
+          <div class="field grid2" style="margin-top:12px">
+            <div><label>Formato</label><select id="elFmt">
+              <option value="mp3_44100_128" selected>MP3 128k</option>
+              <option value="mp3_44100_192">MP3 192k · Creator+</option>
+              <option value="mp3_22050_32">MP3 32k · ligero</option>
+              <option value="opus_48000_128">Opus 48k</option>
+              <option value="pcm_44100">PCM 44.1k · crudo</option>
+              <option value="ulaw_8000">µ-law 8k · telefonía</option></select></div>
+            <div><label>Normalización de texto</label><select id="elNorm"><option value="auto" selected>Auto</option><option value="on">Activada</option><option value="off">Apagada</option></select></div>
+          </div>
+          <div class="field grid2">
+            <div><label>Seed · reproducible</label><input type="text" id="elSeed" class="mono" placeholder="opcional"></div>
+            <div><label>Probar voz</label><button class="ghost" id="elTest" style="width:100%;justify-content:center;padding:10px">Vista previa</button></div>
+          </div>
+          <details class="adv"><summary><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Clonar una voz<svg class="chev" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg></summary>
+            <div class="advbody">
+              <label>Nombre de la voz</label><input type="text" id="cloneName" placeholder="Mi voz" style="margin-bottom:10px">
+              <div class="drop" id="dropClone" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Muestras de audio · ideal 1–3 min limpios</div>
+              <input type="file" id="cloneFiles" accept="audio/*" multiple class="hide">
+              <p class="hint" id="cloneInfo"></p>
+              <button class="ghost" id="cloneGo" style="width:100%;justify-content:center;margin-top:10px">Crear voz clonada</button>
+              <p class="hint">Instant Voice Cloning (requiere plan Starter o superior). La voz nueva aparece en la lista al refrescar.</p>
+            </div></details>
+          <p class="hint" id="elQuota" style="margin:0 0 14px"></p>
+        </div>
+      </div>
+
       <div class="estbar"><span>Costo estimado</span><span class="num" id="ttsEst">~$0.0000</span></div>
       <button class="primary" id="ttsGo"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><span id="ttsGoTxt">Generar voz</span></button>
-      <p class="hint">Máx 4096 caracteres por generación. Las instrucciones de tono solo aplican a <span class="mono">gpt-4o-mini-tts</span>; la velocidad solo a <span class="mono">tts-1 / hd</span>. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+      <p class="hint">OpenAI: máx 4096 caracteres; instrucciones de tono solo con <span class="mono">gpt-4o-mini-tts</span>. ElevenLabs cobra en créditos de tu plan. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
     </div>
 
     <div id="sttBox" class="hide">
@@ -630,6 +702,20 @@ audio{width:100%;height:40px}
       <div class="estbar" style="margin-top:14px"><span>Costo estimado</span><span class="num" id="sttEst">~$0.006/min</span></div>
       <button class="primary" id="sttGo"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg><span id="sttGoTxt">Transcribir</span></button>
       <p class="hint">SRT/VTT y JSON con tiempos usan <span class="mono">whisper-1</span> (se ajusta solo). La traducción siempre sale en inglés. La transcripción se guarda como archivo en historial y tu carpeta.</p>
+    </div>
+
+    <div id="sfxBox" class="hide">
+      <div class="field"><label>Describe el efecto de sonido</label>
+        <textarea id="sfxText" style="min-height:84px" placeholder="Ej: pasos sobre nieve crujiente · explosión lejana con eco · ambiente de bar lleno, vasos y murmullo…"></textarea></div>
+      <label class="check"><input type="checkbox" id="sfxAuto" checked> Duración automática</label>
+      <div class="field dim" id="sfxDurBox" style="margin-top:12px">
+        <div class="slabel"><label>Duración</label><span class="v mono" id="sfxDurV">5.0s</span></div>
+        <input type="range" id="sfxDur" min="0.5" max="22" step="0.5" value="5"></div>
+      <div class="field"><div class="slabel"><label>Apego al prompt</label><span class="v mono" id="sfxInfV">0.30</span></div>
+        <input type="range" id="sfxInf" min="0" max="1" step="0.05" value="0.3">
+        <p class="hint" style="margin-top:4px">Bajo = más creativo · alto = literal con tu descripción.</p></div>
+      <button class="primary" id="sfxGo" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg><span id="sfxGoTxt">Generar efecto</span></button>
+      <p class="hint">Efectos con ElevenLabs (usa la clave conectada en Voz → ElevenLabs). Hasta 22 segundos por efecto.</p>
     </div>
    </div>
   </div>
@@ -795,7 +881,8 @@ function renderSaveWhere(){
 $('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
 $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
 async function loadConfig(){const r=await(await fetch('/config')).json();
- $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere()}
+ $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();
+ voiceStyles=r.voice_styles||[];renderVStyles()}
 $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
  if(r.error){toast(r.error,'bad');return}
@@ -1034,7 +1121,7 @@ const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx=
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 function galFiltered(){const f=$('galFilter').value;
- const imgs=hist.filter(it=>it.kind!=='tts'&&it.kind!=='stt');
+ const imgs=hist.filter(it=>!['tts','stt','sfx'].includes(it.kind));
  return f==='*'?imgs:imgs.filter(it=>(it.project||'')===f)}
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.slice(0,shown).map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
@@ -1149,11 +1236,54 @@ $('voices').innerHTML=VOICES.map(v=>`<span class="chip vchip${v===selVoice?' on'
 $('voices').onclick=e=>{const c=e.target.closest('.vchip');if(!c)return;
  selVoice=c.dataset.v;localStorage.setItem('studio_voice',selVoice);
  [...$('voices').children].forEach(x=>x.classList.toggle('on',x.dataset.v===selVoice))};
-$('audTTS').onclick=()=>{$('audTTS').classList.add('on');$('audSTT').classList.remove('on');
- $('ttsBox').classList.remove('hide');$('sttBox').classList.add('hide')};
-$('audSTT').onclick=()=>{$('audSTT').classList.add('on');$('audTTS').classList.remove('on');
- $('sttBox').classList.remove('hide');$('ttsBox').classList.add('hide')};
+function audTab(t){['audTTS','audSTT','audSFX'].forEach(id=>$(id).classList.toggle('on',id===t));
+ $('ttsBox').classList.toggle('hide',t!=='audTTS');
+ $('sttBox').classList.toggle('hide',t!=='audSTT');
+ $('sfxBox').classList.toggle('hide',t!=='audSFX')}
+$('audTTS').onclick=()=>audTab('audTTS');
+$('audSTT').onclick=()=>audTab('audSTT');
+$('audSFX').onclick=()=>audTab('audSFX');
+// --- proveedor: OpenAI / ElevenLabs ---
+let prov=localStorage.getItem('studio_prov')||'oai',elReady=false,elVoices=[];
+function setProv(p){prov=p;localStorage.setItem('studio_prov',p);
+ $('provOAI').classList.toggle('on',p==='oai');$('provEL').classList.toggle('on',p==='el');
+ $('oaiOpts').classList.toggle('hide',p!=='oai');$('elOpts').classList.toggle('hide',p!=='el');
+ if(p==='el'&&!elReady)elInit();
+ ttsEstCalc()}
+$('provOAI').onclick=()=>setProv('oai');$('provEL').onclick=()=>setProv('el');
+async function elInit(){const s=await(await fetch('/elstatus')).json();
+ elReady=s.ok;
+ $('elConnect').classList.toggle('hide',s.ok);$('elMain').classList.toggle('hide',!s.ok);
+ if(s.ok){renderElQuota(s);await loadElVoices()}}
+function renderElQuota(s){const left=(s.limit||0)-(s.used||0);
+ $('elQuota').textContent='Plan '+(s.tier||'free')+' · usados '+(s.used||0).toLocaleString()+' de '+(s.limit||0).toLocaleString()+' créditos · quedan '+left.toLocaleString()}
+async function loadElVoices(){const r=await(await fetch('/elvoices')).json();
+ elVoices=r.voices||[];
+ const cats={cloned:'Clonadas',generated:'Generadas',professional:'Profesionales',premade:'Predefinidas'};
+ const cur=localStorage.getItem('studio_elvoice')||'';
+ let html='';
+ for(const[c,label]of Object.entries(cats)){
+  const vs=elVoices.filter(v=>v.category===c);if(!vs.length)continue;
+  html+='<optgroup label="'+label+'">'+vs.map(v=>`<option value="${esc(v.id)}" ${v.id===cur?'selected':''}>${esc(v.name)}</option>`).join('')+'</optgroup>'}
+ const rest=elVoices.filter(v=>!cats[v.category]);
+ if(rest.length)html+='<optgroup label="Otras">'+rest.map(v=>`<option value="${esc(v.id)}" ${v.id===cur?'selected':''}>${esc(v.name)}</option>`).join('')+'</optgroup>';
+ $('elVoice').innerHTML=html||'<option value="">Sin voces · revisa tu cuenta</option>'}
+$('elVoice').onchange=()=>localStorage.setItem('studio_elvoice',$('elVoice').value);
+$('elRefresh').onclick=e=>{e.preventDefault();loadElVoices();toast('Voces actualizadas')};
+$('elKeySave').onclick=async()=>{const k=$('elKeyIn').value.trim();if(!k)return;
+ $('elKeySave').textContent='…';
+ const r=await(await fetch('/elkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
+ $('elKeySave').textContent='Conectar';
+ if(!r.ok){toast(r.error||'Clave inválida','bad');return}
+ toast('ElevenLabs conectado');elInit()};
+[['elStab','elStabV',v=>(+v).toFixed(2)],['elSim','elSimV',v=>(+v).toFixed(2)],
+ ['elSty','elStyV',v=>(+v).toFixed(2)],['elSpd','elSpdV',v=>(+v).toFixed(2)+'×']].forEach(([i,o,f])=>
+ $(i).oninput=()=>$(o).textContent=f($(i).value));
+$('elModel').onchange=()=>ttsEstCalc();
 function ttsEstCalc(){const n=$('ttsText').value.length;$('ttsCount').textContent=n+' / 4096';
+ if(prov==='el'){const m=$('elModel').value;
+  const cr=Math.round(n*((m.includes('flash')||m.includes('turbo'))?0.5:1));
+  $('ttsEst').textContent='≈'+cr+' créditos';return}
  const m=$('ttsModel').value;
  const est=m==='tts-1'?n*15/1e6:m==='tts-1-hd'?n*30/1e6:n/950*0.015;
  $('ttsEst').textContent='~$'+est.toFixed(4)}
@@ -1162,23 +1292,40 @@ $('ttsModel').onchange=()=>{const mini=$('ttsModel').value==='gpt-4o-mini-tts';
  $('instrBox').classList.toggle('dim',!mini);$('speedBox').classList.toggle('dim',mini);ttsEstCalc()};
 $('ttsModel').onchange();
 $('ttsSpeed').oninput=()=>$('speedv').textContent=(+$('ttsSpeed').value).toFixed(2)+'×';
+function showAudResult(d,title){$('audPlayer').src=d.audio;
+ $('audTitle').textContent=title;
+ $('audCost').innerHTML=d.credits!==undefined?'<b>'+d.credits+' cr</b>':'<b>$'+(d.cost||0).toFixed(4)+'</b>';
+ $('audDl').href=d.audio;$('audDl').setAttribute('download',d.file||'audio.mp3');
+ $('audEmpty').classList.add('hide');$('audResult').classList.remove('hide');
+ $('audPlayer').play().catch(()=>{})}
 async function runTTS(){const text=$('ttsText').value.trim();
  if(!text){toast('Escribe el texto para la voz','bad');$('ttsText').focus();return}
  $('ttsGo').disabled=true;$('ttsGoTxt').textContent='Generando…';
- const m=$('ttsModel').value;
- const body={input:text,model:m,voice:selVoice,format:$('ttsFmt').value,
-  project:$('projSel').value,save_desktop:$('saveDesk').checked};
- if(m==='gpt-4o-mini-tts')body.instructions=$('ttsInstr').value;else body.speed=+$('ttsSpeed').value;
- try{const d=await(await fetch('/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
-  if(d.error)toast(d.error,'bad');
-  else{$('audPlayer').src=d.audio;
-   $('audTitle').textContent=selVoice+' · '+m;
-   $('audCost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b>';
-   $('audDl').href=d.audio;$('audDl').setAttribute('download',d.file);
-   $('audEmpty').classList.add('hide');$('audResult').classList.remove('hide');
-   $('audPlayer').play().catch(()=>{});
-   bumpSess(d.cost);loadGal();toast('Voz generada')}
- }catch(e){toast(String(e),'bad')}
+ try{
+  let d;
+  if(prov==='el'){
+   if(!elReady){toast('Conecta tu clave de ElevenLabs','bad');throw 0}
+   const sel=$('elVoice');
+   const body={input:text,voice_id:sel.value,voice_name:sel.options[sel.selectedIndex]?.text||'',
+    model_id:$('elModel').value,stability:+$('elStab').value,similarity:+$('elSim').value,
+    style:+$('elSty').value,speed:+$('elSpd').value,boost:$('elBoost').checked,
+    seed:$('elSeed').value.trim(),normalization:$('elNorm').value,format:$('elFmt').value,
+    project:$('projSel').value,save_desktop:$('saveDesk').checked};
+   d=await(await fetch('/elspeech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+   if(d.error)toast(d.error,'bad');
+   else{showAudResult(d,(body.voice_name||'ElevenLabs')+' · '+$('elModel').value.replace('eleven_',''));
+    bumpSess(0);loadGal();fetch('/elstatus').then(x=>x.json()).then(s=>{if(s.ok)renderElQuota(s)});
+    toast('Voz generada · '+d.credits+' créditos')}
+  }else{
+   const m=$('ttsModel').value;
+   const body={input:text,model:m,voice:selVoice,format:$('ttsFmt').value,
+    project:$('projSel').value,save_desktop:$('saveDesk').checked};
+   if(m==='gpt-4o-mini-tts')body.instructions=$('ttsInstr').value;else body.speed=+$('ttsSpeed').value;
+   d=await(await fetch('/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+   if(d.error)toast(d.error,'bad');
+   else{showAudResult(d,selVoice+' · '+m);bumpSess(d.cost);loadGal();toast('Voz generada')}
+  }
+ }catch(e){if(e)toast(String(e),'bad')}
  $('ttsGo').disabled=false;$('ttsGoTxt').textContent='Generar voz'}
 $('ttsGo').onclick=runTTS;
 $('voiceTest').onclick=async()=>{
@@ -1190,6 +1337,76 @@ $('voiceTest').onclick=async()=>{
   else{audEl.src=d.audio;audEl.play();bumpSess(d.cost);toast('Vista previa de '+selVoice+' · $'+(d.cost||0).toFixed(4))}
  }catch(e){toast(String(e),'bad')}
  $('voiceTest').disabled=false;$('voiceTest').textContent='Vista previa'};
+$('elTest').onclick=async()=>{
+ if(!elReady){toast('Conecta tu clave de ElevenLabs','bad');return}
+ $('elTest').disabled=true;$('elTest').textContent='…';
+ const sel=$('elVoice');
+ const body={preview:true,input:'Hola, así sueno yo. Esta es una prueba corta de voz.',voice_id:sel.value,
+  model_id:$('elModel').value,stability:+$('elStab').value,similarity:+$('elSim').value,
+  style:+$('elSty').value,speed:+$('elSpd').value,boost:$('elBoost').checked,format:'mp3_44100_128'};
+ try{const d=await(await fetch('/elspeech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{audEl.src=d.audio;audEl.play();toast('Vista previa · '+d.credits+' créditos')}
+ }catch(e){toast(String(e),'bad')}
+ $('elTest').disabled=false;$('elTest').textContent='Vista previa'};
+// --- estilos de voz guardados (OpenAI) ---
+let voiceStyles=[];
+function renderVStyles(){
+ $('vstyles').innerHTML=voiceStyles.map((s,i)=>
+  `<span class="chip vstyle" data-i="${i}" title="${esc(s.voice)} · ${esc(s.instructions||'sin instrucciones')}">${esc(s.name)}<button class="vsx" data-del="${i}" title="Borrar estilo">×</button></span>`).join('')
+  +'<span class="chip" id="vsAdd">+ Guardar actual</span>';
+ $('vsAdd').onclick=async()=>{
+  const name=(prompt('Nombre del estilo (voz: '+selVoice+'):')||'').trim();if(!name)return;
+  voiceStyles.push({name,voice:selVoice,instructions:$('ttsInstr').value});
+  await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_styles:voiceStyles})});
+  renderVStyles();toast('Estilo "'+name+'" guardado')}}
+$('vstyles').onclick=async e=>{
+ const del=e.target.closest('.vsx');
+ if(del){voiceStyles.splice(+del.dataset.del,1);
+  await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_styles:voiceStyles})});
+  renderVStyles();return}
+ const c=e.target.closest('.vstyle');if(!c)return;
+ const s=voiceStyles[+c.dataset.i];if(!s)return;
+ selVoice=s.voice;localStorage.setItem('studio_voice',selVoice);
+ [...$('voices').children].forEach(x=>x.classList.toggle('on',x.dataset.v===selVoice));
+ $('ttsInstr').value=s.instructions||'';
+ if($('ttsModel').value!=='gpt-4o-mini-tts'&&s.instructions){$('ttsModel').value='gpt-4o-mini-tts';$('ttsModel').onchange()}
+ toast('Estilo "'+s.name+'" aplicado')};
+// --- efectos de sonido (ElevenLabs) ---
+$('sfxAuto').onchange=()=>$('sfxDurBox').classList.toggle('dim',$('sfxAuto').checked);
+$('sfxDur').oninput=()=>$('sfxDurV').textContent=(+$('sfxDur').value).toFixed(1)+'s';
+$('sfxInf').oninput=()=>$('sfxInfV').textContent=(+$('sfxInf').value).toFixed(2);
+async function runSFX(){const text=$('sfxText').value.trim();
+ if(!text){toast('Describe el efecto de sonido','bad');$('sfxText').focus();return}
+ $('sfxGo').disabled=true;$('sfxGoTxt').textContent='Generando…';
+ const body={input:text,influence:+$('sfxInf').value,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ if(!$('sfxAuto').checked)body.duration=+$('sfxDur').value;
+ try{const d=await(await fetch('/elsfx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{showAudResult(d,'Efecto · '+text.slice(0,40));$('audCost').innerHTML='<b>SFX</b>';
+   bumpSess(0);loadGal();toast('Efecto generado')}
+ }catch(e){toast(String(e),'bad')}
+ $('sfxGo').disabled=false;$('sfxGoTxt').textContent='Generar efecto'}
+$('sfxGo').onclick=runSFX;
+// --- clonación de voz ---
+let cloneSamples=[];
+$('dropClone').onclick=()=>$('cloneFiles').click();
+$('cloneFiles').onchange=async e=>{
+ for(const f of e.target.files){if(f.size>10*1024*1024){toast(f.name+' supera 10MB','bad');continue}
+  cloneSamples.push({name:f.name,b64:await fileToB64(f)})}
+ e.target.value='';
+ $('cloneInfo').textContent=cloneSamples.length?cloneSamples.length+' muestra(s): '+cloneSamples.map(s=>s.name).join(', '):''};
+$('cloneGo').onclick=async()=>{
+ const name=$('cloneName').value.trim();
+ if(!name){toast('Ponle un nombre a la voz','bad');return}
+ if(!cloneSamples.length){toast('Sube al menos una muestra de audio','bad');return}
+ $('cloneGo').disabled=true;$('cloneGo').textContent='Clonando…';
+ try{const d=await(await fetch('/elclone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,files:cloneSamples})})).json();
+  if(d.error)toast(d.error,'bad');
+  else{toast('Voz "'+name+'" creada · refrescando lista');cloneSamples=[];$('cloneInfo').textContent='';$('cloneName').value='';
+   await loadElVoices();$('elVoice').value=d.voice_id;localStorage.setItem('studio_elvoice',d.voice_id)}
+ }catch(e){toast(String(e),'bad')}
+ $('cloneGo').disabled=false;$('cloneGo').textContent='Crear voz clonada'};
 // --- transcripción ---
 let sttFile=null,sttDur=0;
 function sttEstCalc(){const p={'whisper-1':0.006,'gpt-4o-transcribe':0.006,'gpt-4o-mini-transcribe':0.003}[$('sttModel').value]||0.006;
@@ -1240,14 +1457,16 @@ const APAUSE='<svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></s
 const ADOC='<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
 let audEl=new Audio(),playingFile=null;
 audEl.onended=()=>{playingFile=null;renderAud()};
-function renderAud(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='stt');
+function renderAud(){const items=hist.filter(it=>['tts','stt','sfx'].includes(it.kind));
  $('audSec').classList.toggle('hide',!items.length);
  $('audList').innerHTML=items.slice(0,15).map(it=>{
-  const tts=it.kind==='tts',playing=playingFile===it.file;
+  const playable=it.kind!=='stt',playing=playingFile===it.file;
+  const sub=it.kind==='stt'?esc(it.model||''):esc(it.voice||'');
+  const price=it.credits?it.credits+' cr':'$'+(it.cost||0).toFixed(4);
   return `<div class="arow" data-file="${esc(it.file)}">
-   <button class="ap${playing?' playing':''}" title="${tts?(playing?'Pausar':'Reproducir'):'Ver transcripción'}">${tts?(playing?APAUSE:APLAY):ADOC}</button>
+   <button class="ap${playing?' playing':''}" title="${playable?(playing?'Pausar':'Reproducir'):'Ver transcripción'}">${playable?(playing?APAUSE:APLAY):ADOC}</button>
    <div class="ameta"><div class="at" title="${esc(it.prompt||'')}">${esc(it.prompt||it.file)}</div>
-    <div class="as mono">${tts?esc(it.voice||''):esc(it.model||'')} · $${(it.cost||0).toFixed(4)}</div></div>
+    <div class="as mono">${sub} · ${price}</div></div>
    <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn adel" title="Borrar (doble clic)">${GTR}</button></div>`}).join('')}
 $('audList').onclick=async e=>{
@@ -1274,7 +1493,10 @@ $('audList').onclick=async e=>{
 // ===== atajos de teclado =====
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();
-  if(mode==='audio'){if($('sttBox').classList.contains('hide'))runTTS();else runSTT()}
+  if(mode==='audio'){
+   if(!$('sttBox').classList.contains('hide'))runSTT();
+   else if(!$('sfxBox').classList.contains('hide'))runSFX();
+   else runTTS()}
   else if(!$('go').disabled)run();return}
  if(e.key==='Escape'){
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
@@ -1290,7 +1512,7 @@ document.addEventListener('keydown',e=>{
 function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{const W=+c.dataset.w,H=+c.dataset.h,m=14;
  let bw,bh;if(W>=H){bw=m;bh=Math.max(3,Math.round(m*H/W))}else{bh=m;bw=Math.max(3,Math.round(m*W/H))}
  const s=document.createElement('span');s.className='mini';s.style.width=bw+'px';s.style.height=bh+'px';c.insertBefore(s,c.firstChild)})}
-buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();
+buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);
 </script></body></html>"""
 
 
@@ -1323,8 +1545,33 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/projects":
             return self._json(load_projects())
         if self.path == "/config":
-            return self._json({"save_dir": load_json(CONF_JSON, {}).get("save_dir", ""),
-                               "effective": str(save_dir()).replace(str(HOME), "~")})
+            conf = load_json(CONF_JSON, {})
+            return self._json({"save_dir": conf.get("save_dir", ""),
+                               "effective": str(save_dir()).replace(str(HOME), "~"),
+                               "voice_styles": conf.get("voice_styles", [])})
+        if self.path == "/elstatus":
+            if not el_key():
+                return self._json({"ok": False})
+            try:
+                with urllib.request.urlopen(urllib.request.Request(EL_API + "/user/subscription",
+                        headers={"xi-api-key": el_key()}), timeout=20) as r:
+                    s = json.loads(r.read())
+                return self._json({"ok": True, "used": s.get("character_count", 0),
+                                   "limit": s.get("character_limit", 0), "tier": s.get("tier", "")})
+            except Exception:
+                return self._json({"ok": False})
+        if self.path == "/elvoices":
+            if not el_key():
+                return self._json({"voices": []})
+            try:
+                with urllib.request.urlopen(urllib.request.Request(EL_API + "/voices",
+                        headers={"xi-api-key": el_key()}), timeout=30) as r:
+                    data = json.loads(r.read())
+                vs = [{"id": v["voice_id"], "name": v.get("name", "?"), "category": v.get("category", "")}
+                      for v in data.get("voices", [])]
+                return self._json({"voices": vs})
+            except Exception as e:
+                return self._json({"voices": [], "error": str(e)})
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
@@ -1342,7 +1589,9 @@ class H(BaseHTTPRequestHandler):
                  "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectref": self.h_projectref,
                  "/projectrefdel": self.h_projectrefdel, "/distill": self.h_distill,
                  "/historydel": self.h_historydel, "/config": self.h_config,
-                 "/speech": self.h_speech, "/transcribe": self.h_transcribe}.get(self.path)
+                 "/speech": self.h_speech, "/transcribe": self.h_transcribe,
+                 "/elkey": self.h_elkey, "/elspeech": self.h_elspeech,
+                 "/elsfx": self.h_elsfx, "/elclone": self.h_elclone}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -1428,6 +1677,8 @@ class H(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
             conf["save_dir"] = raw
+        if "voice_styles" in b and isinstance(b["voice_styles"], list):
+            conf["voice_styles"] = b["voice_styles"][:50]
         save_json(CONF_JSON, conf)
         return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~")})
 
@@ -1676,6 +1927,146 @@ class H(BaseHTTPRequestHandler):
                      "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")})
         return self._json({"text": text if fmt in ("json", "verbose_json", "text") else raw,
                            "file": name, "cost": cost, "model_used": model})
+
+    def _el_err(self, e):
+        try:
+            det = json.loads(e.read()).get("detail")
+            if isinstance(det, dict):
+                return det.get("message") or str(det)[:200]
+            return str(det)[:200] if det else f"HTTP {e.code}"
+        except Exception:
+            return f"HTTP {e.code}"
+
+    def _save_audio(self, raw, prefix, ext, hist_item, save_desktop):
+        name = f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
+        (HIST_DIR / name).write_bytes(raw)
+        if save_desktop:
+            try:
+                d = save_dir()
+                d.mkdir(parents=True, exist_ok=True)
+                (d / name).write_bytes(raw)
+            except Exception:
+                pass
+        hist_item["file"] = name
+        add_history(hist_item)
+        return name
+
+    def h_elkey(self):
+        k = (self._body().get("key") or "").strip()
+        try:
+            urllib.request.urlopen(urllib.request.Request(EL_API + "/user",
+                headers={"xi-api-key": k}), timeout=20).read()
+        except Exception:
+            return self._json({"ok": False, "error": "La clave de ElevenLabs no es válida"})
+        EL_KEY_FILE.write_text(k)
+        try:
+            os.chmod(EL_KEY_FILE, 0o600)
+        except Exception:
+            pass
+        return self._json({"ok": True})
+
+    def h_elspeech(self):
+        b = self._body()
+        if not el_key():
+            return self._json({"error": "Conecta tu clave de ElevenLabs primero."})
+        text = (b.get("input") or "").strip()
+        if not text:
+            return self._json({"error": "Escribe el texto a convertir en voz."})
+        vid = b.get("voice_id")
+        if not vid:
+            return self._json({"error": "Elige una voz de ElevenLabs."})
+        model = b.get("model_id", "eleven_multilingual_v2")
+        vs = {"stability": float(b.get("stability", 0.5)),
+              "similarity_boost": float(b.get("similarity", 0.75)),
+              "style": float(b.get("style", 0)),
+              "use_speaker_boost": bool(b.get("boost", True))}
+        if b.get("speed") and float(b["speed"]) != 1:
+            vs["speed"] = float(b["speed"])
+        payload = {"text": text, "model_id": model, "voice_settings": vs}
+        if str(b.get("seed") or "").strip().isdigit():
+            payload["seed"] = int(b["seed"])
+        if b.get("normalization") in ("on", "off"):
+            payload["apply_text_normalization"] = b["normalization"]
+        fmt = b.get("format", "mp3_44100_128")
+        try:
+            with urllib.request.urlopen(urllib.request.Request(
+                    f"{EL_API}/text-to-speech/{vid}?output_format={fmt}",
+                    data=json.dumps(payload).encode(),
+                    headers={"xi-api-key": el_key(), "Content-Type": "application/json"}), timeout=300) as r:
+                raw = r.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._el_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con ElevenLabs: {e.reason}"})
+        credits = round(len(text) * (0.5 if ("flash" in model or "turbo" in model) else 1))
+        ext = "mp3" if fmt.startswith("mp3") else "opus" if fmt.startswith("opus") else "pcm" if fmt.startswith("pcm") else "ulaw"
+        mime = "audio/mpeg" if ext == "mp3" else "audio/ogg" if ext == "opus" else "application/octet-stream"
+        data_url = f"data:{mime};base64," + base64.b64encode(raw).decode()
+        if b.get("preview"):
+            return self._json({"audio": data_url, "credits": credits})
+        name = self._save_audio(raw, "el", ext,
+            {"kind": "tts", "prompt": text[:160], "voice": b.get("voice_name", ""), "model": model,
+             "size": ext, "quality": "", "mode": "audio", "cost": 0, "credits": credits, "output_tokens": 0,
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+            b.get("save_desktop", True))
+        return self._json({"file": name, "audio": data_url, "credits": credits})
+
+    def h_elsfx(self):
+        b = self._body()
+        if not el_key():
+            return self._json({"error": "Conecta tu clave de ElevenLabs (pestaña Voz → ElevenLabs)."})
+        text = (b.get("input") or "").strip()
+        if not text:
+            return self._json({"error": "Describe el efecto de sonido."})
+        payload = {"text": text}
+        if b.get("duration"):
+            payload["duration_seconds"] = float(b["duration"])
+        if b.get("influence") is not None:
+            payload["prompt_influence"] = float(b["influence"])
+        try:
+            with urllib.request.urlopen(urllib.request.Request(EL_API + "/sound-generation",
+                    data=json.dumps(payload).encode(),
+                    headers={"xi-api-key": el_key(), "Content-Type": "application/json"}), timeout=300) as r:
+                raw = r.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._el_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con ElevenLabs: {e.reason}"})
+        data_url = "data:audio/mpeg;base64," + base64.b64encode(raw).decode()
+        name = self._save_audio(raw, "sfx", "mp3",
+            {"kind": "sfx", "prompt": text[:160], "voice": "SFX", "model": "sound-generation",
+             "size": "mp3", "quality": "", "mode": "audio", "cost": 0, "output_tokens": 0,
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+            b.get("save_desktop", True))
+        return self._json({"file": name, "audio": data_url})
+
+    def h_elclone(self):
+        b = self._body()
+        if not el_key():
+            return self._json({"error": "Conecta tu clave de ElevenLabs primero."})
+        name = (b.get("name") or "").strip()
+        files = b.get("files") or []
+        if not name or not files:
+            return self._json({"error": "Pon un nombre y al menos una muestra de audio."})
+        boundary = "----studio" + uuid.uuid4().hex
+        parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\n{name}\r\n'.encode()]
+        if (b.get("description") or "").strip():
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="description"\r\n\r\n{b["description"].strip()}\r\n'.encode())
+        for f in files[:10]:
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="files"; filename="{f.get("name","muestra.mp3")}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
+                         + base64.b64decode(f["b64"]) + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        try:
+            with urllib.request.urlopen(urllib.request.Request(EL_API + "/voices/add",
+                    data=b"".join(parts),
+                    headers={"xi-api-key": el_key(),
+                             "Content-Type": f"multipart/form-data; boundary={boundary}"}), timeout=300) as r:
+                data = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._el_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con ElevenLabs: {e.reason}"})
+        return self._json({"ok": True, "voice_id": data.get("voice_id", "")})
 
     def h_distill(self):
         b = self._body()

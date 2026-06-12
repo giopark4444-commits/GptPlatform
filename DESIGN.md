@@ -58,7 +58,7 @@ Reglas: micro-labels en mayúsculas, 10px, `letter-spacing:.11em`, color `--fain
 - **Lightbox:** barra inferior flotante con prompt truncado, "usar prompt" y descargar; `Esc` cierra.
 - **Historial:** filtro por proyecto, contador, "ver más", papelera con confirmación armada (doble clic, estado rojo); tarjetas arrastrables a referencias.
 - **kbd:** chips mono 10px con borde inferior doble para los atajos (`⌘↵`, `1`, `2`, `3`, `⌘V`).
-- **Audio:** tercer modo del segmented principal. Sub-tabs Voz/Transcribir (mismo seg), voces como chips mono, tarjetas `.audcard` (radio 16px) para player/transcripción, filas `.arow` compactas en el historial de audio con botón play que pasa a ámbar al reproducir. Controles que no aplican al modelo elegido se atenúan con `.dim`, no se ocultan.
+- **Audio:** tercer modo del segmented principal. Sub-tabs Voz/Transcribir/Efectos (mismo seg) y dentro de Voz otro seg OpenAI/ElevenLabs. Voces OpenAI como chips mono; voces ElevenLabs en select con optgroups por categoría (Clonadas/Generadas/Profesionales/Predefinidas). Estilos de voz guardados como chips con × al estilo del sistema y chip "+ Guardar actual" punteado en ámbar. Tarjetas `.audcard` (radio 16px) para player/transcripción, filas `.arow` compactas en el historial de audio con botón play que pasa a ámbar al reproducir; costo en $ (OpenAI) o créditos (ElevenLabs). Controles que no aplican al modelo elegido se atenúan con `.dim`, no se ocultan.
 
 ## Layout
 
