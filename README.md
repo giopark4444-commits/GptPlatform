@@ -16,7 +16,7 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Tamaño libre** con sliders + presets de aspect ratio (social, foto, **cine / anamórfico**) con miniaturas, candado de proporción, y **chips de resolución (1080 / 2K / 3K / 4K)** que escalan el ratio actual manteniendo la proporción.
 - **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
 - **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
-- **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión + **saldo restante estimado** (fijas tu crédito de Platform y el Studio le resta lo que gastes; OpenAI no expone el saldo por API).
+- **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
 - **Ancho/alto editables con el teclado**: clic en el número, escribe y Enter (ajusta solo a múltiplos de 16).
 - **Historial pro**: filtro por proyecto, "ver más", borrar (doble clic en la papelera), clic abre lightbox con prompt y descarga, arrastrar al panel de referencias.
 - **Memoria de proyecto**: `estilo.md` (texto que se antepone) + **referencias visuales** que se adjuntan solas al generar. Botón para **destilar el estilo** con IA.

@@ -85,16 +85,6 @@ def save_dir():
     return Path(os.path.expanduser(raw)) if raw else HOME / "Desktop"
 
 
-def balance(conf=None):
-    conf = conf if conf is not None else load_json(CONF_JSON, {})
-    if "credit" not in conf:
-        return {}
-    since = conf.get("credit_set", "")
-    spent = sum(h.get("cost", 0) or 0 for h in load_json(HIST_JSON, []) if h.get("ts", "") >= since)
-    return {"credit": conf["credit"], "credit_set": since,
-            "spent": round(spent, 5), "remaining": round(conf["credit"] - spent, 5)}
-
-
 def g1_size(size):
     try:
         w, h = map(int, size.split("x"))
@@ -428,7 +418,6 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
   </div>
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> img</span>
-    <span class="sess" id="balTxt" title="Estimado: crédito que fijaste menos lo gastado aquí"></span>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
   </div>
 </div>
@@ -516,14 +505,6 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
             <button class="ghost" id="dirApply" style="flex:none">Aplicar</button>
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
-        </div>
-        <div style="margin-top:12px">
-          <label>Saldo de Platform · estimado</label>
-          <div style="display:flex;gap:7px">
-            <input type="number" id="creditIn" placeholder="20.00" step="0.01" min="0" class="mono">
-            <button class="ghost" id="creditApply" style="flex:none">Fijar</button>
-          </div>
-          <p class="hint">OpenAI no expone tu saldo por API. Mira tu crédito en platform.openai.com → Billing, fíjalo aquí, y el Studio le restará lo que gastes desde ese momento. Pon 0 para ocultarlo.</p>
         </div>
         <p class="hint">Transparente usa <span class="mono">gpt-image-1</span> (tamaño fijo). Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
       </div>
@@ -665,22 +646,12 @@ function renderSaveWhere(){
  $('dirBox').style.opacity=$('saveDesk').checked?'1':'.4'}
 $('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
 $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
-function renderBal(r){
- if(r&&r.remaining!==undefined){
-  const neg=r.remaining<0;
-  $('balTxt').innerHTML='Saldo <b class="mono"'+(neg?' style="color:var(--bad)"':'')+'>~$'+r.remaining.toFixed(2)+'</b>';
-  $('creditIn').value=r.credit}
- else $('balTxt').innerHTML=''}
 async function loadConfig(){const r=await(await fetch('/config')).json();
- $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();renderBal(r)}
+ $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere()}
 $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
  if(r.error){toast(r.error,'bad');return}
  cfgEffective=r.effective;renderSaveWhere();toast('Las copias irán a '+r.effective)};
-$('creditApply').onclick=async()=>{
- const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credit:parseFloat($('creditIn').value||'0')})})).json();
- if(r.error){toast(r.error,'bad');return}
- renderBal(r);toast(r.remaining!==undefined?'Saldo fijado: ~$'+r.remaining.toFixed(2)+' disponible':'Saldo ocultado')};
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
@@ -994,7 +965,7 @@ async function run(){
     +(results.length>1?' · '+results.length+' imágenes':'')
     +(d.via_visual?' · memoria visual':'')+(d.model_used==='gpt-image-1'?' · transparente':'');
    $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> img';
-   loadGal();fetch('/config').then(x=>x.json()).then(renderBal).catch(()=>{})}
+   loadGal()}
  }catch(e){err(e)}
  $('goTxt').textContent=prevTxt;validate();
 }
@@ -1054,8 +1025,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(load_projects())
         if self.path == "/config":
             return self._json({"save_dir": load_json(CONF_JSON, {}).get("save_dir", ""),
-                               "effective": str(save_dir()).replace(str(HOME), "~"),
-                               **balance()})
+                               "effective": str(save_dir()).replace(str(HOME), "~")})
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
@@ -1140,20 +1110,8 @@ class H(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
             conf["save_dir"] = raw
-        if "credit" in b:
-            try:
-                c = float(b["credit"])
-            except (TypeError, ValueError):
-                return self._json({"error": "Escribe el saldo en dólares, p. ej. 20 o 17.50"})
-            if c <= 0:
-                conf.pop("credit", None)
-                conf.pop("credit_set", None)
-            else:
-                conf["credit"] = c
-                conf["credit_set"] = time.strftime("%Y-%m-%d %H:%M")
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~"),
-                           **balance(conf)})
+        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~")})
 
     def h_historydel(self):
         f = os.path.basename(self._body().get("file", ""))
