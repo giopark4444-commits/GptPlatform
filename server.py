@@ -473,6 +473,21 @@ audio{width:100%;height:40px}
 .vsx:hover{color:var(--bad)}
 #vsAdd{color:var(--accent);border-style:dashed}
 
+/* referencias seedance */
+.refcard{display:flex;align-items:center;gap:7px;padding:7px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:7px}
+.refcard .rtag{font-family:var(--mono);font-size:9px;color:var(--accent);width:34px;flex:none;text-align:center;text-transform:uppercase}
+.refcard img.rthumb{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none;border:1px solid var(--line2)}
+.refcard .rkind{width:40px;height:40px;border-radius:8px;flex:none;border:1px solid var(--line2);background:var(--surface2);
+ display:flex;align-items:center;justify-content:center;color:var(--mut)}
+.refcard .rkind svg{width:16px;height:16px}
+.refcard select{flex:1.3;font-size:11px;padding:7px 24px 7px 8px;margin:0;min-width:0}
+.refcard input[type=text]{flex:1;font-size:11px;padding:7px 8px;min-width:0}
+.refcard .x{width:24px;height:24px;border:1px solid var(--line2);background:var(--surface2);border-radius:7px;
+ color:var(--mut);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:.15s}
+.refcard .x:hover{color:var(--bad);border-color:var(--bad)}
+.refcard .x svg{width:10px;height:10px}
+#sdPrev{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px;font-style:italic;line-height:1.6}
+
 /* toasts */
 .toasts{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 .toast{display:flex;align-items:center;gap:9px;background:var(--elev);border:1px solid var(--line2);border-radius:10px;
@@ -918,23 +933,12 @@ html,body{overflow-x:hidden}
           <option value="seedance-fast">Seedance 2.0 Fast · más barato y rápido</option></select></div>
         <div class="field"><label>Prompt<button class="magic" id="mpSd" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
           <textarea id="sdPrompt" style="min-height:96px" placeholder="Describe escena, acción y movimiento de cámara…"></textarea></div>
-        <div class="field"><label>Imágenes de referencia · hasta 9</label>
-          <div class="drop" id="dropSdImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>1 imagen = frame inicial · 2+ = referencias</div>
-          <input type="file" id="sdImgFile" accept="image/png,image/jpeg,image/webp" multiple class="hide">
-          <div class="thumbs" id="sdImgThumbs"></div></div>
-        <div class="field grid2">
-          <div><label>Imagen final · opcional</label>
-            <div class="drop" id="dropSdEnd" style="padding:9px;font-size:11px">Frame final</div>
-            <input type="file" id="sdEndFile" accept="image/png,image/jpeg,image/webp" class="hide">
-            <div class="thumbs" id="sdEndThumb"></div></div>
-          <div><label>Audios guía · hasta 3</label>
-            <div class="drop" id="dropSdAud" style="padding:9px;font-size:11px">≤15s en total</div>
-            <input type="file" id="sdAudFile" accept="audio/*" multiple class="hide">
-            <p class="hint" id="sdAudList" style="margin-top:6px"></p></div></div>
-        <div class="field"><label>Videos de referencia · hasta 3 (2–15s, 50MB total)</label>
-          <div class="drop" id="dropSdVid" style="padding:9px;font-size:11px">Clips de estilo o movimiento</div>
-          <input type="file" id="sdVidFile" accept="video/mp4,video/webm,video/quicktime" multiple class="hide">
-          <p class="hint" id="sdVidList" style="margin-top:6px"></p></div>
+        <div class="field"><label>Referencias · cada una con su rol <span class="mono" id="sdCount" style="float:right;text-transform:none;letter-spacing:0">0 / 12</span></label>
+          <div class="drop" id="dropSdRef" style="padding:13px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Arrastra imágenes, videos o audios · también del historial</div>
+          <input type="file" id="sdRefFile" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,audio/*" multiple class="hide">
+          <div id="sdRefList"></div>
+          <p class="hint hide" id="sdPrev"></p>
+          <p class="hint">Hasta 9 imágenes (personaje, entorno, objeto, estilo, frames) + 3 videos (movimiento, cámara) + 3 audios (música, voz). El bloque de instrucciones se añade solo al prompt.</p></div>
         <div class="field grid2">
           <div><label>Resolución</label><select id="sdRes"><option>480p</option><option selected>720p</option><option>1080p</option></select></div>
           <div><label>Duración</label><select id="sdDur"><option value="auto" selected>Auto</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option></select></div></div>
@@ -1165,6 +1169,8 @@ function toast(msg,kind){const t=document.createElement('div');t.className='toas
  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(-6px)';setTimeout(()=>t.remove(),260)},2600)}
 
 async function checkKey(){const r=await(await fetch('/keystatus')).json();$('kdot').classList.toggle('on',r.ok);
+ if(r.data_ok===false){toast('⚠ El servicio no puede leer tus datos en iCloud: dale "Acceso total al disco" a Python (ver panel Backup)','bad');
+  setTimeout(()=>toast('Tus datos están intactos; es solo un permiso de macOS','bad'),3200)}
  if(!r.ok)$('keyModal').classList.remove('hide');return r.ok}
 // X de cierre en todas las ventanas flotantes + clic fuera para los modales
 document.querySelectorAll('.mclose').forEach(b=>b.onclick=e=>{e.stopPropagation();
@@ -2020,32 +2026,79 @@ function wireDrop(dropId,fileId,handler){
   $(dropId).classList.remove('hot');$('drop').classList.remove('hot');
   const sf=e.dataTransfer.getData('text/x-studio-file');
   if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();
-   await handler([new File([b],sf,{type:'image/png'})]);return}
+   const ext=sf.split('.').pop().toLowerCase();
+   const mime=ext==='mp4'?'video/mp4':['mp3','wav','aac','flac','opus'].includes(ext)?'audio/mpeg':'image/png';
+   await handler([new File([b],sf,{type:mime})]);return}
   await handler([...e.dataTransfer.files])})}
 function thumbHTML(b64,xid,i){return `<div class="thumb"><img src="data:image/png;base64,${b64}" alt=""><button class="x" data-${xid}="${i}" title="Quitar">${xicon()}</button></div>`}
-function renderSd(){
- $('sdImgThumbs').innerHTML=sdImgs.map((m,i)=>thumbHTML(m.b64,'sdi',i)).join('');
- $('sdEndThumb').innerHTML=sdEnd?thumbHTML(sdEnd.b64,'sde',0):'';
- $('sdAudList').textContent=sdAuds.length?sdAuds.map(a=>a.name).join(' · ')+' (clic para vaciar)':'';
- $('sdVidList').textContent=sdVids.length?sdVids.map(v=>v.name).join(' · ')+' (clic para vaciar)':''}
-$('sdImgThumbs').onclick=e=>{const b=e.target.closest('.x');if(b){sdImgs.splice(+b.dataset.sdi,1);renderSd()}};
-$('sdEndThumb').onclick=e=>{if(e.target.closest('.x')){sdEnd=null;renderSd()}};
-$('sdAudList').onclick=()=>{sdAuds=[];renderSd()};
-$('sdVidList').onclick=()=>{sdVids=[];renderSd()};
-wireDrop('dropSdImg','sdImgFile',async fs=>{
- for(const f of fs){if(!f.type.startsWith('image/'))continue;
-  if(sdImgs.length>=9){toast('Máximo 9 imágenes','bad');break}
-  sdImgs.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
-wireDrop('dropSdEnd','sdEndFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
- if(f)sdEnd={name:f.name,b64:await fileToB64(f)};renderSd()});
-wireDrop('dropSdAud','sdAudFile',async fs=>{
- for(const f of fs){if(sdAuds.length>=3){toast('Máximo 3 audios','bad');break}
-  if(f.size>15*1024*1024){toast(f.name+' supera 15MB','bad');continue}
-  sdAuds.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
-wireDrop('dropSdVid','sdVidFile',async fs=>{
- for(const f of fs){if(sdVids.length>=3){toast('Máximo 3 videos','bad');break}
-  if(f.size>50*1024*1024){toast(f.name+' supera 50MB','bad');continue}
-  sdVids.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
+const SD_ROLES={
+ img:[['personaje','Personaje / elemento'],['entorno','Entorno / escenario'],['objeto','Objeto / producto'],
+      ['estilo','Estilo visual'],['composicion','Composición / encuadre'],['frame_ini','Frame inicial'],['frame_fin','Frame final']],
+ vid:[['movimiento','Movimiento del sujeto'],['camara','Lenguaje de cámara'],['efectos','Efectos visuales'],['estilo_v','Estilo del video']],
+ aud:[['musica','Música / banda sonora'],['voz','Voz · timbre del personaje'],['sfx','Efecto de sonido']]};
+const RKIND_ICON={vid:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>',
+ aud:'<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'};
+let sdRefs=[];
+function sdNums(){let i=0,v=0,a=0;return sdRefs.map(r=>r.kind==='img'?{n:++i,t:'img'}:r.kind==='vid'?{n:++v,t:'vid'}:{n:++a,t:'aud'})}
+function buildSdBlock(){
+ const nums=sdNums(),out=[];
+ sdRefs.forEach((r,i)=>{const n=nums[i].n,L=(r.label||'').trim();
+  const x={personaje:`Usa la imagen ${n} como referencia del personaje${L?' ('+L+')':''}: mantén su identidad y apariencia.`,
+   entorno:`Usa la imagen ${n} como el entorno donde ocurre la escena${L?' ('+L+')':''}.`,
+   objeto:`La imagen ${n} es ${L||'el objeto'} que debe aparecer en el video.`,
+   estilo:`Adopta el estilo visual y la paleta de la imagen ${n}.`,
+   composicion:`Sigue la composición y el encuadre de la imagen ${n}.`,
+   frame_ini:`Usa la imagen ${n} como el primer frame del video.`,
+   frame_fin:`Usa la imagen ${n} como el frame final del video.`,
+   movimiento:`Replica el movimiento del sujeto del video ${n}.`,
+   camara:`Usa el lenguaje y movimiento de cámara del video ${n}.`,
+   efectos:`Replica los efectos visuales del video ${n}.`,
+   estilo_v:`Adopta el estilo visual del video ${n}.`,
+   musica:`Usa el audio ${n} como banda sonora y ajusta el ritmo del video a su música.`,
+   voz:`Usa la voz del audio ${n} como el timbre de voz del personaje.`,
+   sfx:`Incorpora el audio ${n} como efecto de sonido en el momento adecuado.`}[r.role];
+  if(x)out.push(x)});
+ return out.join(' ')}
+function sdIsPureFrames(){
+ const imgs=sdRefs.filter(r=>r.kind==='img');
+ return sdRefs.length===imgs.length&&imgs.length>=1&&imgs.length<=2
+  &&imgs.every(r=>['frame_ini','frame_fin'].includes(r.role))
+  &&imgs.filter(r=>r.role==='frame_ini').length<=1
+  &&imgs.filter(r=>r.role==='frame_fin').length<=1
+  &&(imgs.length===1||imgs.some(r=>r.role==='frame_ini'))}
+function renderSdRefs(){
+ const nums=sdNums();
+ $('sdRefList').innerHTML=sdRefs.map((r,i)=>{
+  const opts=SD_ROLES[r.kind].map(([v,t])=>`<option value="${v}" ${r.role===v?'selected':''}>${t}</option>`).join('');
+  const thumb=r.kind==='img'?`<img class="rthumb" src="data:image/png;base64,${r.b64}" alt="">`:`<span class="rkind">${RKIND_ICON[r.kind]}</span>`;
+  return `<div class="refcard" data-i="${i}"><span class="rtag">${nums[i].t} ${nums[i].n}</span>${thumb}
+   <select data-role="${i}">${opts}</select>
+   <input type="text" data-label="${i}" placeholder="nombre · opcional" value="${esc(r.label||'')}">
+   <button class="x" data-del="${i}" title="Quitar">${xicon()}</button></div>`}).join('');
+ $('sdCount').textContent=sdRefs.length+' / 12';
+ const block=sdRefs.length&&!sdIsPureFrames()?buildSdBlock():'';
+ $('sdPrev').textContent=block?'Se añadirá al prompt: '+block:'';
+ $('sdPrev').classList.toggle('hide',!block)}
+$('sdRefList').addEventListener('change',e=>{
+ if(e.target.dataset.role!==undefined){sdRefs[+e.target.dataset.role].role=e.target.value;renderSdRefs()}});
+$('sdRefList').addEventListener('input',e=>{
+ if(e.target.dataset.label!==undefined){sdRefs[+e.target.dataset.label].label=e.target.value;
+  const block=sdRefs.length&&!sdIsPureFrames()?buildSdBlock():'';
+  $('sdPrev').textContent=block?'Se añadirá al prompt: '+block:''}});
+$('sdRefList').addEventListener('click',e=>{
+ const b=e.target.closest('[data-del]');if(!b)return;sdRefs.splice(+b.dataset.del,1);renderSdRefs()});
+wireDrop('dropSdRef','sdRefFile',async fs=>{
+ for(const f of fs){
+  const kind=f.type.startsWith('video/')?'vid':f.type.startsWith('audio/')?'aud':f.type.startsWith('image/')?'img':null;
+  if(!kind)continue;
+  const limits={img:9,vid:3,aud:3};
+  if(sdRefs.filter(r=>r.kind===kind).length>=limits[kind]){toast('Máximo '+limits[kind]+' de ese tipo','bad');continue}
+  if(sdRefs.length>=12){toast('Máximo 12 archivos en total','bad');break}
+  if(kind==='vid'&&f.size>50*1024*1024){toast(f.name+' supera 50MB','bad');continue}
+  if(kind==='aud'&&f.size>15*1024*1024){toast(f.name+' supera 15MB','bad');continue}
+  sdRefs.push({kind,name:f.name,b64:await fileToB64(f),
+   role:kind==='img'?(sdRefs.some(r=>r.role==='personaje')?'entorno':'personaje'):kind==='vid'?'movimiento':'musica',label:''})}
+ renderSdRefs()});
 function renderKl(){
  $('klImgThumb').innerHTML=klImg?thumbHTML(klImg.b64,'kli',0):'';
  $('klEndThumb').innerHTML=klEnd?thumbHTML(klEnd.b64,'kle',0):''}
@@ -2102,12 +2155,21 @@ async function runVID(){
  let body={cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked,
   use_memory:$('vidUseMem').checked},title='';
  if(vidTab==='sd'){
-  const prompt=$('sdPrompt').value.trim();
+  let prompt=$('sdPrompt').value.trim();
   if(!prompt){toast('Escribe el prompt del video','bad');$('sdPrompt').focus();return}
-  Object.assign(body,{model:$('sdTier').value,prompt,images:sdImgs,videos:sdVids,audios:sdAuds,
-   resolution:$('sdRes').value,duration:$('sdDur').value,aspect:$('sdAsp').value,
+  const pick=k=>sdRefs.filter(r=>r.kind===k).map(r=>({name:r.name,b64:r.b64}));
+  let images=pick('img'),end_image=null,force_ref=false;
+  if(sdIsPureFrames()){
+   const imgs=sdRefs.filter(r=>r.kind==='img');
+   const ini=imgs.find(r=>r.role==='frame_ini')||imgs[0],fin=imgs.find(r=>r.role==='frame_fin');
+   images=[{name:ini.name,b64:ini.b64}];
+   if(fin&&fin!==ini)end_image={name:fin.name,b64:fin.b64};
+  }else if(sdRefs.length){
+   prompt+='\n\n'+buildSdBlock();force_ref=true}
+  Object.assign(body,{model:$('sdTier').value,prompt,images,videos:pick('vid'),audios:pick('aud'),
+   force_ref,resolution:$('sdRes').value,duration:$('sdDur').value,aspect:$('sdAsp').value,
    gen_audio:$('sdGenAud').checked,seed:$('sdSeed').value.trim()});
-  if(sdEnd)body.end_image=sdEnd;title=prompt}
+  if(end_image)body.end_image=end_image;title=$('sdPrompt').value.trim()}
  else if(vidTab==='kl'){
   const prompt=$('klPrompt').value.trim(),multi=klMultiList();
   if(!prompt&&!multi.length){toast('Escribe el prompt (o tomas multi-toma)','bad');$('klPrompt').focus();return}
@@ -2296,7 +2358,12 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, HTML, "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         if self.path == "/keystatus":
-            return self._json({"ok": bool(key())})
+            try:
+                list((ROOT.resolve()).iterdir())
+                data_ok = True
+            except Exception:
+                data_ok = False
+            return self._json({"ok": bool(key()), "data_ok": data_ok})
         if self.path == "/history":
             return self._json(load_json(HIST_JSON, []))
         if self.path == "/projects":
@@ -2992,17 +3059,22 @@ class H(BaseHTTPRequestHandler):
                 payload["seed"] = int(b["seed"])
             imgs = list(b.get("images") or [])
             if use_mem:
+                added = 0
                 for f in load_projects().get(b["project"], {}).get("refs", []):
                     if len(imgs) >= 9:
                         break
                     fp = PROJ_DIR / safe(b["project"]) / f
                     if fp.is_file():
                         imgs.append({"name": f, "b64": base64.b64encode(fp.read_bytes()).decode()})
+                        added += 1
+                if added:
+                    prompt += "\n\nUsa las últimas " + (str(added) + " imágenes" if added > 1 else "imagen") + " como referencia de personajes y estilo del proyecto."
+                    payload["prompt"] = prompt
             vids = b.get("videos") or []
             auds = b.get("audios") or []
             if len(imgs) > 9 or len(vids) > 3 or len(auds) > 3 or len(imgs) + len(vids) + len(auds) > 12:
                 return self._json({"error": "Máximo 9 imágenes, 3 videos y 3 audios (12 archivos en total)."})
-            if len(imgs) == 1 and not vids and not auds:
+            if len(imgs) == 1 and not vids and not auds and not b.get("force_ref"):
                 payload["image_url"] = "data:image/png;base64," + imgs[0]["b64"]
                 if b.get("end_image"):
                     payload["end_image_url"] = "data:image/png;base64," + b["end_image"]["b64"]
