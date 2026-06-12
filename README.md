@@ -49,6 +49,7 @@ En macOS puedes hacer **doble clic** en `Estudio.command` (arranca el server y a
 
 - **Nada se borra al apagar**: historial, proyectos, estilos y configuración viven en `~/image-studio/` y sobreviven reinicios. Los JSON se escriben de forma atómica con respaldo `.bak` y se auto-recuperan si se corrompen. El estilo de cada proyecto se guarda además como archivo real `estilo.md` en `~/image-studio/proyectos/<nombre>/` (puedes editarlo a mano; la app lo lee). El proyecto seleccionado se recuerda entre sesiones.
 - La clave vive solo en tu equipo (`~/.openai_key`), nunca en el repo.
+- **Seguridad**: el server solo escucha en `127.0.0.1` y además valida el header `Host` (anti DNS-rebinding) y el `Origin` de todo POST (anti-CSRF: una web maliciosa no puede disparar generaciones ni borrados contra tu app local). La página se sirve con CSP estricta, `X-Frame-Options: DENY`, `nosniff` y `Referrer-Policy: no-referrer`. Claves con permisos 600, escrituras JSON atómicas con lock y respaldo, límite de 256MB por petición y nombres de archivo saneados en todo lo que sube a las APIs.
 - Las imágenes generadas se guardan en `~/image-studio/historial/` y, si lo activas, una copia en la carpeta que elijas (Escritorio por defecto; se configura en Ajustes avanzados y se persiste en `~/image-studio/config.json`).
 - `historial/`, `proyectos/` y los `.json` son datos locales y están en `.gitignore`.
 

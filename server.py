@@ -7,10 +7,12 @@ transparente (gpt-image-1), presets completos incl. anamórficos, editor de
 máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
 múltiples. Sin dependencias: solo Python 3.
 """
-import io, json, base64, os, re, shutil, time, uuid, urllib.request, urllib.error, zipfile
+import io, json, base64, os, re, shutil, threading, time, uuid, urllib.request, urllib.error, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+
+LOCK = threading.Lock()  # serializa lecturas-escrituras de los JSON
 
 PORT = 7860
 HOME = Path.home()
@@ -76,13 +78,19 @@ def save_json(p, data):
 
 
 def add_history(item):
-    h = load_json(HIST_JSON, [])
-    h.insert(0, item)
-    save_json(HIST_JSON, h[:500])
+    with LOCK:
+        h = load_json(HIST_JSON, [])
+        h.insert(0, item)
+        save_json(HIST_JSON, h[:500])
 
 
 def safe(name):
     return re.sub(r"[^A-Za-z0-9_-]", "_", name)[:60] or "proj"
+
+
+def safe_fn(name):
+    # nombre de archivo seguro para cabeceras multipart (sin comillas ni saltos de línea)
+    return re.sub(r'[\r\n"\\]', "", str(name))[:120] or "archivo"
 
 
 def load_projects():
@@ -442,7 +450,7 @@ audio{width:100%;height:40px}
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
   <h2>Conecta tu API de OpenAI</h2>
-  <p>Pega tu clave para empezar. Se guarda solo en tu equipo (<span class="mono">~/.openai_key</span>) y nunca sale de aquí. Consíguela en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>.</p>
+  <p>Pega tu clave para empezar. Se guarda solo en tu equipo (<span class="mono">~/.openai_key</span>) y nunca sale de aquí. Consíguela en <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com</a>.</p>
   <input type="password" id="keyInput" placeholder="sk-proj-…" autocomplete="off">
   <div class="kmsg" id="keyMsg"></div>
   <button class="primary" id="keySave">Conectar</button>
@@ -1579,15 +1587,43 @@ buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv
 </script></body></html>"""
 
 
+ALLOWED_HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}", "localhost", "127.0.0.1"}
+CSP = ("default-src 'self'; script-src 'unsafe-inline'; "
+       "style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
+       "img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self'; "
+       "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+
 class H(BaseHTTPRequestHandler):
+    server_version = "Studio"
+    sys_version = ""
+
     def log_message(self, *a):
         pass
 
-    def _send(self, code, body, ctype="application/json"):
+    def _guard(self, post=False):
+        # anti DNS-rebinding: solo aceptamos peticiones dirigidas a localhost
+        host = (self.headers.get("Host") or "").lower()
+        if host not in ALLOWED_HOSTS:
+            self._send(403, "host no permitido", "text/plain")
+            return False
+        # anti-CSRF: si el navegador declara un Origin, debe ser esta misma app
+        if post:
+            origin = self.headers.get("Origin")
+            if origin and urlparse(origin).netloc.lower() not in ALLOWED_HOSTS:
+                self._send(403, "origen no permitido", "text/plain")
+                return False
+        return True
+
+    def _send(self, code, body, ctype="application/json", extra=None):
         b = body if isinstance(body, bytes) else body.encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(b)
 
@@ -1596,11 +1632,16 @@ class H(BaseHTTPRequestHandler):
 
     def _body(self):
         n = int(self.headers.get("Content-Length", 0))
+        if n > 256 * 1024 * 1024:
+            raise ValueError("La petición supera el límite de 256MB")
         return json.loads(self.rfile.read(n) or b"{}")
 
     def do_GET(self):
+        if not self._guard():
+            return
         if self.path in ("/", "/index.html"):
-            return self._send(200, HTML, "text/html; charset=utf-8")
+            return self._send(200, HTML, "text/html; charset=utf-8",
+                              {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         if self.path == "/keystatus":
             return self._json({"ok": bool(key())})
         if self.path == "/history":
@@ -1663,11 +1704,14 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, fp.read_bytes(), ctype) if fp.exists() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
-            fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
-            return self._send(200, fp.read_bytes(), f"image/{fp.suffix.lstrip('.') or 'png'}") if fp.exists() else self._send(404, "no", "text/plain")
+            fp = PROJ_DIR / safe(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
+            ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
+            return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
         return self._send(404, "not found", "text/plain")
 
     def do_POST(self):
+        if not self._guard(post=True):
+            return
         try:
             h = {"/setkey": self.h_setkey, "/generate": self.h_generate, "/edit": self.h_edit,
                  "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectref": self.h_projectref,
@@ -1696,24 +1740,31 @@ class H(BaseHTTPRequestHandler):
 
     def h_project(self):
         b = self._body()
-        pr = load_projects()
-        cur = pr.get(b["name"], {"style": "", "refs": []})
-        if "style" in b:  # solo pisa el estilo si la petición lo trae (crear ≠ guardar)
-            cur["style"] = b["style"]
-            try:
-                (proj_folder(b["name"]) / "estilo.md").write_text(b["style"])
-            except Exception:
-                pass
-        pr[b["name"]] = cur
-        save_json(PROJ_JSON, pr)
+        name = (b.get("name") or "").strip()
+        if not name:
+            return self._json({"error": "Falta el nombre del proyecto"})
+        with LOCK:
+            pr = load_projects()
+            cur = pr.get(name, {"style": "", "refs": []})
+            if "style" in b:  # solo pisa el estilo si la petición lo trae (crear ≠ guardar)
+                cur["style"] = b["style"]
+                try:
+                    (proj_folder(name) / "estilo.md").write_text(b["style"])
+                except Exception:
+                    pass
+            pr[name] = cur
+            save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
 
     def h_projectdel(self):
-        name = self._body().get("name", "")
-        pr = load_projects()
-        if name in pr:
-            del pr[name]
-            save_json(PROJ_JSON, pr)
+        name = (self._body().get("name") or "").strip()
+        if not name:
+            return self._json({"error": "Falta el nombre del proyecto"})
+        with LOCK:
+            pr = load_projects()
+            if name in pr:
+                del pr[name]
+                save_json(PROJ_JSON, pr)
         try:
             shutil.rmtree(PROJ_DIR / safe(name))
         except Exception:
@@ -1722,33 +1773,39 @@ class H(BaseHTTPRequestHandler):
 
     def h_projectref(self):
         b = self._body()
-        pr = load_projects()
         name, img = b["project"], b["image"]
         fn = f"ref_{uuid.uuid4().hex[:8]}_{safe(img.get('name','ref'))}"
         if not fn.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             fn += ".png"
         (proj_folder(name) / fn).write_bytes(base64.b64decode(img["b64"]))
-        cur = pr.get(name, {"style": "", "refs": []})
-        cur.setdefault("refs", []).append(fn)
-        pr[name] = cur
-        save_json(PROJ_JSON, pr)
+        with LOCK:
+            pr = load_projects()
+            cur = pr.get(name, {"style": "", "refs": []})
+            cur.setdefault("refs", []).append(fn)
+            pr[name] = cur
+            save_json(PROJ_JSON, pr)
         return self._json({"ok": True, "file": fn})
 
     def h_projectrefdel(self):
         b = self._body()
-        pr = load_projects()
         f = os.path.basename(b["file"])
         try:
             (proj_folder(b["project"]) / f).unlink()
         except Exception:
             pass
-        if b["project"] in pr:
-            pr[b["project"]]["refs"] = [x for x in pr[b["project"]].get("refs", []) if x != f]
-            save_json(PROJ_JSON, pr)
+        with LOCK:
+            pr = load_projects()
+            if b["project"] in pr:
+                pr[b["project"]]["refs"] = [x for x in pr[b["project"]].get("refs", []) if x != f]
+                save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
 
     def h_config(self):
         b = self._body()
+        with LOCK:
+            return self._config_locked(b)
+
+    def _config_locked(self, b):
         conf = load_json(CONF_JSON, {})
         if "save_dir" in b:
             raw = (b.get("save_dir") or "").strip()
@@ -1771,8 +1828,9 @@ class H(BaseHTTPRequestHandler):
         f = os.path.basename(self._body().get("file", ""))
         if not f:
             return self._json({"error": "Falta el archivo"})
-        h = load_json(HIST_JSON, [])
-        save_json(HIST_JSON, [x for x in h if x.get("file") != f])
+        with LOCK:
+            h = load_json(HIST_JSON, [])
+            save_json(HIST_JSON, [x for x in h if x.get("file") != f])
         try:
             (HIST_DIR / f).unlink()
         except Exception:
@@ -1863,7 +1921,7 @@ class H(BaseHTTPRequestHandler):
             parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode())
 
         def filepart(n, fn, raw):
-            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"; filename="{fn}"\r\nContent-Type: image/png\r\n\r\n'.encode() + raw + b"\r\n")
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"; filename="{safe_fn(fn)}"\r\nContent-Type: image/png\r\n\r\n'.encode() + raw + b"\r\n")
 
         field("model", model)
         field("prompt", prompt)
@@ -1976,7 +2034,7 @@ class H(BaseHTTPRequestHandler):
             field("temperature", str(b["temperature"]))
         if fmt == "verbose_json":
             field("timestamp_granularities[]", "segment")
-        fn = b.get("name", "audio.mp3")
+        fn = safe_fn(b.get("name", "audio.mp3"))
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{fn}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
                      + base64.b64decode(b["b64"]) + b"\r\n")
         parts.append(f"--{boundary}--\r\n".encode())
@@ -2158,7 +2216,7 @@ class H(BaseHTTPRequestHandler):
         if (b.get("description") or "").strip():
             parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="description"\r\n\r\n{b["description"].strip()}\r\n'.encode())
         for f in files[:10]:
-            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="files"; filename="{f.get("name","muestra.mp3")}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="files"; filename="{safe_fn(f.get("name","muestra.mp3"))}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
                          + base64.b64decode(f["b64"]) + b"\r\n")
         parts.append(f"--{boundary}--\r\n".encode())
         try:
