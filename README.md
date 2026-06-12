@@ -57,6 +57,8 @@ python3 server.py
 Abre http://localhost:7860 y pulsa **API** para conectar tu clave. Listo.
 
 En macOS puedes hacer **doble clic** en `Estudio.command` (arranca el server y abre el navegador).
+Mejor aún: doble clic en **`Instalar autoarranque.command`** una sola vez — instala el Studio como
+servicio de macOS que arranca solo al iniciar sesión y se reinicia si se cae.
 
 ## Notas
 

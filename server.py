@@ -98,7 +98,7 @@ def add_history(item):
     with LOCK:
         h = load_json(HIST_JSON, [])
         h.insert(0, item)
-        save_json(HIST_JSON, h[:500])
+        save_json(HIST_JSON, h)  # sin tope: la galería recuerda todo
 
 
 def safe(name):
