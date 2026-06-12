@@ -420,11 +420,13 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
         <span class="chip" data-w="2560" data-h="1088">2.35:1</span>
         <span class="chip" data-w="2608" data-h="1088">2.39:1</span>
         <span class="chip" data-w="2544" data-h="1088">21:9</span>
-        <span class="chip" data-w="3840" data-h="1600">2.4:1 4K</span>
-        <span class="pgroup">Alta resolución</span>
-        <span class="chip" data-w="2560" data-h="1440">2K</span>
-        <span class="chip" data-w="3840" data-h="2160">4K</span>
-        <span class="chip" data-w="3840" data-h="1280">Pano 3:1</span>
+        <span class="chip" data-w="2400" data-h="1000">2.4:1</span>
+        <span class="chip" data-w="3072" data-h="1024">Pano 3:1</span>
+        <span class="pgroup">Resolución · escala el ratio actual</span>
+        <span class="chip rchip" data-long="1920">1080</span>
+        <span class="chip rchip" data-long="2560">2K</span>
+        <span class="chip rchip" data-long="3072">3K</span>
+        <span class="chip rchip" data-long="3840">4K</span>
       </div>
     </div>
 
@@ -460,6 +462,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
     <div class="meta"><span class="mono" id="ratio">3:2</span><span class="valid ok" id="valid">válido</span></div>
     <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">~$0.00</span></div>
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
+    <p class="hint" id="saveWhere"></p>
     <p class="hint">Lado 512–3840 · múltiplos de 16 · ≥0.8 MP. El estimado es aproximado; el costo real aparece al terminar. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
   </div>
 
@@ -500,6 +503,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
       <input type="file" id="prefFile" accept="image/png,image/jpeg,image/webp" multiple class="hide">
       <div class="thumbs" id="prefThumbs"></div>
       <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al crear</label>
+      <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto, para mantener el mismo estilo sin re-subirlas. El texto de estilo.md se antepone siempre al prompt.</p>
     </div>
     <div class="sec">
       <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="margin-left:auto;font-weight:400"></span></h3>
@@ -551,24 +555,41 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
  if(long>3840){ok=false;msg='lado > 3840'}else if(mp<800000){ok=false;msg='muy pequeña'}
  $('valid').textContent=msg;$('valid').className='valid '+(ok?'ok':'bad');$('ratio').textContent=fr(W,H);
  const n=+$('n').value,est=estTokens()*n*30/1e6;$('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok}
-$('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').textContent=$('h').value}$('wv').textContent=$('w').value;validate()};
-$('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').textContent=$('w').value}$('hv').textContent=$('h').value;validate()};
+let selRes=0;
+function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
+function applyRes(){if(!selRes)return;
+ let W=+$('w').value,H=+$('h').value;const r=W/H;
+ if(W>=H){W=selRes;H=W/r}else{H=selRes;W=H*r}
+ W=Math.max(512,Math.min(3840,snap(W)));H=Math.max(512,Math.min(3840,snap(H)));
+ $('w').value=W;$('h').value=H;$('wv').textContent=W;$('hv').textContent=H;ratio=W/H;validate()}
+$('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').textContent=$('h').value}$('wv').textContent=$('w').value;clearRes();validate()};
+$('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').textContent=$('w').value}$('hv').textContent=$('h').value;clearRes();validate()};
 $('lock').onchange=()=>ratio=$('w').value/$('h').value;
-$('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;[...document.querySelectorAll('.chip')].forEach(x=>x.classList.remove('on'));c.classList.add('on');
- $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').textContent=c.dataset.w;$('hv').textContent=c.dataset.h;ratio=c.dataset.w/c.dataset.h;validate()};
+$('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;
+ if(c.dataset.long){const was=c.classList.contains('on');
+  document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'));
+  if(was){selRes=0;return}
+  selRes=+c.dataset.long;c.classList.add('on');applyRes();return}
+ document.querySelectorAll('.chip[data-w]').forEach(x=>x.classList.remove('on'));c.classList.add('on');
+ $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').textContent=c.dataset.w;$('hv').textContent=c.dataset.h;ratio=c.dataset.w/c.dataset.h;
+ if(selRes)applyRes();else validate()};
 $('quality').onchange=validate;$('n').onchange=validate;
 $('fmt').onchange=()=>$('compBox').classList.toggle('hide',$('fmt').value==='png');
 $('comp').oninput=()=>$('compv').textContent=$('comp').value+'%';
-$('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
-$('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');
- $('dirBox').style.opacity=$('saveDesk').checked?'1':'.4'};
-async function loadConfig(){const r=await(await fetch('/config')).json();
- $('saveDir').value=r.save_dir||'';$('dirMsg').textContent='Guardando en: '+r.effective;
+let cfgEffective='~/Desktop';
+function renderSaveWhere(){
+ $('saveWhere').innerHTML='Se guarda en <span class="mono">~/image-studio/historial</span>'
+  +($('saveDesk').checked?' + copia en <span class="mono">'+esc(cfgEffective)+'</span>':' (sin copia extra)');
+ $('dirMsg').textContent='Copia en: '+cfgEffective;
  $('dirBox').style.opacity=$('saveDesk').checked?'1':'.4'}
+$('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
+$('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
+async function loadConfig(){const r=await(await fetch('/config')).json();
+ $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere()}
 $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
  if(r.error){toast(r.error,'bad');return}
- $('dirMsg').textContent='Guardando en: '+r.effective;toast('Carpeta de guardado actualizada')};
+ cfgEffective=r.effective;renderSaveWhere();toast('Las copias irán a '+r.effective)};
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
@@ -578,11 +599,11 @@ async function addFiles(list){let added=0;
   if(f.size>50*1024*1024){toast(f.name+' supera 50MB','bad');continue}
   refs.push({name:f.name,b64:await fileToB64(f)});added++}
  if(added)renderThumbs();return added}
-$('drop').onclick=()=>$('files').click();$('files').onchange=e=>addFiles(e.target.files);
+$('drop').onclick=()=>$('files').click();
+$('files').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 $('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs()}};
 ['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('hot')}));
 ['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('hot')}));
-$('drop').addEventListener('drop',e=>addFiles(e.dataTransfer.files));
 // arrastrar a cualquier parte de la ventana
 window.addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('hot')});
 window.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop').classList.remove('hot')});
@@ -650,9 +671,23 @@ $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o
 $('distill').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige un proyecto','bad');return}$('distill').textContent='…';
  const r=await(await fetch('/distill',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})})).json();$('distill').innerHTML='Destilar';
  if(r.error){toast(r.error,'bad');return}$('style').value=r.style;toast('Estilo destilado · revisa y guarda')};
-$('dropPref').onclick=()=>$('prefFile').click();
-$('prefFile').onchange=async e=>{const n=$('projSel').value;if(!n){toast('Elige un proyecto primero','bad');return}
- for(const f of e.target.files){const b64=await fileToB64(f);await fetch('/projectref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,image:{name:f.name,b64}})})}await loadProjects()};
+async function postRef(project,name,b64){
+ await fetch('/projectref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,image:{name,b64}})})}
+$('dropPref').onclick=()=>{if(!$('projSel').value){toast('Elige o crea un proyecto primero','bad');return}$('prefFile').click()};
+$('prefFile').onchange=async e=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
+ let added=0;for(const f of e.target.files){await postRef(n,f.name,await fileToB64(f));added++}
+ e.target.value='';await loadProjects();
+ if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')};
+['dragover','dragenter'].forEach(ev=>$('dropPref').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.add('hot')}));
+$('dropPref').addEventListener('dragleave',e=>{e.preventDefault();$('dropPref').classList.remove('hot')});
+$('dropPref').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.remove('hot');$('drop').classList.remove('hot');
+ const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
+ let added=0;
+ const sf=e.dataTransfer.getData('text/x-studio-file');
+ if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();await postRef(n,sf,await blobToB64(b));added++}
+ else for(const f of e.dataTransfer.files){if(!f.type.startsWith('image/'))continue;await postRef(n,f.name,await fileToB64(f));added++}
+ await loadProjects();
+ if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')});
 $('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');if(!b)return;const n=$('projSel').value;
  await fetch('/projectrefdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,file:b.dataset.f})});await loadProjects()};
 
@@ -818,7 +853,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(load_projects())
         if self.path == "/config":
             return self._json({"save_dir": load_json(CONF_JSON, {}).get("save_dir", ""),
-                               "effective": str(save_dir())})
+                               "effective": str(save_dir()).replace(str(HOME), "~")})
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
@@ -902,7 +937,7 @@ class H(BaseHTTPRequestHandler):
         conf = load_json(CONF_JSON, {})
         conf["save_dir"] = raw
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir())})
+        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~")})
 
     def h_historydel(self):
         f = os.path.basename(self._body().get("file", ""))

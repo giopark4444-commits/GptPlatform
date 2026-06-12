@@ -13,13 +13,14 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Inpainting con editor de máscara integrado**: pinta directamente sobre la imagen (pincel, borrador, tamaño) o sube tu PNG.
 - **Cantidad 1–4 con resultados múltiples**: todas las imágenes se muestran en una tira, se guardan y se cobran bien (antes solo se conservaba la primera).
 - **Pegar con ⌘V** y **arrastrar a cualquier parte** (archivos del Mac o miniaturas del propio historial) para añadir referencias.
-- **Tamaño libre** con sliders + presets completos (social, foto, **cine / anamórfico**, alta resolución), candado de proporción y miniaturas de cada aspect ratio.
+- **Tamaño libre** con sliders + presets de aspect ratio (social, foto, **cine / anamórfico**) con miniaturas, candado de proporción, y **chips de resolución (1080 / 2K / 3K / 4K)** que escalan el ratio actual manteniendo la proporción.
 - **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
 - **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
 - **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
 - **Historial pro**: filtro por proyecto, "ver más", borrar (doble clic en la papelera), clic abre lightbox con prompt y descarga, arrastrar al panel de referencias.
 - **Memoria de proyecto**: `estilo.md` (texto que se antepone) + **referencias visuales** que se adjuntan solas al generar. Botón para **destilar el estilo** con IA.
-- **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra.
+- **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra; el destino se muestra siempre bajo el botón Generar.
+- **Memoria visual con drag & drop**: arrastra imágenes (del Mac o del historial) directo a "Añadir referencia" del proyecto.
 - **Atajos**: `⌘↵` genera, `1`/`2` cambia Crear/Editar, `Esc` cierra modales y lightbox.
 - **Notificaciones toast** y errores legibles con botón de reintento.
 - Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.
