@@ -18,8 +18,9 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
 - **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
 - **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
+- **Mejorar prompt con IA** (✨ junto a cada prompt de imagen y video): gpt-4o-mini lo expande con composición, luz, lente y atmósfera por ~$0.0001; ⌘Z recupera el tuyo.
 - **Ancho/alto editables con el teclado**: clic en el número, escribe y Enter (ajusta solo a múltiplos de 16).
-- **Historial pro**: filtro por proyecto, "ver más", borrar (doble clic en la papelera), clic abre lightbox con prompt y descarga, arrastrar al panel de referencias.
+- **Historial pro**: **búsqueda por texto del prompt**, **favoritas ★** con filtro, filtro por proyecto, "ver más", **Mejorar 2× (upscale IA vía fal)** y borrar (doble clic) en cada tarjeta, clic abre lightbox con prompt, **Describir** (imagen→prompt con visión) y descarga; arrastrar al panel de referencias.
 - **Memoria de proyecto**: `estilo.md` (imágenes) y `estilo-video.md` (lenguaje de cine: cámara, ritmo, grading) por proyecto, con toggle en el panel + **referencias visuales** que se adjuntan solas al generar imágenes **y también videos** (entran al modo referencia de Seedance). En Video: checkbox "Usar memoria del proyecto" y botón "Insertar estilo" para pegarlo y editarlo a mano en el prompt. Botón para **destilar el estilo** con IA.
 - **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra; el destino se muestra siempre bajo el botón Generar.
 - **Memoria visual con drag & drop**: arrastra imágenes (del Mac o del historial) directo a "Añadir referencia" del proyecto.

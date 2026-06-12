@@ -362,12 +362,21 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gcard:hover{border-color:var(--line2)}
 .gcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
 .gcard .c{font-family:var(--mono);font-size:9.5px;color:var(--faint);padding:5px 6px;display:flex;justify-content:space-between}
-.gfloat{position:absolute;top:5px;right:5px;display:flex;gap:4px;opacity:0;transform:translateY(-3px);transition:.15s}
+.gfloat{position:absolute;top:5px;right:5px;display:flex;gap:3px;flex-wrap:wrap;max-width:84px;justify-content:flex-end;opacity:0;transform:translateY(-3px);transition:.15s}
 .gcard:hover .gfloat{opacity:1;transform:none}
 .gfbtn{width:25px;height:25px;border-radius:7px;background:rgba(12,12,14,.86);backdrop-filter:blur(6px);border:1px solid var(--line2);
  color:var(--txt);display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;transition:.15s}
 .gfbtn:hover{background:var(--elev);border-color:var(--mut)}.gfbtn svg{width:12px;height:12px;stroke-width:1.8}
 .gfbtn.arm{border-color:var(--bad);color:var(--bad);background:rgba(229,115,115,.12)}
+.gfbtn.fav{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.gfbtn.busy{opacity:.4;pointer-events:none}
+.magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
+.magic:hover{color:var(--accent)}
+.magic svg{width:13px;height:13px}
+#galSearch{font-size:12px;padding:8px 11px;margin-bottom:8px}
+.galrow{display:flex;gap:7px;margin-bottom:10px;align-items:center}
+.galrow select{margin:0;flex:1}
+#galFavBtn{flex:none;font-family:var(--ui)}
 .more{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--surface);
  border:1px solid var(--line);color:var(--mut);border-radius:9px;padding:9px;font-size:12px;cursor:pointer;margin-top:10px;transition:.16s}
 .more:hover{color:var(--txt);border-color:var(--line2)}
@@ -571,7 +580,7 @@ audio{width:100%;height:40px}
     </div>
 
     <div class="field">
-      <label id="lblPrompt">Prompt</label>
+      <label id="lblPrompt">Prompt<button class="magic" id="mpImg" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
       <textarea id="prompt" placeholder="Describe lo que imaginas…"></textarea>
     </div>
 
@@ -813,7 +822,7 @@ audio{width:100%;height:40px}
         <div class="field"><label>Variante</label><select id="sdTier">
           <option value="seedance" selected>Seedance 2.0 · máxima calidad</option>
           <option value="seedance-fast">Seedance 2.0 Fast · más barato y rápido</option></select></div>
-        <div class="field"><label>Prompt</label>
+        <div class="field"><label>Prompt<button class="magic" id="mpSd" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
           <textarea id="sdPrompt" style="min-height:96px" placeholder="Describe escena, acción y movimiento de cámara…"></textarea></div>
         <div class="field"><label>Imágenes de referencia · hasta 9</label>
           <div class="drop" id="dropSdImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>1 imagen = frame inicial · 2+ = referencias</div>
@@ -846,7 +855,7 @@ audio{width:100%;height:40px}
         <div class="field"><label>Variante</label><select id="klTier">
           <option value="kling-pro" selected>Kling 3.0 Pro · cinemático</option>
           <option value="kling-std">Kling 3.0 Standard · ~2.6× más barato</option></select></div>
-        <div class="field"><label>Prompt</label>
+        <div class="field"><label>Prompt<button class="magic" id="mpKl" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
           <textarea id="klPrompt" style="min-height:84px" placeholder="Describe la escena y la acción…"></textarea></div>
         <details class="adv"><summary><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Multi-toma · varias escenas en un video<svg class="chev" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="advbody">
@@ -990,7 +999,11 @@ audio{width:100%;height:40px}
     </div>
     <div class="sec">
       <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="margin-left:auto;font-weight:400"></span></h3>
-      <select id="galFilter"><option value="*">Todos los proyectos</option></select>
+      <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
+      <div class="galrow">
+        <select id="galFilter"><option value="*">Todos los proyectos</option></select>
+        <button class="chip" id="galFavBtn" title="Solo favoritas">★</button>
+      </div>
       <div class="gal" id="gal"></div>
       <button class="more hide" id="galMore"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 9l6 6 6-6"/></svg>Ver más</button>
     </div>
@@ -1003,6 +1016,7 @@ audio{width:100%;height:40px}
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
+    <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
   </div>
 </div>
@@ -1362,13 +1376,23 @@ const GDL='<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-
 const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
-function galFiltered(){const f=$('galFilter').value;
- const imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
- return f==='*'?imgs:imgs.filter(it=>(it.project||'')===f)}
+const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>';
+const GUP='<svg viewBox="0 0 24 24"><path d="M21 3h-6m6 0v6m0-6L13 11"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
+function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim().toLowerCase();
+ const fav=$('galFavBtn').classList.contains('on');
+ let imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
+ if(f!=='*')imgs=imgs.filter(it=>(it.project||'')===f);
+ if(q)imgs=imgs.filter(it=>(it.prompt||'').toLowerCase().includes(q));
+ if(fav)imgs=imgs.filter(it=>it.fav);
+ return imgs}
+$('galSearch').oninput=()=>{shown=30;renderGal()};
+$('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.slice(0,shown).map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
-   <div class="gfloat"><a class="gfbtn" href="/file?name=${fn}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
+   <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
+   <a class="gfbtn" href="/file?name=${fn}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn gcopy" title="Copiar prompt">${GCP}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
@@ -1390,7 +1414,18 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);e.dataTransfer.effectAllowed='copy'});
 $('gal').onclick=async e=>{
  if(e.target.closest('a'))return;
- const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),card=e.target.closest('.gcard');
+ const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
+  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),card=e.target.closest('.gcard');
+ if(star){const it=hist.find(x=>x.file===card.dataset.file);if(!it)return;
+  it.fav=!it.fav;star.classList.toggle('fav',it.fav);
+  fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav})});
+  if($('galFavBtn').classList.contains('on'))renderGal();return}
+ if(up){up.classList.add('busy');toast('Mejorando 2× con IA · ~30s…');
+  try{const d=await(await fetch('/upscale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,save_desktop:$('saveDesk').checked})})).json();
+   if(d.error)toast(d.error,'bad');
+   else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Lista en '+d.size)}
+  }catch(x){toast(String(x),'bad')}
+  up.classList.remove('busy');return}
  if(cp){$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);toast('Prompt copiado');return}
  if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file))).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
@@ -1403,6 +1438,7 @@ $('gal').onclick=async e=>{
 
 // ===== lightbox =====
 function openLb(src,p,file){$('lbImg').src=src;$('lbPrompt').textContent=p||'';
+ $('lightbox').dataset.file=file||'';$('lbDesc').style.display=file?'':'none';
  $('lbPrompt').classList.toggle('hide',!p);
  if(file){$('lbDl').href='/file?name='+encodeURIComponent(file);$('lbDl').setAttribute('download',file)}
  else{$('lbDl').href=src;$('lbDl').setAttribute('download','imagen.png')}
@@ -1926,6 +1962,27 @@ $('vidList').onclick=async e=>{
  $('vidCost').innerHTML='<b>$'+(it.cost||0).toFixed(2)+'</b>';
  $('vidDl').href='/file?name='+encodeURIComponent(it.file);$('vidDl').setAttribute('download',it.file)};
 
+// ===== magic prompt + describir =====
+async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
+ if(!p){toast('Escribe primero un prompt','bad');ta.focus();return}
+ btn.classList.add('busy');
+ try{const d=await(await fetch('/magicprompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p,mode})})).json();
+  if(d.error)toast(d.error,'bad');
+  else{ta.value=d.prompt;toast('Prompt mejorado · ⌘Z para volver al tuyo')}
+ }catch(e){toast(String(e),'bad')}
+ btn.classList.remove('busy')}
+$('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
+$('mpSd').onclick=e=>{e.preventDefault();improvePrompt($('mpSd'),'sdPrompt','video')};
+$('mpKl').onclick=e=>{e.preventDefault();improvePrompt($('mpKl'),'klPrompt','video')};
+$('lbDesc').onclick=async e=>{e.stopPropagation();
+ const f=$('lightbox').dataset.file;if(!f){toast('Solo disponible para imágenes del historial','bad');return}
+ $('lbDesc').classList.add('busy');toast('Describiendo imagen…');
+ try{const d=await(await fetch('/describe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})})).json();
+  if(d.error)toast(d.error,'bad');
+  else{$('prompt').value=d.prompt;toast('Prompt de la imagen copiado al panel Crear')}
+ }catch(x){toast(String(x),'bad')}
+ $('lbDesc').classList.remove('busy')};
+
 // ===== atajos de teclado =====
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();
@@ -2093,7 +2150,9 @@ class H(BaseHTTPRequestHandler):
                  "/elkey": self.h_elkey, "/elspeech": self.h_elspeech,
                  "/elsfx": self.h_elsfx, "/elclone": self.h_elclone,
                  "/icloudsync": self.h_icloudsync,
-                 "/falkey": self.h_falkey, "/video": self.h_video}.get(self.path)
+                 "/falkey": self.h_falkey, "/video": self.h_video,
+                 "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
+                 "/describe": self.h_describe, "/upscale": self.h_upscale}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -2812,6 +2871,112 @@ class H(BaseHTTPRequestHandler):
             m.get("save_desktop", True))
         PENDING_VIDEOS.pop(rid, None)
         return self._json({"done": True, "file": name, "url": "/file?name=" + name, "cost": cost})
+
+    def h_histfav(self):
+        b = self._body()
+        f = os.path.basename(b.get("file", ""))
+        with LOCK:
+            h = load_json(HIST_JSON, [])
+            for it in h:
+                if it.get("file") == f:
+                    it["fav"] = bool(b.get("fav"))
+            save_json(HIST_JSON, h)
+        return self._json({"ok": True})
+
+    def _chat(self, messages, max_tokens=400):
+        payload = {"model": DISTILL_MODEL, "messages": messages, "max_tokens": max_tokens}
+        with urllib.request.urlopen(urllib.request.Request(API_CHAT, data=json.dumps(payload).encode(),
+                headers={"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}), timeout=90) as r:
+            return json.loads(r.read())["choices"][0]["message"]["content"].strip()
+
+    def h_magicprompt(self):
+        b = self._body()
+        if not key():
+            return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
+        p = (b.get("prompt") or "").strip()
+        if not p:
+            return self._json({"error": "Escribe primero un prompt para mejorarlo."})
+        video = b.get("mode") == "video"
+        sys = ("Eres director de fotografía y experto en prompts. Reescribe el prompt del usuario como un prompt "
+               "rico y detallado para un modelo de generación de "
+               + ("video: añade movimiento de cámara, ritmo, iluminación, lente, atmósfera y estilo"
+                  if video else
+                  "imágenes: añade composición, iluminación, lente, paleta, atmósfera y estilo")
+               + ". Conserva el idioma y la intención original. Devuelve SOLO el prompt mejorado, sin comillas ni explicaciones, máximo 120 palabras.")
+        try:
+            out = self._chat([{"role": "system", "content": sys}, {"role": "user", "content": p}])
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        return self._json({"prompt": out})
+
+    def h_describe(self):
+        b = self._body()
+        if not key():
+            return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
+        f = os.path.basename(b.get("file", ""))
+        fp = HIST_DIR / f
+        if not fp.is_file():
+            return self._json({"error": "No encuentro esa imagen."})
+        mime = MIME.get(fp.suffix.lstrip(".").lower(), "image/png").split(";")[0]
+        uri = f"data:{mime};base64," + base64.b64encode(fp.read_bytes()).decode()
+        try:
+            out = self._chat([{"role": "user", "content": [
+                {"type": "text", "text": "Describe esta imagen como un prompt detallado (sujeto, composición, iluminación, lente, paleta, estilo) para recrearla con un modelo de generación de imágenes. Devuelve solo el prompt, en español."},
+                {"type": "image_url", "image_url": {"url": uri}}]}])
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        return self._json({"prompt": out})
+
+    def h_upscale(self):
+        b = self._body()
+        if not fal_key():
+            return self._json({"error": "El upscaler usa fal.ai: conecta tu clave en la sección Video."})
+        f = os.path.basename(b.get("file", ""))
+        fp = HIST_DIR / f
+        if not fp.is_file():
+            return self._json({"error": "No encuentro esa imagen."})
+        mime = MIME.get(fp.suffix.lstrip(".").lower(), "image/png").split(";")[0]
+        payload = {"image_url": f"data:{mime};base64," + base64.b64encode(fp.read_bytes()).decode(),
+                   "upscale_factor": float(b.get("factor", 2)),
+                   "creativity": float(b.get("creativity", 0.35)),
+                   "resemblance": float(b.get("resemblance", 0.6))}
+        mid = "fal-ai/clarity-upscaler"
+        try:
+            with self._fal_req(f"{FAL_QUEUE}/{mid}", payload, timeout=120) as r:
+                rid = json.loads(r.read()).get("request_id")
+            res = None
+            for _ in range(90):  # hasta ~3 min
+                time.sleep(2)
+                with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}/status") as r:
+                    st = json.loads(r.read()).get("status", "")
+                if st == "COMPLETED":
+                    with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}") as r:
+                        res = json.loads(r.read())
+                    break
+                if st not in ("IN_QUEUE", "IN_PROGRESS"):
+                    return self._json({"error": f"El upscale terminó con estado {st}"})
+            if not res:
+                return self._json({"error": "El upscale tardó demasiado; inténtalo de nuevo."})
+            img = res.get("image") or {}
+            with urllib.request.urlopen(img.get("url", ""), timeout=300) as vr:
+                raw = vr.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con fal.ai: {e.reason}"})
+        ext = "png" if "png" in (img.get("content_type") or "image/png") else "jpeg"
+        orig = next((x for x in load_json(HIST_JSON, []) if x.get("file") == f), {})
+        size = f"{img.get('width','?')}x{img.get('height','?')}"
+        name = self._save_audio(raw, "img", ext,
+            {"kind": "", "prompt": "[mejorada 2×] " + (orig.get("prompt") or ""), "size": size,
+             "quality": orig.get("quality", ""), "mode": "upscale", "cost": 0, "output_tokens": 0,
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": orig.get("project", "")},
+            b.get("save_desktop", True))
+        return self._json({"file": name, "size": size})
 
     def h_distill(self):
         b = self._body()
