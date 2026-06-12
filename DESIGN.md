@@ -57,7 +57,8 @@ Reglas: micro-labels en mayúsculas, 10px, `letter-spacing:.11em`, color `--fain
 - **Tira de resultados:** miniaturas 62px bajo el lienzo cuando hay >1 imagen; activa con anillo ámbar.
 - **Lightbox:** barra inferior flotante con prompt truncado, "usar prompt" y descargar; `Esc` cierra.
 - **Historial:** filtro por proyecto, contador, "ver más", papelera con confirmación armada (doble clic, estado rojo); tarjetas arrastrables a referencias.
-- **kbd:** chips mono 10px con borde inferior doble para los atajos (`⌘↵`, `1`, `2`, `⌘V`).
+- **kbd:** chips mono 10px con borde inferior doble para los atajos (`⌘↵`, `1`, `2`, `3`, `⌘V`).
+- **Audio:** tercer modo del segmented principal. Sub-tabs Voz/Transcribir (mismo seg), voces como chips mono, tarjetas `.audcard` (radio 16px) para player/transcripción, filas `.arow` compactas en el historial de audio con botón play que pasa a ámbar al reproducir. Controles que no aplican al modelo elegido se atenúan con `.dim`, no se ocultan.
 
 ## Layout
 

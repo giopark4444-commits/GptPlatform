@@ -31,6 +31,16 @@ API_GEN = "https://api.openai.com/v1/images/generations"
 API_EDIT = "https://api.openai.com/v1/images/edits"
 API_CHAT = "https://api.openai.com/v1/chat/completions"
 API_MODELS = "https://api.openai.com/v1/models"
+API_SPEECH = "https://api.openai.com/v1/audio/speech"
+API_TRANSC = "https://api.openai.com/v1/audio/transcriptions"
+API_TRANSL = "https://api.openai.com/v1/audio/translations"
+TTS_PRICE = {"tts-1": 15.0, "tts-1-hd": 30.0}  # USD por 1M de caracteres
+STT_PRICE = {"whisper-1": 0.006, "gpt-4o-transcribe": 0.006, "gpt-4o-mini-transcribe": 0.003}  # USD por minuto
+MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
+        "mp3": "audio/mpeg", "wav": "audio/wav", "aac": "audio/aac", "flac": "audio/flac",
+        "opus": "audio/ogg", "pcm": "application/octet-stream",
+        "txt": "text/plain; charset=utf-8", "srt": "text/plain; charset=utf-8",
+        "vtt": "text/vtt", "json": "application/json"}
 
 
 def key():
@@ -351,6 +361,24 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .maskfoot .acts{display:flex;gap:9px}
 .maskfoot .primary{width:auto;padding:11px 22px}
 
+/* audio */
+#audioStage{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+.audcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.audhead{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600}
+audio{width:100%;height:40px}
+#txText{font-size:13px;line-height:1.6;background:var(--bg)}
+.dim{opacity:.4;pointer-events:none}
+.arow{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:7px;transition:.15s}
+.arow:hover{border-color:var(--line2)}
+.arow .ap{width:30px;height:30px;border-radius:8px;background:var(--surface2);border:1px solid var(--line2);color:var(--txt);
+ display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:.15s}
+.arow .ap:hover{border-color:var(--accent);color:var(--accent)}
+.arow .ap.playing{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.arow .ap svg{width:12px;height:12px}
+.ameta{flex:1;min-width:0}
+.at{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.as{font-size:9.5px;color:var(--faint)}
+
 /* toasts */
 .toasts{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 .toast{display:flex;align-items:center;gap:9px;background:var(--elev);border:1px solid var(--line2);border-radius:10px;
@@ -435,9 +463,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
   <div class="seg">
     <button id="mCrear" class="on"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>Crear<kbd>1</kbd></button>
     <button id="mEditar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.4"/></svg>Editar<kbd>2</kbd></button>
+    <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>3</kbd></button>
   </div>
   <div class="right">
-    <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> img</span>
+    <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
   </div>
 </div>
@@ -445,6 +474,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 <div class="wrap">
   <!-- IZQUIERDA -->
   <div class="col an">
+   <div id="imgPanel">
     <div class="field" id="editBox">
       <label><span id="refLbl">Referencias · opcional</span></label>
       <div class="drop" id="drop"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Arrastra, pega (⌘V) o elige</div>
@@ -535,10 +565,78 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
     <p class="hint" id="saveWhere"></p>
     <p class="hint">Lado 512–3840 · múltiplos de 16 · ≥0.8 MP. El estimado es aproximado; el costo real aparece al terminar. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+   </div>
+
+   <div id="audioPanel" class="hide">
+    <div class="seg" id="audSeg" style="margin-bottom:18px;width:100%">
+      <button class="on" id="audTTS" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Voz</button>
+      <button id="audSTT" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>Transcribir</button>
+    </div>
+
+    <div id="ttsBox">
+      <div class="field">
+        <label>Texto <span class="mono" id="ttsCount" style="float:right;text-transform:none;letter-spacing:0">0 / 4096</span></label>
+        <textarea id="ttsText" maxlength="4096" style="min-height:110px" placeholder="Escribe lo que quieres que diga…"></textarea>
+      </div>
+      <div class="field"><label>Modelo</label>
+        <select id="ttsModel">
+          <option value="gpt-4o-mini-tts" selected>gpt-4o-mini-tts · dirigible con instrucciones</option>
+          <option value="tts-1-hd">tts-1-hd · alta fidelidad</option>
+          <option value="tts-1">tts-1 · rápido y barato</option>
+        </select>
+      </div>
+      <div class="field"><label>Voz</label><div class="presets" id="voices"></div></div>
+      <div class="field" id="instrBox">
+        <label>Instrucciones de tono · opcional</label>
+        <textarea id="ttsInstr" style="min-height:58px;font-size:12.5px" placeholder="Ej: locutor de radio enérgico · susurro misterioso · narrador de documental, pausado y cálido…"></textarea>
+      </div>
+      <div class="field" id="speedBox">
+        <div class="slabel"><label>Velocidad</label><span class="v mono" id="speedv">1.00×</span></div>
+        <input type="range" id="ttsSpeed" min="0.25" max="4" step="0.05" value="1">
+      </div>
+      <div class="field grid2">
+        <div><label>Formato</label><select id="ttsFmt"><option>mp3</option><option>wav</option><option>aac</option><option>flac</option><option>opus</option><option>pcm</option></select></div>
+        <div><label>Probar voz</label><button class="ghost" id="voiceTest" style="width:100%;justify-content:center;padding:10px">Vista previa</button></div>
+      </div>
+      <div class="estbar"><span>Costo estimado</span><span class="num" id="ttsEst">~$0.0000</span></div>
+      <button class="primary" id="ttsGo"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><span id="ttsGoTxt">Generar voz</span></button>
+      <p class="hint">Máx 4096 caracteres por generación. Las instrucciones de tono solo aplican a <span class="mono">gpt-4o-mini-tts</span>; la velocidad solo a <span class="mono">tts-1 / hd</span>. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+    </div>
+
+    <div id="sttBox" class="hide">
+      <div class="field">
+        <label>Audio a transcribir</label>
+        <div class="drop" id="dropAud"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Arrastra o elige audio · máx 25MB</div>
+        <input type="file" id="audFile" accept="audio/*,.mp3,.mp4,.m4a,.wav,.webm,.mpga,.mpeg,.oga,.ogg,.flac" class="hide">
+        <p class="hint" id="audInfo"></p>
+      </div>
+      <div class="field"><label>Modelo</label>
+        <select id="sttModel">
+          <option value="gpt-4o-transcribe">gpt-4o-transcribe · máxima precisión</option>
+          <option value="gpt-4o-mini-transcribe" selected>gpt-4o-mini-transcribe · mitad de precio</option>
+          <option value="whisper-1">whisper-1 · SRT, VTT y tiempos</option>
+        </select>
+      </div>
+      <div class="field grid2">
+        <div><label>Idioma</label><select id="sttLang"><option value="">Auto</option><option value="es">Español</option><option value="en">Inglés</option><option value="pt">Portugués</option><option value="fr">Francés</option><option value="de">Alemán</option><option value="it">Italiano</option><option value="ja">Japonés</option><option value="ko">Coreano</option><option value="zh">Chino</option></select></div>
+        <div><label>Salida</label><select id="sttFmt"><option value="text">Texto</option><option value="srt">SRT · subtítulos</option><option value="vtt">VTT · web</option><option value="verbose_json">JSON + tiempos</option></select></div>
+      </div>
+      <div class="field"><label>Contexto · opcional</label><input type="text" id="sttPrompt" placeholder="Nombres propios, siglas, jerga esperada…"></div>
+      <div class="field">
+        <div class="slabel"><label>Temperatura</label><span class="v mono" id="sttTempv">0.0</span></div>
+        <input type="range" id="sttTemp" min="0" max="1" step="0.1" value="0">
+      </div>
+      <label class="check"><input type="checkbox" id="sttTrad"> Traducir al inglés (whisper-1)</label>
+      <div class="estbar" style="margin-top:14px"><span>Costo estimado</span><span class="num" id="sttEst">~$0.006/min</span></div>
+      <button class="primary" id="sttGo"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg><span id="sttGoTxt">Transcribir</span></button>
+      <p class="hint">SRT/VTT y JSON con tiempos usan <span class="mono">whisper-1</span> (se ajusta solo). La traducción siempre sale en inglés. La transcripción se guarda como archivo en historial y tu carpeta.</p>
+    </div>
+   </div>
   </div>
 
   <!-- CENTRO -->
   <div class="col mid an">
+   <div id="imgStage" style="display:flex;flex-direction:column;flex:1;min-height:0">
     <div class="canvas" id="canvas">
       <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd>/<kbd>2</kbd> cambiar modo · <kbd>⌘</kbd><kbd>V</kbd> pegar referencia</div></div>
       <div class="spin hide" id="spinner"></div>
@@ -555,6 +653,25 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
       <div class="acts"><a id="dl" download="imagen.png"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
       <button id="again"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Otra</button></div>
     </div>
+   </div>
+
+   <div id="audioStage" class="hide">
+    <div class="audcard" id="audEmpty" style="min-height:320px;align-items:center;justify-content:center">
+      <div class="empty"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><div>Tu audio aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · arrastra un audio para transcribirlo</div></div>
+    </div>
+    <div class="audcard hide" id="audResult">
+      <div class="audhead"><span id="audTitle"></span><span class="costtag" id="audCost"></span></div>
+      <audio id="audPlayer" controls></audio>
+      <div class="resbar" style="margin-top:0"><div class="acts"><a id="audDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a></div></div>
+    </div>
+    <div class="audcard hide" id="txResult">
+      <div class="audhead"><span>Transcripción</span><span class="costtag" id="txCost"></span></div>
+      <textarea id="txText" readonly style="min-height:240px"></textarea>
+      <div class="resbar" style="margin-top:0"><div class="acts">
+        <button id="txCopy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar</button>
+        <a id="txDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a></div></div>
+    </div>
+   </div>
   </div>
 
   <!-- DERECHA -->
@@ -576,6 +693,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
       <div class="thumbs" id="prefThumbs"></div>
       <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al generar</label>
       <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto (Crear y Editar), para mantener el mismo estilo sin re-subirlas. El estilo se guarda como <span class="mono">estilo.md</span> en la carpeta del proyecto y se antepone siempre al prompt.</p>
+    </div>
+    <div class="sec hide" id="audSec">
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Audio</h3>
+      <div id="audList"></div>
     </div>
     <div class="sec">
       <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="margin-left:auto;font-weight:400"></span></h3>
@@ -613,11 +734,17 @@ $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$
  if(r.ok){$('keyMsg').textContent='Conectada ✓';$('keyModal').classList.add('hide');$('kdot').classList.add('on');toast('API conectada')}
  else{$('keyMsg').textContent=(r.error||'clave inválida')}};
 
-function setMode(m){mode=m;$('mCrear').classList.toggle('on',m==='crear');$('mEditar').classList.toggle('on',m==='editar');
- $('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
- $('refLbl').textContent=m==='editar'?'Imágenes a editar / combinar':'Referencias · opcional';
- $('goTxt').textContent=m==='editar'?'Editar':'Generar'}
-$('mCrear').onclick=()=>setMode('crear');$('mEditar').onclick=()=>setMode('editar');
+function bumpSess(c,n=1){sessCost+=c||0;sessN+=n;
+ $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> gen'}
+function setMode(m){mode=m;
+ $('mCrear').classList.toggle('on',m==='crear');$('mEditar').classList.toggle('on',m==='editar');$('mAudio').classList.toggle('on',m==='audio');
+ const aud=m==='audio';
+ $('imgPanel').classList.toggle('hide',aud);$('imgStage').classList.toggle('hide',aud);
+ $('audioPanel').classList.toggle('hide',!aud);$('audioStage').classList.toggle('hide',!aud);
+ if(!aud){$('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
+  $('refLbl').textContent=m==='editar'?'Imágenes a editar / combinar':'Referencias · opcional';
+  $('goTxt').textContent=m==='editar'?'Editar':'Generar'}}
+$('mCrear').onclick=()=>setMode('crear');$('mEditar').onclick=()=>setMode('editar');$('mAudio').onclick=()=>setMode('audio');
 
 function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return(a/g)+':'+(b/g)}
 function snap(v){return Math.round(v/16)*16}
@@ -691,6 +818,8 @@ $('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.data
 window.addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('hot')});
 window.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop').classList.remove('hot')});
 window.addEventListener('drop',async e=>{e.preventDefault();$('drop').classList.remove('hot');
+ const audF=e.dataTransfer&&[...e.dataTransfer.files].find(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|wav|webm|ogg|oga|flac|mpga)$/i.test(f.name));
+ if(audF){setSttFile(audF);return}
  const sf=e.dataTransfer&&e.dataTransfer.getData('text/x-studio-file');
  if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();
   refs.push({name:sf,b64:await blobToB64(b)});renderThumbs();toast('Añadida como referencia');return}
@@ -905,7 +1034,8 @@ const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx=
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 function galFiltered(){const f=$('galFilter').value;
- return f==='*'?hist:hist.filter(it=>(it.project||'')===f)}
+ const imgs=hist.filter(it=>it.kind!=='tts'&&it.kind!=='stt');
+ return f==='*'?imgs:imgs.filter(it=>(it.project||'')===f)}
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.slice(0,shown).map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
@@ -923,7 +1053,7 @@ async function loadGal(){hist=await(await fetch('/history')).json();
  f.innerHTML='<option value="*">Todos los proyectos</option><option value="">Sin proyecto</option>'
   +names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
  f.value=[...f.options].some(o=>o.value===cur)?cur:'*';
- renderGal()}
+ renderGal();renderAud()}
 $('galFilter').onchange=()=>{shown=30;renderGal()};
 $('galMore').onclick=()=>{shown+=30;renderGal()};
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(b)})}
@@ -997,11 +1127,10 @@ async function run(){
    lastResult={prompt,refsUsed,fmt:$('fmt').value};
    renderStrip();showResult(0);
    $('resbar').classList.remove('hide');
-   sessCost+=d.cost||0;sessN+=results.length;
+   bumpSess(d.cost||0,results.length);
    $('cost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b> · '+(d.output_tokens||0)+' tok'
     +(results.length>1?' · '+results.length+' imágenes':'')
     +(d.via_visual?' · memoria visual':'')+(d.model_used==='gpt-image-1'?' · transparente':'');
-   $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> img';
    loadGal()}
  }catch(e){err(e)}
  $('goTxt').textContent=prevTxt;validate();
@@ -1012,9 +1141,141 @@ function flash(el){const c=el.style.color;el.style.color='var(--accent)';setTime
 $('fCopy').onclick=()=>{if(!lastResult)return;$('prompt').value=lastResult.prompt;refs=lastResult.refsUsed.map(r=>({name:r.name,b64:r.b64}));renderThumbs();try{navigator.clipboard.writeText(lastResult.prompt)}catch(e){}flash($('fCopy'));toast('Prompt y referencias restauradas')};
 $('fAdd').onclick=()=>{if(!results.length)return;refs.push({name:'generada.png',b64:results[active].image.split(',')[1]});renderThumbs();flash($('fAdd'));toast('Añadida como referencia')};
 
+// ===== audio: voz (TTS) y transcripción =====
+const VOICES=['alloy','ash','ballad','coral','echo','fable','onyx','nova','sage','shimmer','verse'];
+let selVoice=localStorage.getItem('studio_voice')||'nova';
+if(!VOICES.includes(selVoice))selVoice='nova';
+$('voices').innerHTML=VOICES.map(v=>`<span class="chip vchip${v===selVoice?' on':''}" data-v="${v}">${v}</span>`).join('');
+$('voices').onclick=e=>{const c=e.target.closest('.vchip');if(!c)return;
+ selVoice=c.dataset.v;localStorage.setItem('studio_voice',selVoice);
+ [...$('voices').children].forEach(x=>x.classList.toggle('on',x.dataset.v===selVoice))};
+$('audTTS').onclick=()=>{$('audTTS').classList.add('on');$('audSTT').classList.remove('on');
+ $('ttsBox').classList.remove('hide');$('sttBox').classList.add('hide')};
+$('audSTT').onclick=()=>{$('audSTT').classList.add('on');$('audTTS').classList.remove('on');
+ $('sttBox').classList.remove('hide');$('ttsBox').classList.add('hide')};
+function ttsEstCalc(){const n=$('ttsText').value.length;$('ttsCount').textContent=n+' / 4096';
+ const m=$('ttsModel').value;
+ const est=m==='tts-1'?n*15/1e6:m==='tts-1-hd'?n*30/1e6:n/950*0.015;
+ $('ttsEst').textContent='~$'+est.toFixed(4)}
+$('ttsText').oninput=ttsEstCalc;
+$('ttsModel').onchange=()=>{const mini=$('ttsModel').value==='gpt-4o-mini-tts';
+ $('instrBox').classList.toggle('dim',!mini);$('speedBox').classList.toggle('dim',mini);ttsEstCalc()};
+$('ttsModel').onchange();
+$('ttsSpeed').oninput=()=>$('speedv').textContent=(+$('ttsSpeed').value).toFixed(2)+'×';
+async function runTTS(){const text=$('ttsText').value.trim();
+ if(!text){toast('Escribe el texto para la voz','bad');$('ttsText').focus();return}
+ $('ttsGo').disabled=true;$('ttsGoTxt').textContent='Generando…';
+ const m=$('ttsModel').value;
+ const body={input:text,model:m,voice:selVoice,format:$('ttsFmt').value,
+  project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ if(m==='gpt-4o-mini-tts')body.instructions=$('ttsInstr').value;else body.speed=+$('ttsSpeed').value;
+ try{const d=await(await fetch('/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{$('audPlayer').src=d.audio;
+   $('audTitle').textContent=selVoice+' · '+m;
+   $('audCost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b>';
+   $('audDl').href=d.audio;$('audDl').setAttribute('download',d.file);
+   $('audEmpty').classList.add('hide');$('audResult').classList.remove('hide');
+   $('audPlayer').play().catch(()=>{});
+   bumpSess(d.cost);loadGal();toast('Voz generada')}
+ }catch(e){toast(String(e),'bad')}
+ $('ttsGo').disabled=false;$('ttsGoTxt').textContent='Generar voz'}
+$('ttsGo').onclick=runTTS;
+$('voiceTest').onclick=async()=>{
+ $('voiceTest').disabled=true;$('voiceTest').textContent='…';
+ const body={preview:true,input:'Hola, soy la voz '+selVoice+'. Así puedo sonar en tu proyecto.',
+  model:$('ttsModel').value,voice:selVoice,format:'mp3',instructions:$('ttsInstr').value};
+ try{const d=await(await fetch('/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{audEl.src=d.audio;audEl.play();bumpSess(d.cost);toast('Vista previa de '+selVoice+' · $'+(d.cost||0).toFixed(4))}
+ }catch(e){toast(String(e),'bad')}
+ $('voiceTest').disabled=false;$('voiceTest').textContent='Vista previa'};
+// --- transcripción ---
+let sttFile=null,sttDur=0;
+function sttEstCalc(){const p={'whisper-1':0.006,'gpt-4o-transcribe':0.006,'gpt-4o-mini-transcribe':0.003}[$('sttModel').value]||0.006;
+ $('sttEst').textContent=sttDur?'~$'+(sttDur*p).toFixed(4):'~$'+p.toFixed(3)+'/min'}
+async function setSttFile(f){
+ if(f.size>25*1024*1024){toast(f.name+' supera 25MB (límite de OpenAI)','bad');return}
+ sttFile={name:f.name,b64:await fileToB64(f)};sttDur=0;
+ const u=URL.createObjectURL(f),a=new Audio();
+ a.onloadedmetadata=()=>{sttDur=a.duration/60;URL.revokeObjectURL(u);
+  const s=Math.round(a.duration);
+  $('audInfo').textContent=f.name+' · '+(s>=60?Math.floor(s/60)+'m '+(s%60)+'s':s+'s');sttEstCalc()};
+ a.onerror=()=>{$('audInfo').textContent=f.name;sttEstCalc()};
+ a.src=u;
+ if(mode!=='audio')setMode('audio');
+ if($('sttBox').classList.contains('hide'))$('audSTT').click();
+ sttEstCalc();toast('Audio cargado: '+f.name)}
+$('dropAud').onclick=()=>$('audFile').click();
+$('audFile').onchange=e=>{if(e.target.files[0])setSttFile(e.target.files[0]);e.target.value=''};
+['dragover','dragenter'].forEach(ev=>$('dropAud').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropAud').classList.add('hot')}));
+$('dropAud').addEventListener('dragleave',e=>{e.preventDefault();$('dropAud').classList.remove('hot')});
+$('dropAud').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();$('dropAud').classList.remove('hot');$('drop').classList.remove('hot');
+ if(e.dataTransfer.files[0])setSttFile(e.dataTransfer.files[0])});
+$('sttModel').onchange=()=>{if($('sttModel').value!=='whisper-1'&&['srt','vtt','verbose_json'].includes($('sttFmt').value))$('sttFmt').value='text';sttEstCalc()};
+$('sttFmt').onchange=()=>{if(['srt','vtt','verbose_json'].includes($('sttFmt').value)&&$('sttModel').value!=='whisper-1'){
+ $('sttModel').value='whisper-1';toast('SRT/VTT y tiempos usan whisper-1');sttEstCalc()}};
+$('sttTrad').onchange=()=>{if($('sttTrad').checked){$('sttModel').value='whisper-1';sttEstCalc()}};
+$('sttTemp').oninput=()=>$('sttTempv').textContent=(+$('sttTemp').value).toFixed(1);
+async function runSTT(){
+ if(!sttFile){toast('Sube o arrastra un audio primero','bad');return}
+ $('sttGo').disabled=true;$('sttGoTxt').textContent='Transcribiendo…';
+ const body={name:sttFile.name,b64:sttFile.b64,model:$('sttModel').value,language:$('sttLang').value,
+  prompt:$('sttPrompt').value,response_format:$('sttFmt').value,translate:$('sttTrad').checked,
+  temperature:+$('sttTemp').value,duration:sttDur,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ try{const d=await(await fetch('/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{$('txText').value=d.text;
+   $('txCost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b> · '+esc(d.model_used||'');
+   $('txDl').href='/file?name='+encodeURIComponent(d.file);$('txDl').setAttribute('download',d.file);
+   $('audEmpty').classList.add('hide');$('txResult').classList.remove('hide');
+   bumpSess(d.cost);loadGal();toast('Transcripción lista')}
+ }catch(e){toast(String(e),'bad')}
+ $('sttGo').disabled=false;$('sttGoTxt').textContent='Transcribir'}
+$('sttGo').onclick=runSTT;
+$('txCopy').onclick=()=>{try{navigator.clipboard.writeText($('txText').value);toast('Transcripción copiada')}catch(e){}};
+// --- historial de audio ---
+const APLAY='<svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>';
+const APAUSE='<svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg>';
+const ADOC='<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+let audEl=new Audio(),playingFile=null;
+audEl.onended=()=>{playingFile=null;renderAud()};
+function renderAud(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='stt');
+ $('audSec').classList.toggle('hide',!items.length);
+ $('audList').innerHTML=items.slice(0,15).map(it=>{
+  const tts=it.kind==='tts',playing=playingFile===it.file;
+  return `<div class="arow" data-file="${esc(it.file)}">
+   <button class="ap${playing?' playing':''}" title="${tts?(playing?'Pausar':'Reproducir'):'Ver transcripción'}">${tts?(playing?APAUSE:APLAY):ADOC}</button>
+   <div class="ameta"><div class="at" title="${esc(it.prompt||'')}">${esc(it.prompt||it.file)}</div>
+    <div class="as mono">${tts?esc(it.voice||''):esc(it.model||'')} · $${(it.cost||0).toFixed(4)}</div></div>
+   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <button class="gfbtn adel" title="Borrar (doble clic)">${GTR}</button></div>`}).join('')}
+$('audList').onclick=async e=>{
+ const row=e.target.closest('.arow');if(!row||e.target.closest('a'))return;
+ const del=e.target.closest('.adel');
+ if(del){if(del.classList.contains('arm')){
+   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file})});
+   if(playingFile===row.dataset.file){audEl.pause();playingFile=null}
+   hist=hist.filter(it=>it.file!==row.dataset.file);renderAud();toast('Eliminado')}
+  else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
+  return}
+ if(!e.target.closest('.ap'))return;
+ const it=hist.find(x=>x.file===row.dataset.file);if(!it)return;
+ if(it.kind==='stt'){
+  const t=await(await fetch('/file?name='+encodeURIComponent(it.file))).text();
+  $('txText').value=t;$('txCost').innerHTML='<b>$'+(it.cost||0).toFixed(4)+'</b> · '+esc(it.model||'');
+  $('txDl').href='/file?name='+encodeURIComponent(it.file);$('txDl').setAttribute('download',it.file);
+  if(mode!=='audio')setMode('audio');
+  $('audEmpty').classList.add('hide');$('txResult').classList.remove('hide');return}
+ if(playingFile===it.file&&!audEl.paused){audEl.pause();playingFile=null}
+ else{audEl.src='/file?name='+encodeURIComponent(it.file);audEl.play();playingFile=it.file}
+ renderAud()};
+
 // ===== atajos de teclado =====
 document.addEventListener('keydown',e=>{
- if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();if(!$('go').disabled)run();return}
+ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();
+  if(mode==='audio'){if($('sttBox').classList.contains('hide'))runTTS();else runSTT()}
+  else if(!$('go').disabled)run();return}
  if(e.key==='Escape'){
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
@@ -1022,7 +1283,8 @@ document.addEventListener('keydown',e=>{
  const tag=document.activeElement.tagName;
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
  if(e.key==='1')setMode('crear');
- if(e.key==='2')setMode('editar')});
+ if(e.key==='2')setMode('editar');
+ if(e.key==='3')setMode('audio')});
 
 // miniaturas de proporción en los presets
 function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{const W=+c.dataset.w,H=+c.dataset.h,m=14;
@@ -1066,7 +1328,8 @@ class H(BaseHTTPRequestHandler):
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
-            return self._send(200, fp.read_bytes(), f"image/{fp.suffix.lstrip('.') or 'png'}") if fp.exists() else self._send(404, "no", "text/plain")
+            ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
+            return self._send(200, fp.read_bytes(), ctype) if fp.exists() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
             fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
@@ -1078,7 +1341,8 @@ class H(BaseHTTPRequestHandler):
             h = {"/setkey": self.h_setkey, "/generate": self.h_generate, "/edit": self.h_edit,
                  "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectref": self.h_projectref,
                  "/projectrefdel": self.h_projectrefdel, "/distill": self.h_distill,
-                 "/historydel": self.h_historydel, "/config": self.h_config}.get(self.path)
+                 "/historydel": self.h_historydel, "/config": self.h_config,
+                 "/speech": self.h_speech, "/transcribe": self.h_transcribe}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -1305,6 +1569,113 @@ class H(BaseHTTPRequestHandler):
                 "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
                 "save_desktop": b.get("save_desktop", True)}
         return self._json(self._save_results(data, meta, via_visual, model))
+
+    def h_speech(self):
+        b = self._body()
+        if not key():
+            return self._json({"error": "Conecta tu API (botón API)."})
+        text = (b.get("input") or "").strip()
+        if not text:
+            return self._json({"error": "Escribe el texto a convertir en voz."})
+        model = b.get("model", "gpt-4o-mini-tts")
+        fmt = b.get("format", "mp3")
+        voice = b.get("voice", "alloy")
+        payload = {"model": model, "input": text, "voice": voice, "response_format": fmt}
+        if model == "gpt-4o-mini-tts" and (b.get("instructions") or "").strip():
+            payload["instructions"] = b["instructions"].strip()
+        if model in TTS_PRICE and b.get("speed") and float(b["speed"]) != 1:
+            payload["speed"] = float(b["speed"])
+        try:
+            with urllib.request.urlopen(urllib.request.Request(API_SPEECH, data=json.dumps(payload).encode(),
+                    headers={"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}), timeout=300) as r:
+                raw = r.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        chars = len(text)
+        # tts-1/hd cobran por carácter; gpt-4o-mini-tts por tokens de audio (~$0.015/min, ~950 chars/min)
+        cost = round(chars * TTS_PRICE[model] / 1e6, 5) if model in TTS_PRICE else round(chars / 950 * 0.015, 5)
+        data_url = f"data:{MIME.get(fmt, 'audio/mpeg')};base64," + base64.b64encode(raw).decode()
+        if b.get("preview"):
+            return self._json({"audio": data_url, "cost": cost})
+        name = f"voz_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{fmt}"
+        (HIST_DIR / name).write_bytes(raw)
+        if b.get("save_desktop", True):
+            try:
+                d = save_dir()
+                d.mkdir(parents=True, exist_ok=True)
+                (d / name).write_bytes(raw)
+            except Exception:
+                pass
+        add_history({"file": name, "kind": "tts", "prompt": text[:160], "voice": voice, "model": model,
+                     "size": fmt, "quality": "", "mode": "audio", "cost": cost, "output_tokens": 0,
+                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")})
+        return self._json({"file": name, "audio": data_url, "cost": cost})
+
+    def h_transcribe(self):
+        b = self._body()
+        if not key():
+            return self._json({"error": "Conecta tu API (botón API)."})
+        if not b.get("b64"):
+            return self._json({"error": "Sube o arrastra un audio primero."})
+        translate = bool(b.get("translate"))
+        fmt = b.get("response_format", "text")
+        model = b.get("model", "gpt-4o-mini-transcribe")
+        if translate or fmt in ("srt", "vtt", "verbose_json"):
+            model = "whisper-1"
+        boundary = "----studio" + uuid.uuid4().hex
+        parts = []
+
+        def field(n, v):
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode())
+
+        field("model", model)
+        field("response_format", fmt)
+        if b.get("language") and not translate:
+            field("language", b["language"])
+        if (b.get("prompt") or "").strip():
+            field("prompt", b["prompt"].strip())
+        if b.get("temperature"):
+            field("temperature", str(b["temperature"]))
+        if fmt == "verbose_json":
+            field("timestamp_granularities[]", "segment")
+        fn = b.get("name", "audio.mp3")
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{fn}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
+                     + base64.b64decode(b["b64"]) + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        url = API_TRANSL if translate else API_TRANSC
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, data=b"".join(parts),
+                    headers={"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}), timeout=600) as r:
+                raw = r.read().decode()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        text = raw
+        if fmt in ("json", "verbose_json"):
+            try:
+                text = json.loads(raw).get("text", raw)
+            except Exception:
+                pass
+        dur = float(b.get("duration") or 0)  # minutos, medido en el cliente
+        cost = round(dur * STT_PRICE.get(model, 0.006), 5)
+        ext = {"text": "txt", "json": "json", "verbose_json": "json", "srt": "srt", "vtt": "vtt"}.get(fmt, "txt")
+        name = f"tx_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
+        (HIST_DIR / name).write_text(raw)
+        if b.get("save_desktop", True):
+            try:
+                d = save_dir()
+                d.mkdir(parents=True, exist_ok=True)
+                (d / name).write_text(raw)
+            except Exception:
+                pass
+        add_history({"file": name, "kind": "stt", "prompt": (text or "")[:160], "model": model,
+                     "size": ext, "quality": "", "mode": "audio", "cost": cost, "output_tokens": 0,
+                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")})
+        return self._json({"text": text if fmt in ("json", "verbose_json", "text") else raw,
+                           "file": name, "cost": cost, "model_used": model})
 
     def h_distill(self):
         b = self._body()

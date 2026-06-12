@@ -1,7 +1,8 @@
 # GptPlatform
 
-Estudio local de generación y edición de imágenes con la API de OpenAI
-(`gpt-image-2`, y `gpt-image-1` para fondo transparente). Una sola página servida
+Estudio local de generación y edición de **imágenes y audio** con la API de OpenAI
+(`gpt-image-2`, `gpt-image-1` para fondo transparente, `gpt-4o-mini-tts`/`tts-1` para voz
+y `gpt-4o-transcribe`/`whisper-1` para transcripción). Una sola página servida
 por un script de Python sin dependencias externas. La idea: hacer en local, con
 buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por proyecto**.
 
@@ -22,7 +23,8 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Memoria de proyecto**: `estilo.md` (texto que se antepone) + **referencias visuales** que se adjuntan solas al generar. Botón para **destilar el estilo** con IA.
 - **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra; el destino se muestra siempre bajo el botón Generar.
 - **Memoria visual con drag & drop**: arrastra imágenes (del Mac o del historial) directo a "Añadir referencia" del proyecto.
-- **Atajos**: `⌘↵` genera, `1`/`2` cambia Crear/Editar, `Esc` cierra modales y lightbox.
+- **Sección Audio** (modo `3` en la barra): **Voz (TTS)** con `gpt-4o-mini-tts` (instrucciones de tono libres), `tts-1-hd` y `tts-1` (velocidad 0.25–4×), 11 voces con vista previa, 6 formatos (MP3/WAV/AAC/FLAC/Opus/PCM), contador 0/4096 y estimador de costo. **Transcripción** con `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` y `whisper-1`: idioma, contexto, temperatura, salida en texto/SRT/VTT/JSON con tiempos, y **traducción al inglés**. Historial de audio con reproductor inline, descarga y borrado; arrastra cualquier audio a la ventana y se carga solo para transcribir.
+- **Atajos**: `⌘↵` genera, `1`/`2`/`3` cambia Crear/Editar/Audio, `Esc` cierra modales y lightbox.
 - **Notificaciones toast** y errores legibles con botón de reintento.
 - Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.
 
