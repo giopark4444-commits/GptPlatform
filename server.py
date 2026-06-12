@@ -495,6 +495,40 @@ audio{width:100%;height:40px}
 .hide{display:none!important}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px;border:2px solid var(--bg)}
 
+/* responsive · teléfono */
+html,body{overflow-x:hidden}
+.col{min-width:0}
+.col img,.canvas img,.audcard video{max-width:100%}
+@media(max-width:760px){
+ .top{flex-wrap:wrap;gap:8px;padding:10px 12px}
+ .top .right{margin-left:auto;gap:8px}
+ .sess{display:none}
+ .seg button kbd{display:none}
+ .seg button{padding:6px 10px;font-size:12px}
+ .col{padding:14px}
+ .canvas{max-height:48vh}
+ .maskbox{padding:12px}
+ .edbody{flex-direction:column}
+ .pinlist{width:100%;max-height:180px}
+ .masktools input[type=range]{width:70px}
+ .lbprompt{max-width:38vw}
+ .lbbar{flex-wrap:wrap;justify-content:center;max-width:94vw}
+ .resbar{flex-wrap:wrap;gap:8px}
+ .resbar .acts{margin-left:0}
+}
+@media(max-width:480px){
+ .seg button svg{display:none}
+ .seg button{padding:6px 8px;font-size:11px}
+ .brand{font-size:13px}
+ .ghost{padding:6px 9px;font-size:11px}
+ .grid2{grid-template-columns:1fr}
+ .modal{padding:20px}
+ .maskfoot{flex-wrap:wrap}
+ .strip .sth{width:50px;height:50px}
+ .gal{grid-template-columns:1fr 1fr}
+ #cmpSlider{bottom:16px}
+}
+
 @media (prefers-reduced-motion: reduce){
  .an{animation:none!important;opacity:1!important;transform:none!important}
  .toast{animation:none!important}
@@ -863,12 +897,13 @@ audio{width:100%;height:40px}
       <p class="hint">fal.ai da acceso a Seedance, Kling y OmniHuman con una sola clave (se guarda en <span class="mono">~/.fal_key</span>). Consíguela en fal.ai → Dashboard → Keys; regalan créditos al registrarse.</p>
     </div>
     <div id="vidMain" class="hide">
-      <div class="seg" id="vidSeg" style="margin-bottom:18px;width:100%">
-        <button class="on" data-vt="sd" style="flex:1;justify-content:center">Seedance</button>
-        <button data-vt="kl" style="flex:1;justify-content:center">Kling</button>
-        <button data-vt="oh" style="flex:1;justify-content:center">OmniHuman</button>
-        <button data-vt="ls" style="flex:1;justify-content:center">LipSync</button>
-      </div>
+      <div class="field"><label>Modelo de video</label>
+        <select id="vidModelSel">
+          <option value="sd" selected>Seedance 2.0 · cine + referencias multimodales</option>
+          <option value="kl">Kling 3.0 · multi-toma · Pro / Standard</option>
+          <option value="oh">OmniHuman · avatar que habla (imagen + audio)</option>
+          <option value="ls">LipSync · re-doblar un video existente</option>
+        </select></div>
       <div class="field" id="vidMemRow" style="display:flex;align-items:center;gap:10px">
         <label class="check" style="flex:1;margin:0"><input type="checkbox" id="vidUseMem" checked> Usar memoria del proyecto</label>
         <button class="ghost" id="vidInsStyle" style="flex:none;padding:6px 11px;font-size:11px">Insertar estilo</button>
@@ -1936,7 +1971,7 @@ $('falKeySave').onclick=async()=>{const k=$('falKeyIn').value.trim();if(!k)retur
  if(!r.ok){toast(r.error||'Clave inválida','bad');return}
  toast('fal.ai conectado');falInit()};
 function vidSetTab(t){vidTab=t;
- [...$('vidSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.vt===t));
+ if($('vidModelSel').value!==t)$('vidModelSel').value=t;
  $('sdBox').classList.toggle('hide',t!=='sd');
  $('klBox').classList.toggle('hide',t!=='kl');
  $('ohBox').classList.toggle('hide',t!=='oh');
@@ -1945,7 +1980,7 @@ function vidSetTab(t){vidTab=t;
  if(t==='oh')fillOhAudSel();
  if(t==='ls'){fillLsSels()}
  vidEstCalc()}
-$('vidSeg').onclick=e=>{const b=e.target.closest('button');if(b)vidSetTab(b.dataset.vt)};
+$('vidModelSel').onchange=()=>vidSetTab($('vidModelSel').value);
 $('vidUseMem').checked=localStorage.getItem('studio_vidmem')!=='0';
 $('vidUseMem').onchange=()=>localStorage.setItem('studio_vidmem',$('vidUseMem').checked?'1':'0');
 $('vidInsStyle').onclick=()=>{const n=$('projSel').value,p=projects[n];
