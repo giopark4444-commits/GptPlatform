@@ -21,14 +21,14 @@ Tokens actuales (CSS variables en `:root`):
 | Línea | `--line` | `rgba(255,255,255,.06)` |
 | Línea 2 | `--line2` | `rgba(255,255,255,.11)` |
 | Texto | `--txt` | `#ededee` |
-| Texto atenuado | `--mut` | `#8c8c93` |
-| Texto tenue | `--faint` | `#5d5d65` |
+| Texto atenuado | `--mut` | `#9a9aa1` |
+| Texto tenue | `--faint` | `#67676f` |
 | Acento | `--accent` | `#e0a571` (ámbar) |
 | Acento tenue | `--accent-dim` | `rgba(224,165,113,.14)` |
 | OK | `--ok` | `#7bd99a` |
 | Error | `--bad` | `#e57373` |
 
-Nota de contraste: `--mut` (#8c8c93) sobre `--bg` ronda el límite para texto de cuerpo; reservarlo para labels/secundario, no para párrafos largos.
+Nota de contraste: `--mut` y `--faint` se subieron un paso (2026-06) para cumplir AA en texto secundario. Z-index semántico en tokens: `--z-sticky` < `--z-modal` < `--z-lightbox` < `--z-toast`.
 
 ## Typography
 
@@ -50,8 +50,14 @@ Reglas: micro-labels en mayúsculas, 10px, `letter-spacing:.11em`, color `--fain
 - **Canvas 4:3:** fondo de cuadrícula sutil; imagen `object-fit:contain`; iconos flotantes (copiar prompt+refs, usar como referencia, descargar) que aparecen en hover; clic abre lightbox a pantalla completa.
 - **Galería de historial:** miniaturas 1:1 con los mismos iconos flotantes en hover; caption con costo y tamaño en mono.
 - **Botón primario:** blanco, texto oscuro, micro-elevación en hover.
-- **Modal de API key:** overlay con blur, icono en chip `--accent-dim`.
-- **Ajustes avanzados:** `<details>` plegable.
+- **Modal de API key:** overlay con blur, icono en chip `--accent-dim`. Botón API con punto de estado (`--ok` cuando hay clave).
+- **Ajustes avanzados:** `<details>` plegable, incluye carpeta de guardado configurable.
+- **Toasts:** pill superior centrada en `--elev`, punto de estado ok/bad, animación de entrada sutil. Sustituyen a `alert()`.
+- **Editor de máscara:** modal grande con la imagen + canvas superpuesto (trazo ámbar al 55%), toolbar pincel/borrador/tamaño/limpiar.
+- **Tira de resultados:** miniaturas 62px bajo el lienzo cuando hay >1 imagen; activa con anillo ámbar.
+- **Lightbox:** barra inferior flotante con prompt truncado, "usar prompt" y descargar; `Esc` cierra.
+- **Historial:** filtro por proyecto, contador, "ver más", papelera con confirmación armada (doble clic, estado rojo); tarjetas arrastrables a referencias.
+- **kbd:** chips mono 10px con borde inferior doble para los atajos (`⌘↵`, `1`, `2`, `⌘V`).
 
 ## Layout
 
@@ -63,11 +69,15 @@ Reglas: micro-labels en mayúsculas, 10px, `letter-spacing:.11em`, color `--fain
 ## Motion
 
 - Entrada escalonada de las 3 columnas (`rise`, ease-out, delays 0.02/0.09/0.16s).
-- Spinner de carga; iconos flotantes con transición de opacidad/translate.
-- Pendiente (mejora): alternativa `@media (prefers-reduced-motion: reduce)` para las animaciones de entrada.
+- Spinner de carga; iconos flotantes con transición de opacidad/translate; toasts con entrada de 250ms.
+- `@media (prefers-reduced-motion: reduce)`: sin entrada escalonada, sin animación de toasts, transiciones a ~0; el spinner se conserva más lento (conviene como señal de carga).
+
+## Accesibilidad
+
+- `:focus-visible` con anillo ámbar en todos los controles (los campos conservan su foco por borde).
+- Contraste AA en texto secundario (`--mut` #9a9aa1 sobre `--bg`).
+- `alt`/`title` en miniaturas; `loading="lazy"` en el historial.
 
 ## Known gaps / backlog
 
-- Añadir bloque `prefers-reduced-motion`.
-- Verificar contraste de `--mut` en textos secundarios largos.
 - `Partial images` (preview en streaming) no implementado.

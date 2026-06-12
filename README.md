@@ -10,15 +10,19 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 ## Qué hace
 
 - **Crear** (texto → imagen) y **Editar / combinar** (sube imágenes de referencia + prompt).
-- **Inpainting** con máscara.
+- **Inpainting con editor de máscara integrado**: pinta directamente sobre la imagen (pincel, borrador, tamaño) o sube tu PNG.
+- **Cantidad 1–4 con resultados múltiples**: todas las imágenes se muestran en una tira, se guardan y se cobran bien (antes solo se conservaba la primera).
+- **Pegar con ⌘V** y **arrastrar a cualquier parte** (archivos del Mac o miniaturas del propio historial) para añadir referencias.
 - **Tamaño libre** con sliders + presets completos (social, foto, **cine / anamórfico**, alta resolución), candado de proporción y miniaturas de cada aspect ratio.
-- **Calidad, formato (PNG/JPG/WebP), compresión, moderación, cantidad**.
+- **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
 - **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
 - **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
-- **Historial persistente** (galería 1:1 con descargar / copiar prompt / usar como referencia).
+- **Historial pro**: filtro por proyecto, "ver más", borrar (doble clic en la papelera), clic abre lightbox con prompt y descarga, arrastrar al panel de referencias.
 - **Memoria de proyecto**: `estilo.md` (texto que se antepone) + **referencias visuales** que se adjuntan solas al generar. Botón para **destilar el estilo** con IA.
-- **Lightbox** a pantalla completa e **iconos flotantes** sobre cada imagen.
-- Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`).
+- **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra.
+- **Atajos**: `⌘↵` genera, `1`/`2` cambia Crear/Editar, `Esc` cierra modales y lightbox.
+- **Notificaciones toast** y errores legibles con botón de reintento.
+- Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.
 
 ## Requisitos
 
@@ -38,7 +42,7 @@ En macOS puedes hacer **doble clic** en `Estudio.command` (arranca el server y a
 ## Notas
 
 - La clave vive solo en tu equipo (`~/.openai_key`), nunca en el repo.
-- Las imágenes generadas se guardan en `~/image-studio/historial/` y también en el Escritorio.
+- Las imágenes generadas se guardan en `~/image-studio/historial/` y, si lo activas, una copia en la carpeta que elijas (Escritorio por defecto; se configura en Ajustes avanzados y se persiste en `~/image-studio/config.json`).
 - `historial/`, `proyectos/` y los `.json` son datos locales y están en `.gitignore`.
 
 ## Estructura
