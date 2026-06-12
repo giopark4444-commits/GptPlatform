@@ -67,3 +67,11 @@ En macOS puedes hacer **doble clic** en `Estudio.command` (arranca el server y a
 - Referencias de edición ≤ 50 MB c/u (PNG/JPG/WebP).
 - Fondo transparente solo en `gpt-image-1`.
 - Moderación: `auto` o `low` (OpenAI siempre modera; no hay modo sin filtro).
+
+## Sincronizar entre Macs (iCloud Drive)
+
+Los datos viven en `~/image-studio/`. Para compartir sesiones, historial y memorias
+entre tus Macs, doble clic en **`Sincronizar iCloud.command`**: mueve la carpeta a
+iCloud Drive y deja un symlink en su lugar (la app no nota la diferencia). En el otro
+Mac: clona el repo, ejecuta el mismo script y conecta tus claves con el botón API.
+Si el otro Mac tenía datos propios, se respaldan en `~/image-studio-backup-<fecha>/`.
