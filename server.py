@@ -1970,7 +1970,7 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._guard():
             return
-        if self.path in ("/", "/index.html"):
+        if urlparse(self.path).path in ("/", "/index.html"):
             return self._send(200, HTML, "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         if self.path == "/keystatus":
