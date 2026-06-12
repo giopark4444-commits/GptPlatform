@@ -29,6 +29,7 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Sección Video** (modo `4`, vía fal.ai con una sola clave en `~/.fal_key`) con **tres pestañas independientes y la API completa de cada modelo**:
   - **Seedance 2.0** (Estándar/Fast): texto→video, imagen→video con **frame final opcional**, y **modo referencia multimodal** (hasta 9 imágenes + 3 videos de estilo/movimiento + 3 audios guía, máx 12 archivos) para mantener personajes y estética entre tomas. 480p–1080p, duración auto/4–15s, 7 aspectos, audio nativo, seed.
   - **Kling 3.0** (Pro/Standard, este ~2.6× más barato): prompt único o **multi-toma** (varias escenas con duración por toma, formato "texto | segundos") con estructura customize/intelligent, imagen inicial **y final**, 3–15s, 3 aspectos, audio nativo es/en, prompt negativo y CFG.
+  - **Google Veo 3.1**: texto→video e imagen→video con audio nativo (diálogos, música, ambiente), 4s/6s/8s, **720p/1080p/4K**, 16:9 o 9:16, prompt negativo, auto-fix y seed. $0.20–0.60/s según resolución y audio.
   - **OmniHuman** (1.5/1.0): avatar que habla a partir de imagen + audio (elegible directo del historial de voces generadas), con indicaciones de texto, turbo y 720p/1080p en la 1.5. $0.14/s.
 
   Generación asíncrona con estado de cola en vivo; el MP4 se descarga solo al historial y a tu carpeta, con su sección de Video en el panel derecho (reproducir, descargar, borrar).
