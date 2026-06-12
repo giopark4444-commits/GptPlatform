@@ -22,10 +22,14 @@ EL_API = "https://api.elevenlabs.io/v1"
 FAL_KEY_FILE = HOME / ".fal_key"
 FAL_QUEUE = "https://queue.fal.run"
 VIDEO_MODELS = {
-    "seedance": {"t2v": "bytedance/seedance-2.0/text-to-video", "i2v": "bytedance/seedance-2.0/image-to-video"},
-    "seedance-fast": {"t2v": "bytedance/seedance-2.0/fast/text-to-video", "i2v": "bytedance/seedance-2.0/fast/image-to-video"},
+    "seedance": {"t2v": "bytedance/seedance-2.0/text-to-video", "i2v": "bytedance/seedance-2.0/image-to-video",
+                 "r2v": "bytedance/seedance-2.0/reference-to-video"},
+    "seedance-fast": {"t2v": "bytedance/seedance-2.0/fast/text-to-video", "i2v": "bytedance/seedance-2.0/fast/image-to-video",
+                      "r2v": "bytedance/seedance-2.0/fast/reference-to-video"},
     "kling-pro": {"t2v": "fal-ai/kling-video/v3/pro/text-to-video", "i2v": "fal-ai/kling-video/v3/pro/image-to-video"},
+    "kling-std": {"t2v": "fal-ai/kling-video/v3/standard/text-to-video", "i2v": "fal-ai/kling-video/v3/standard/image-to-video"},
     "omnihuman": {"av": "fal-ai/bytedance/omnihuman/v1.5"},
+    "omnihuman-v1": {"av": "fal-ai/bytedance/omnihuman"},
 }
 PENDING_VIDEOS = {}  # request_id -> {model_id, meta}
 ROOT = HOME / "image-studio"
@@ -788,37 +792,99 @@ audio{width:100%;height:40px}
       <p class="hint">fal.ai da acceso a Seedance, Kling y OmniHuman con una sola clave (se guarda en <span class="mono">~/.fal_key</span>). Consíguela en fal.ai → Dashboard → Keys; regalan créditos al registrarse.</p>
     </div>
     <div id="vidMain" class="hide">
-      <div class="field"><label>Modelo</label>
-        <select id="vidModel">
-          <option value="seedance" selected>Seedance 2.0 · cine + audio nativo</option>
-          <option value="seedance-fast">Seedance 2.0 Fast · más barato</option>
-          <option value="kling-pro">Kling 3.0 Pro · cinemático</option>
-          <option value="omnihuman">OmniHuman 1.5 · avatar que habla</option>
-        </select></div>
-      <div class="field"><label id="vidPromptLbl">Prompt</label>
-        <textarea id="vidPrompt" style="min-height:96px" placeholder="Describe la escena, el movimiento de cámara, la acción…"></textarea></div>
-      <div class="field"><label id="vidImgLbl">Imagen inicial · opcional</label>
-        <div class="drop" id="dropVidImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Arrastra, pega o elige imagen</div>
-        <input type="file" id="vidImgFile" accept="image/png,image/jpeg,image/webp" class="hide">
-        <div class="thumbs" id="vidImgThumb"></div></div>
-      <div class="field hide" id="vidAudBox"><label>Audio que hablará · requerido</label>
-        <select id="vidAudSel" style="margin-bottom:8px"><option value="">— elegir del historial de audio —</option></select>
-        <div class="drop" id="dropVidAud" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>…o sube un audio</div>
-        <input type="file" id="vidAudFile" accept="audio/*" class="hide">
-        <p class="hint" id="vidAudInfo"></p></div>
-      <div class="field grid2" id="vidResBox">
-        <div><label>Resolución</label><select id="vidRes"><option value="480p">480p</option><option value="720p" selected>720p</option><option value="1080p">1080p</option></select></div>
-        <div id="vidDurBox"><label>Duración</label><select id="vidDur"><option value="auto" selected>Auto</option><option>4</option><option>5</option><option>6</option><option>8</option><option>10</option><option>12</option><option>15</option></select></div>
+      <div class="seg" id="vidSeg" style="margin-bottom:18px;width:100%">
+        <button class="on" data-vt="sd" style="flex:1;justify-content:center">Seedance</button>
+        <button data-vt="kl" style="flex:1;justify-content:center">Kling</button>
+        <button data-vt="oh" style="flex:1;justify-content:center">OmniHuman</button>
       </div>
-      <div class="field" id="vidAspBox"><label>Aspecto</label>
-        <select id="vidAsp"><option value="auto" selected>Auto</option><option>21:9</option><option>16:9</option><option>4:3</option><option>1:1</option><option>3:4</option><option>9:16</option></select></div>
-      <label class="check" id="vidAudChk"><input type="checkbox" id="vidGenAud" checked> Audio nativo del video</label>
-      <label class="check hide" id="vidTurboChk" style="margin-top:8px"><input type="checkbox" id="vidTurbo"> Turbo · más rápido, algo menos de calidad</label>
-      <div class="field hide" id="vidNegBox" style="margin-top:12px"><label>Prompt negativo</label>
-        <input type="text" id="vidNeg" placeholder="blur, distort, and low quality"></div>
-      <div class="field hide" id="vidCfgBox"><div class="slabel"><label>Fidelidad al prompt (CFG)</label><span class="v mono" id="vidCfgV">0.50</span></div>
-        <input type="range" id="vidCfg" min="0" max="1" step="0.05" value="0.5"></div>
-      <div class="field" id="vidSeedBox"><label>Seed · opcional</label><input type="text" id="vidSeed" class="mono" placeholder="reproducible"></div>
+
+      <div id="sdBox">
+        <div class="field"><label>Variante</label><select id="sdTier">
+          <option value="seedance" selected>Seedance 2.0 · máxima calidad</option>
+          <option value="seedance-fast">Seedance 2.0 Fast · más barato y rápido</option></select></div>
+        <div class="field"><label>Prompt</label>
+          <textarea id="sdPrompt" style="min-height:96px" placeholder="Describe escena, acción y movimiento de cámara…"></textarea></div>
+        <div class="field"><label>Imágenes de referencia · hasta 9</label>
+          <div class="drop" id="dropSdImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>1 imagen = frame inicial · 2+ = referencias</div>
+          <input type="file" id="sdImgFile" accept="image/png,image/jpeg,image/webp" multiple class="hide">
+          <div class="thumbs" id="sdImgThumbs"></div></div>
+        <div class="field grid2">
+          <div><label>Imagen final · opcional</label>
+            <div class="drop" id="dropSdEnd" style="padding:9px;font-size:11px">Frame final</div>
+            <input type="file" id="sdEndFile" accept="image/png,image/jpeg,image/webp" class="hide">
+            <div class="thumbs" id="sdEndThumb"></div></div>
+          <div><label>Audios guía · hasta 3</label>
+            <div class="drop" id="dropSdAud" style="padding:9px;font-size:11px">≤15s en total</div>
+            <input type="file" id="sdAudFile" accept="audio/*" multiple class="hide">
+            <p class="hint" id="sdAudList" style="margin-top:6px"></p></div></div>
+        <div class="field"><label>Videos de referencia · hasta 3 (2–15s, 50MB total)</label>
+          <div class="drop" id="dropSdVid" style="padding:9px;font-size:11px">Clips de estilo o movimiento</div>
+          <input type="file" id="sdVidFile" accept="video/mp4,video/webm,video/quicktime" multiple class="hide">
+          <p class="hint" id="sdVidList" style="margin-top:6px"></p></div>
+        <div class="field grid2">
+          <div><label>Resolución</label><select id="sdRes"><option>480p</option><option selected>720p</option><option>1080p</option></select></div>
+          <div><label>Duración</label><select id="sdDur"><option value="auto" selected>Auto</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option></select></div></div>
+        <div class="field"><label>Aspecto</label>
+          <select id="sdAsp"><option value="auto" selected>Auto</option><option>21:9</option><option>16:9</option><option>4:3</option><option>1:1</option><option>3:4</option><option>9:16</option></select></div>
+        <label class="check"><input type="checkbox" id="sdGenAud" checked> Audio nativo del video</label>
+        <div class="field" style="margin-top:12px"><label>Seed · opcional</label><input type="text" id="sdSeed" class="mono" placeholder="reproducible"></div>
+        <p class="hint">Con 2+ imágenes, videos o audios guía usa el modo referencia (máx 12 archivos en total): mantiene personajes, estilo y movimiento entre tomas.</p>
+      </div>
+
+      <div id="klBox" class="hide">
+        <div class="field"><label>Variante</label><select id="klTier">
+          <option value="kling-pro" selected>Kling 3.0 Pro · cinemático</option>
+          <option value="kling-std">Kling 3.0 Standard · ~2.6× más barato</option></select></div>
+        <div class="field"><label>Prompt</label>
+          <textarea id="klPrompt" style="min-height:84px" placeholder="Describe la escena y la acción…"></textarea></div>
+        <details class="adv"><summary><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Multi-toma · varias escenas en un video<svg class="chev" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="advbody">
+            <label>Una toma por línea · formato "texto | segundos"</label>
+            <textarea id="klMulti" style="min-height:74px;font-size:12.5px" placeholder="un dron sobrevuela la costa al amanecer | 4&#10;primer plano de la ola rompiendo | 3"></textarea>
+            <label style="margin-top:10px">Estructura de tomas</label>
+            <select id="klShot"><option value="customize" selected>Customize · respeta mis tomas</option><option value="intelligent">Intelligent · el modelo decide los cortes</option></select>
+            <p class="hint">Si escribes tomas aquí, sustituyen al prompt único.</p>
+          </div></details>
+        <div class="field grid2" style="margin-top:14px">
+          <div><label>Imagen inicial · opcional</label>
+            <div class="drop" id="dropKlImg" style="padding:9px;font-size:11px">Frame inicial</div>
+            <input type="file" id="klImgFile" accept="image/png,image/jpeg,image/webp" class="hide">
+            <div class="thumbs" id="klImgThumb"></div></div>
+          <div><label>Imagen final · opcional</label>
+            <div class="drop" id="dropKlEnd" style="padding:9px;font-size:11px">Frame final</div>
+            <input type="file" id="klEndFile" accept="image/png,image/jpeg,image/webp" class="hide">
+            <div class="thumbs" id="klEndThumb"></div></div></div>
+        <div class="field grid2">
+          <div><label>Duración</label><select id="klDur"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option></select></div>
+          <div><label>Aspecto</label><select id="klAsp"><option selected>16:9</option><option>9:16</option><option>1:1</option></select></div></div>
+        <label class="check"><input type="checkbox" id="klGenAud" checked> Audio nativo (español/inglés)</label>
+        <div class="field" style="margin-top:12px"><label>Prompt negativo</label>
+          <input type="text" id="klNeg" placeholder="blur, distort, and low quality"></div>
+        <div class="field"><div class="slabel"><label>Fidelidad al prompt (CFG)</label><span class="v mono" id="klCfgV">0.50</span></div>
+          <input type="range" id="klCfg" min="0" max="1" step="0.05" value="0.5"></div>
+      </div>
+
+      <div id="ohBox" class="hide">
+        <div class="field"><label>Versión</label><select id="ohVer">
+          <option value="omnihuman" selected>OmniHuman 1.5 · prompt, turbo y resolución</option>
+          <option value="omnihuman-v1">OmniHuman 1.0 · clásico</option></select></div>
+        <div class="field"><label>Imagen de la persona · requerida</label>
+          <div class="drop" id="dropOhImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>Arrastra o elige la foto</div>
+          <input type="file" id="ohImgFile" accept="image/png,image/jpeg,image/webp" class="hide">
+          <div class="thumbs" id="ohImgThumb"></div></div>
+        <div class="field"><label>Audio que hablará · requerido</label>
+          <select id="ohAudSel" style="margin-bottom:8px"><option value="">— elegir del historial de audio —</option></select>
+          <div class="drop" id="dropOhAud" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>…o sube un audio</div>
+          <input type="file" id="ohAudFile" accept="audio/*" class="hide">
+          <p class="hint" id="ohAudInfo"></p></div>
+        <div class="field" id="ohPromptBox"><label>Indicaciones · opcional</label>
+          <textarea id="ohPrompt" style="min-height:58px;font-size:12.5px" placeholder="gestos, emoción, encuadre…"></textarea></div>
+        <div class="field grid2" id="ohResRow">
+          <div><label>Resolución</label><select id="ohRes"><option>720p</option><option selected>1080p</option></select></div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:4px"><label class="check"><input type="checkbox" id="ohTurbo"> Turbo · más rápido</label></div></div>
+        <p class="hint">Audio ≤30s en 1080p · ≤60s en 720p. Cobra $0.14 por segundo de video.</p>
+      </div>
+
       <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">~$—</span></div>
       <button class="primary" id="vidGo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vidGoTxt">Generar video</span></button>
       <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
@@ -1607,8 +1673,7 @@ const APAUSE='<svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></s
 const ADOC='<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
 let audEl=new Audio(),playingFile=null;
 audEl.onended=()=>{playingFile=null;renderAud()};
-function renderAud(){renderVid();
- if($('vidModel')&&$('vidModel').value==='omnihuman')fillVidAudSel();
+function renderAud(){renderVid();fillOhAudSel();
  const items=hist.filter(it=>['tts','stt','sfx'].includes(it.kind));
  $('audSec').classList.toggle('hide',!items.length);
  $('audList').innerHTML=items.slice(0,15).map(it=>{
@@ -1643,90 +1708,134 @@ $('audList').onclick=async e=>{
  renderAud()};
 
 // ===== video: Seedance · Kling · OmniHuman (vía fal.ai) =====
-let falReady=false,vidImg=null,vidAud=null,vidAudDur=0,vidPoll=null;
+let falReady=false,vidTab='sd',vidPoll=null;
+let sdImgs=[],sdEnd=null,sdAuds=[],sdVids=[],klImg=null,klEnd=null,ohImg=null,ohAud=null,ohAudDur=0;
 const VID_RATES={seedance:{'480p':0.15,'720p':0.30,'1080p':0.68},
  'seedance-fast':{'480p':0.12,'720p':0.24,'1080p':0.50},
- 'kling-pro':{on:0.336,off:0.224},omnihuman:0.14};
+ 'kling-pro':{on:0.336,off:0.224},'kling-std':{on:0.126,off:0.084},omnihuman:0.14};
 async function falInit(){const s=await(await fetch('/falstatus')).json();
  falReady=s.ok;
  $('falConnect').classList.toggle('hide',s.ok);$('vidMain').classList.toggle('hide',!s.ok);
- if(s.ok)vidModelUI()}
+ if(s.ok)vidEstCalc()}
 $('falKeySave').onclick=async()=>{const k=$('falKeyIn').value.trim();if(!k)return;
  $('falKeySave').textContent='…';
  const r=await(await fetch('/falkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
  $('falKeySave').textContent='Conectar';
  if(!r.ok){toast(r.error||'Clave inválida','bad');return}
  toast('fal.ai conectado');falInit()};
-function vidModelUI(){const m=$('vidModel').value,omni=m==='omnihuman',kling=m==='kling-pro',seed=m.startsWith('seedance');
- $('vidPromptLbl').textContent=omni?'Indicaciones · opcional':'Prompt';
- $('vidImgLbl').textContent=omni?'Imagen de la persona · requerida':'Imagen inicial · opcional';
- $('vidAudBox').classList.toggle('hide',!omni);
- $('vidDurBox').classList.toggle('hide',omni);
- $('vidAspBox').classList.toggle('hide',omni);
- $('vidAudChk').classList.toggle('hide',omni);
- $('vidTurboChk').classList.toggle('hide',!omni);
- $('vidNegBox').classList.toggle('hide',!kling);
- $('vidCfgBox').classList.toggle('hide',!kling);
- $('vidSeedBox').classList.toggle('hide',!seed);
- const res=$('vidRes');
- [...res.options].forEach(o=>o.disabled=(omni&&o.value==='480p')||(kling&&o.value!=='720p'));
- if(omni&&res.value==='480p')res.value='1080p';
- $('vidResBox').style.display=kling?'none':'';
- if(omni)fillVidAudSel();
+function vidSetTab(t){vidTab=t;
+ [...$('vidSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.vt===t));
+ $('sdBox').classList.toggle('hide',t!=='sd');
+ $('klBox').classList.toggle('hide',t!=='kl');
+ $('ohBox').classList.toggle('hide',t!=='oh');
+ if(t==='oh')fillOhAudSel();
  vidEstCalc()}
-$('vidModel').onchange=vidModelUI;
-function vidEstCalc(){const m=$('vidModel').value;let est=null,note='';
- if(m==='omnihuman'){if(vidAudDur)est=vidAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
- else{const auto=$('vidDur').value==='auto';
-  let secs=auto?(m==='kling-pro'?5:8):+$('vidDur').value;
-  if(m==='kling-pro')est=secs*($('vidGenAud').checked?VID_RATES['kling-pro'].on:VID_RATES['kling-pro'].off);
-  else est=secs*(VID_RATES[m][$('vidRes').value]||0.3);
-  if(auto)note=' (auto ≈'+secs+'s)'}
+$('vidSeg').onclick=e=>{const b=e.target.closest('button');if(b)vidSetTab(b.dataset.vt)};
+function vidEstCalc(){let est=null,note='';
+ if(vidTab==='oh'){if(ohAudDur)est=ohAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
+ else if(vidTab==='kl'){const secs=+$('klDur').value;
+  est=secs*($('klGenAud').checked?VID_RATES[$('klTier').value].on:VID_RATES[$('klTier').value].off)}
+ else{const auto=$('sdDur').value==='auto',secs=auto?8:+$('sdDur').value;
+  est=secs*(VID_RATES[$('sdTier').value][$('sdRes').value]||0.3);
+  if(auto)note=' (auto ≈8s)'}
  $('vidEst').textContent=est!==null?'~$'+est.toFixed(2)+note:note}
-['vidRes','vidDur','vidGenAud'].forEach(id=>$(id).onchange=vidEstCalc);
-$('vidCfg').oninput=()=>$('vidCfgV').textContent=(+$('vidCfg').value).toFixed(2);
-function renderVidImg(){$('vidImgThumb').innerHTML=vidImg?`<div class="thumb"><img src="data:image/png;base64,${vidImg.b64}" alt=""><button class="x" id="vix" title="Quitar">${xicon()}</button></div>`:'';
- if(vidImg)$('vix').onclick=()=>{vidImg=null;renderVidImg()}}
-$('dropVidImg').onclick=()=>$('vidImgFile').click();
-$('vidImgFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
- vidImg={name:f.name,b64:await fileToB64(f)};renderVidImg();e.target.value=''};
-['dragover','dragenter'].forEach(ev=>$('dropVidImg').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropVidImg').classList.add('hot')}));
-$('dropVidImg').addEventListener('dragleave',e=>{e.preventDefault();$('dropVidImg').classList.remove('hot')});
-$('dropVidImg').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropVidImg').classList.remove('hot');$('drop').classList.remove('hot');
- const sf=e.dataTransfer.getData('text/x-studio-file');
- if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();vidImg={name:sf,b64:await blobToB64(b)};renderVidImg();return}
- const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/'));
- if(f){vidImg={name:f.name,b64:await fileToB64(f)};renderVidImg()}});
-function fillVidAudSel(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='sfx');
- const cur=$('vidAudSel').value;
- $('vidAudSel').innerHTML='<option value="">— elegir del historial de audio —</option>'
+['sdTier','sdRes','sdDur','klTier','klDur','klGenAud','ohVer'].forEach(id=>$(id).onchange=vidEstCalc);
+$('klCfg').oninput=()=>$('klCfgV').textContent=(+$('klCfg').value).toFixed(2);
+$('ohVer').addEventListener('change',()=>{const v15=$('ohVer').value==='omnihuman';
+ $('ohPromptBox').classList.toggle('dim',!v15);$('ohResRow').classList.toggle('dim',!v15)});
+// cableado genérico de dropzones (clic, arrastre, tarjetas del historial)
+function wireDrop(dropId,fileId,handler){
+ $(dropId).onclick=()=>$(fileId).click();
+ $(fileId).onchange=async e=>{await handler([...e.target.files]);e.target.value=''};
+ ['dragover','dragenter'].forEach(ev=>$(dropId).addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$(dropId).classList.add('hot')}));
+ $(dropId).addEventListener('dragleave',e=>{e.preventDefault();$(dropId).classList.remove('hot')});
+ $(dropId).addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();
+  $(dropId).classList.remove('hot');$('drop').classList.remove('hot');
+  const sf=e.dataTransfer.getData('text/x-studio-file');
+  if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();
+   await handler([new File([b],sf,{type:'image/png'})]);return}
+  await handler([...e.dataTransfer.files])})}
+function thumbHTML(b64,xid,i){return `<div class="thumb"><img src="data:image/png;base64,${b64}" alt=""><button class="x" data-${xid}="${i}" title="Quitar">${xicon()}</button></div>`}
+function renderSd(){
+ $('sdImgThumbs').innerHTML=sdImgs.map((m,i)=>thumbHTML(m.b64,'sdi',i)).join('');
+ $('sdEndThumb').innerHTML=sdEnd?thumbHTML(sdEnd.b64,'sde',0):'';
+ $('sdAudList').textContent=sdAuds.length?sdAuds.map(a=>a.name).join(' · ')+' (clic para vaciar)':'';
+ $('sdVidList').textContent=sdVids.length?sdVids.map(v=>v.name).join(' · ')+' (clic para vaciar)':''}
+$('sdImgThumbs').onclick=e=>{const b=e.target.closest('.x');if(b){sdImgs.splice(+b.dataset.sdi,1);renderSd()}};
+$('sdEndThumb').onclick=e=>{if(e.target.closest('.x')){sdEnd=null;renderSd()}};
+$('sdAudList').onclick=()=>{sdAuds=[];renderSd()};
+$('sdVidList').onclick=()=>{sdVids=[];renderSd()};
+wireDrop('dropSdImg','sdImgFile',async fs=>{
+ for(const f of fs){if(!f.type.startsWith('image/'))continue;
+  if(sdImgs.length>=9){toast('Máximo 9 imágenes','bad');break}
+  sdImgs.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
+wireDrop('dropSdEnd','sdEndFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
+ if(f)sdEnd={name:f.name,b64:await fileToB64(f)};renderSd()});
+wireDrop('dropSdAud','sdAudFile',async fs=>{
+ for(const f of fs){if(sdAuds.length>=3){toast('Máximo 3 audios','bad');break}
+  if(f.size>15*1024*1024){toast(f.name+' supera 15MB','bad');continue}
+  sdAuds.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
+wireDrop('dropSdVid','sdVidFile',async fs=>{
+ for(const f of fs){if(sdVids.length>=3){toast('Máximo 3 videos','bad');break}
+  if(f.size>50*1024*1024){toast(f.name+' supera 50MB','bad');continue}
+  sdVids.push({name:f.name,b64:await fileToB64(f)})}renderSd()});
+function renderKl(){
+ $('klImgThumb').innerHTML=klImg?thumbHTML(klImg.b64,'kli',0):'';
+ $('klEndThumb').innerHTML=klEnd?thumbHTML(klEnd.b64,'kle',0):''}
+$('klImgThumb').onclick=e=>{if(e.target.closest('.x')){klImg=null;renderKl()}};
+$('klEndThumb').onclick=e=>{if(e.target.closest('.x')){klEnd=null;renderKl()}};
+wireDrop('dropKlImg','klImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
+ if(f)klImg={name:f.name,b64:await fileToB64(f)};renderKl()});
+wireDrop('dropKlEnd','klEndFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
+ if(f)klEnd={name:f.name,b64:await fileToB64(f)};renderKl()});
+function renderOh(){$('ohImgThumb').innerHTML=ohImg?thumbHTML(ohImg.b64,'ohi',0):''}
+$('ohImgThumb').onclick=e=>{if(e.target.closest('.x')){ohImg=null;renderOh()}};
+wireDrop('dropOhImg','ohImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
+ if(f)ohImg={name:f.name,b64:await fileToB64(f)};renderOh()});
+function fillOhAudSel(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='sfx');
+ const cur=$('ohAudSel').value;
+ $('ohAudSel').innerHTML='<option value="">— elegir del historial de audio —</option>'
   +items.slice(0,20).map(it=>`<option value="${esc(it.file)}" ${it.file===cur?'selected':''}>${esc((it.prompt||it.file).slice(0,50))}</option>`).join('')}
-$('vidAudSel').onchange=async()=>{const f=$('vidAudSel').value;
- if(!f){vidAud=null;vidAudDur=0;$('vidAudInfo').textContent='';vidEstCalc();return}
- vidAud={hist_file:f};
+$('ohAudSel').onchange=()=>{const f=$('ohAudSel').value;
+ if(!f){ohAud=null;ohAudDur=0;$('ohAudInfo').textContent='';vidEstCalc();return}
+ ohAud={hist_file:f};
  const a=new Audio('/file?name='+encodeURIComponent(f));
- a.onloadedmetadata=()=>{vidAudDur=a.duration/60;
-  $('vidAudInfo').textContent='Del historial · '+Math.round(a.duration)+'s';vidEstCalc()}};
-$('dropVidAud').onclick=()=>$('vidAudFile').click();
-$('vidAudFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
- vidAud={b64:await fileToB64(f)};$('vidAudSel').value='';
+ a.onloadedmetadata=()=>{ohAudDur=a.duration/60;
+  $('ohAudInfo').textContent='Del historial · '+Math.round(a.duration)+'s';vidEstCalc()}};
+wireDrop('dropOhAud','ohAudFile',async fs=>{const f=fs.find(x=>x.type.startsWith('audio/'))||fs[0];if(!f)return;
+ ohAud={b64:await fileToB64(f)};$('ohAudSel').value='';
  const u=URL.createObjectURL(f),a=new Audio();
- a.onloadedmetadata=()=>{vidAudDur=a.duration/60;URL.revokeObjectURL(u);
-  $('vidAudInfo').textContent=f.name+' · '+Math.round(a.duration)+'s';vidEstCalc()};
- a.src=u;e.target.value=''};
+ a.onloadedmetadata=()=>{ohAudDur=a.duration/60;URL.revokeObjectURL(u);
+  $('ohAudInfo').textContent=f.name+' · '+Math.round(a.duration)+'s';vidEstCalc()};
+ a.src=u});
+function klMultiList(){return $('klMulti').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+ const m=l.split('|');const o={prompt:m[0].trim()};
+ if(m[1]&&(+m[1].trim())>0)o.duration=String(Math.round(+m[1].trim()));return o})}
 async function runVID(){
  if(!falReady){toast('Conecta tu clave de fal.ai','bad');return}
- const m=$('vidModel').value,prompt=$('vidPrompt').value.trim();
- if(m!=='omnihuman'&&!prompt){toast('Escribe el prompt del video','bad');$('vidPrompt').focus();return}
- if(m==='omnihuman'&&!vidImg){toast('OmniHuman necesita la imagen de la persona','bad');return}
- if(m==='omnihuman'&&!vidAud){toast('Elige o sube el audio que hablará','bad');return}
  const est=parseFloat(($('vidEst').textContent.match(/[\d.]+/)||[0])[0])||0;
- const body={model:m,prompt,resolution:$('vidRes').value,duration:$('vidDur').value,
-  aspect:$('vidAsp').value,gen_audio:$('vidGenAud').checked,seed:$('vidSeed').value.trim(),
-  negative:$('vidNeg').value,cfg:+$('vidCfg').value,turbo:$('vidTurbo').checked,
-  cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked};
- if(vidImg)body.image=vidImg;
- if(m==='omnihuman')body.audio=vidAud;
+ let body={cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked},title='';
+ if(vidTab==='sd'){
+  const prompt=$('sdPrompt').value.trim();
+  if(!prompt){toast('Escribe el prompt del video','bad');$('sdPrompt').focus();return}
+  Object.assign(body,{model:$('sdTier').value,prompt,images:sdImgs,videos:sdVids,audios:sdAuds,
+   resolution:$('sdRes').value,duration:$('sdDur').value,aspect:$('sdAsp').value,
+   gen_audio:$('sdGenAud').checked,seed:$('sdSeed').value.trim()});
+  if(sdEnd)body.end_image=sdEnd;title=prompt}
+ else if(vidTab==='kl'){
+  const prompt=$('klPrompt').value.trim(),multi=klMultiList();
+  if(!prompt&&!multi.length){toast('Escribe el prompt (o tomas multi-toma)','bad');$('klPrompt').focus();return}
+  Object.assign(body,{model:$('klTier').value,prompt,multi_prompt:multi,shot_type:$('klShot').value,
+   duration:$('klDur').value,aspect:$('klAsp').value,gen_audio:$('klGenAud').checked,
+   negative:$('klNeg').value,cfg:+$('klCfg').value});
+  if(klImg){body.image=klImg;if(klEnd)body.end_image=klEnd}
+  title=prompt||multi.map(m=>m.prompt).join(' · ')}
+ else{
+  if(!ohImg){toast('OmniHuman necesita la imagen de la persona','bad');return}
+  if(!ohAud){toast('Elige o sube el audio que hablará','bad');return}
+  Object.assign(body,{model:$('ohVer').value,prompt:$('ohPrompt').value.trim(),image:ohImg,audio:ohAud,
+   resolution:$('ohRes').value,turbo:$('ohTurbo').checked});
+  title='Avatar · OmniHuman'}
  $('vidGo').disabled=true;$('vidGoTxt').textContent='Enviando…';
  $('vidEmpty').classList.add('hide');$('vidResult').classList.add('hide');$('vidProgress').classList.remove('hide');
  $('vidProgTxt').textContent='Generando video…';$('vidProgSub').textContent='Enviando trabajo a fal.ai';
@@ -1741,7 +1850,7 @@ async function runVID(){
     if(!s.done){$('vidProgSub').textContent=(s.status==='IN_QUEUE'?'En cola'+(s.queue!=null?' · posición '+s.queue:''):'Procesando')+' · '+mins+'m '+secs+'s';return}
     clearInterval(vidPoll);vidPoll=null;
     $('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
-    $('vidPlayer').src=s.url;$('vidTitle').textContent=prompt.slice(0,60)||'Avatar · OmniHuman';
+    $('vidPlayer').src=s.url;$('vidTitle').textContent=title.slice(0,60);
     $('vidCost').innerHTML='<b>$'+(s.cost||0).toFixed(2)+'</b>';
     $('vidDl').href=s.url;$('vidDl').setAttribute('download',s.file);
     $('vidPlayer').play().catch(()=>{});
@@ -2493,6 +2602,18 @@ class H(BaseHTTPRequestHandler):
             pass
         return self._json({"ok": True})
 
+    def _audio_b64(self, aud):
+        """{b64} directo o {hist_file} del historial → (b64, mime) o None"""
+        if aud and aud.get("hist_file"):
+            fp = HIST_DIR / os.path.basename(aud["hist_file"])
+            if not fp.is_file():
+                return None
+            ext = fp.suffix.lstrip(".").lower()
+            return base64.b64encode(fp.read_bytes()).decode(), MIME.get(ext, "audio/mpeg").split(";")[0]
+        if aud and aud.get("b64"):
+            return aud["b64"], "audio/mpeg"
+        return None
+
     def h_video(self):
         b = self._body()
         if not fal_key():
@@ -2501,49 +2622,75 @@ class H(BaseHTTPRequestHandler):
         if model not in VIDEO_MODELS:
             return self._json({"error": "Modelo de video desconocido"})
         prompt = (b.get("prompt") or "").strip()
-        img = b.get("image")  # {name, b64} opcional (obligatoria en omnihuman)
-        if model == "omnihuman":
-            aud = b.get("audio")  # {b64} o {hist_file}
+
+        if model.startswith("omnihuman"):
+            img = b.get("image")
             if not img:
-                return self._json({"error": "OmniHuman necesita una imagen de la persona."})
-            if aud and aud.get("hist_file"):
-                fp = HIST_DIR / os.path.basename(aud["hist_file"])
-                if not fp.is_file():
-                    return self._json({"error": "No encuentro ese audio del historial."})
-                ext = fp.suffix.lstrip(".").lower()
-                aud_b64 = base64.b64encode(fp.read_bytes()).decode()
-                aud_mime = MIME.get(ext, "audio/mpeg").split(";")[0]
-            elif aud and aud.get("b64"):
-                aud_b64, aud_mime = aud["b64"], "audio/mpeg"
-            else:
+                return self._json({"error": "OmniHuman necesita la imagen de la persona."})
+            a = self._audio_b64(b.get("audio"))
+            if not a:
                 return self._json({"error": "OmniHuman necesita un audio (súbelo o elige uno del historial)."})
             payload = {"image_url": "data:image/png;base64," + img["b64"],
-                       "audio_url": f"data:{aud_mime};base64," + aud_b64,
-                       "resolution": b.get("resolution", "1080p"),
-                       "turbo_mode": bool(b.get("turbo"))}
-            if prompt:
-                payload["prompt"] = prompt
+                       "audio_url": f"data:{a[1]};base64," + a[0]}
+            if model == "omnihuman":  # solo la 1.5 acepta prompt/turbo/resolución
+                payload["resolution"] = b.get("resolution", "1080p")
+                payload["turbo_mode"] = bool(b.get("turbo"))
+                if prompt:
+                    payload["prompt"] = prompt
             model_id = VIDEO_MODELS[model]["av"]
-        else:
+
+        elif model.startswith("seedance"):
             if not prompt:
                 return self._json({"error": "Escribe el prompt del video."})
-            payload = {"prompt": prompt, "generate_audio": bool(b.get("gen_audio", True))}
-            if model.startswith("seedance"):
-                payload["resolution"] = b.get("resolution", "720p")
-                payload["duration"] = str(b.get("duration", "auto"))
-                payload["aspect_ratio"] = b.get("aspect", "auto")
-                if str(b.get("seed") or "").strip().isdigit():
-                    payload["seed"] = int(b["seed"])
-            else:  # kling-pro (no acepta "auto": 3–15s, def. 5)
-                d = str(b.get("duration", "5"))
-                payload["duration"] = d if d.isdigit() else "5"
-                payload["aspect_ratio"] = b.get("aspect", "16:9")
-                if (b.get("negative") or "").strip():
-                    payload["negative_prompt"] = b["negative"].strip()
-                if b.get("cfg") is not None:
-                    payload["cfg_scale"] = float(b["cfg"])
+            payload = {"prompt": prompt, "generate_audio": bool(b.get("gen_audio", True)),
+                       "resolution": b.get("resolution", "720p"),
+                       "duration": str(b.get("duration", "auto")),
+                       "aspect_ratio": b.get("aspect", "auto")}
+            if str(b.get("seed") or "").strip().isdigit():
+                payload["seed"] = int(b["seed"])
+            imgs = b.get("images") or []
+            vids = b.get("videos") or []
+            auds = b.get("audios") or []
+            if len(imgs) > 9 or len(vids) > 3 or len(auds) > 3 or len(imgs) + len(vids) + len(auds) > 12:
+                return self._json({"error": "Máximo 9 imágenes, 3 videos y 3 audios (12 archivos en total)."})
+            if len(imgs) == 1 and not vids and not auds:
+                payload["image_url"] = "data:image/png;base64," + imgs[0]["b64"]
+                if b.get("end_image"):
+                    payload["end_image_url"] = "data:image/png;base64," + b["end_image"]["b64"]
+                model_id = VIDEO_MODELS[model]["i2v"]
+            elif imgs or vids or auds:
+                if imgs:
+                    payload["image_urls"] = ["data:image/png;base64," + i["b64"] for i in imgs]
+                if vids:
+                    payload["video_urls"] = ["data:video/mp4;base64," + v["b64"] for v in vids]
+                if auds:
+                    payload["audio_urls"] = ["data:audio/mpeg;base64," + a["b64"] for a in auds]
+                model_id = VIDEO_MODELS[model]["r2v"]
+            else:
+                model_id = VIDEO_MODELS[model]["t2v"]
+
+        else:  # kling pro/standard
+            multi = b.get("multi_prompt") or []
+            if not prompt and not multi:
+                return self._json({"error": "Escribe el prompt del video (o tomas multi-prompt)."})
+            d = str(b.get("duration", "5"))
+            payload = {"duration": d if d.isdigit() else "5",
+                       "generate_audio": bool(b.get("gen_audio", True)),
+                       "aspect_ratio": b.get("aspect", "16:9"),
+                       "shot_type": b.get("shot_type", "customize")}
+            if multi:
+                payload["multi_prompt"] = multi
+            else:
+                payload["prompt"] = prompt
+            if (b.get("negative") or "").strip():
+                payload["negative_prompt"] = b["negative"].strip()
+            if b.get("cfg") is not None:
+                payload["cfg_scale"] = float(b["cfg"])
+            img = b.get("image")
             if img:
-                payload["image_url"] = "data:image/png;base64," + img["b64"]
+                payload["start_image_url"] = "data:image/png;base64," + img["b64"]
+                if b.get("end_image"):
+                    payload["end_image_url"] = "data:image/png;base64," + b["end_image"]["b64"]
                 model_id = VIDEO_MODELS[model]["i2v"]
             else:
                 model_id = VIDEO_MODELS[model]["t2v"]
