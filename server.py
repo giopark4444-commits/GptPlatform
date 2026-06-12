@@ -19,6 +19,15 @@ HOME = Path.home()
 KEY_FILE = HOME / ".openai_key"
 EL_KEY_FILE = HOME / ".elevenlabs_key"
 EL_API = "https://api.elevenlabs.io/v1"
+FAL_KEY_FILE = HOME / ".fal_key"
+FAL_QUEUE = "https://queue.fal.run"
+VIDEO_MODELS = {
+    "seedance": {"t2v": "bytedance/seedance-2.0/text-to-video", "i2v": "bytedance/seedance-2.0/image-to-video"},
+    "seedance-fast": {"t2v": "bytedance/seedance-2.0/fast/text-to-video", "i2v": "bytedance/seedance-2.0/fast/image-to-video"},
+    "kling-pro": {"t2v": "fal-ai/kling-video/v3/pro/text-to-video", "i2v": "fal-ai/kling-video/v3/pro/image-to-video"},
+    "omnihuman": {"av": "fal-ai/bytedance/omnihuman/v1.5"},
+}
+PENDING_VIDEOS = {}  # request_id -> {model_id, meta}
 ROOT = HOME / "image-studio"
 HIST_DIR = ROOT / "historial"
 HIST_JSON = ROOT / "historial.json"
@@ -42,7 +51,7 @@ TTS_PRICE = {"tts-1": 15.0, "tts-1-hd": 30.0}  # USD por 1M de caracteres
 STT_PRICE = {"whisper-1": 0.006, "gpt-4o-transcribe": 0.006, "gpt-4o-mini-transcribe": 0.003}  # USD por minuto
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
         "mp3": "audio/mpeg", "wav": "audio/wav", "aac": "audio/aac", "flac": "audio/flac",
-        "opus": "audio/ogg", "pcm": "application/octet-stream",
+        "opus": "audio/ogg", "pcm": "application/octet-stream", "mp4": "video/mp4",
         "txt": "text/plain; charset=utf-8", "srt": "text/plain; charset=utf-8",
         "vtt": "text/vtt", "json": "application/json"}
 
@@ -53,6 +62,10 @@ def key():
 
 def el_key():
     return EL_KEY_FILE.read_text().strip() if EL_KEY_FILE.exists() else ""
+
+
+def fal_key():
+    return FAL_KEY_FILE.read_text().strip() if FAL_KEY_FILE.exists() else ""
 
 
 def load_json(p, d):
@@ -401,8 +414,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .maskfoot .acts{display:flex;gap:9px}
 .maskfoot .primary{width:auto;padding:11px 22px}
 
-/* audio */
-#audioStage{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+/* audio + video */
+#audioStage,#videoStage{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
 .audcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
 .audhead{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600}
 audio{width:100%;height:40px}
@@ -520,6 +533,7 @@ audio{width:100%;height:40px}
     <button id="mCrear" class="on"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>Crear<kbd>1</kbd></button>
     <button id="mEditar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.4"/></svg>Editar<kbd>2</kbd></button>
     <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>3</kbd></button>
+    <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>4</kbd></button>
   </div>
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
@@ -766,6 +780,50 @@ audio{width:100%;height:40px}
       <p class="hint">Efectos con ElevenLabs (usa la clave conectada en Voz → ElevenLabs). Hasta 22 segundos por efecto.</p>
     </div>
    </div>
+
+   <div id="videoPanel" class="hide">
+    <div id="falConnect" class="hide" style="margin-bottom:18px">
+      <label>Clave de fal.ai</label>
+      <div style="display:flex;gap:7px"><input type="password" id="falKeyIn" placeholder="key-id:secret…" autocomplete="off"><button class="ghost" id="falKeySave" style="flex:none">Conectar</button></div>
+      <p class="hint">fal.ai da acceso a Seedance, Kling y OmniHuman con una sola clave (se guarda en <span class="mono">~/.fal_key</span>). Consíguela en fal.ai → Dashboard → Keys; regalan créditos al registrarse.</p>
+    </div>
+    <div id="vidMain" class="hide">
+      <div class="field"><label>Modelo</label>
+        <select id="vidModel">
+          <option value="seedance" selected>Seedance 2.0 · cine + audio nativo</option>
+          <option value="seedance-fast">Seedance 2.0 Fast · más barato</option>
+          <option value="kling-pro">Kling 3.0 Pro · cinemático</option>
+          <option value="omnihuman">OmniHuman 1.5 · avatar que habla</option>
+        </select></div>
+      <div class="field"><label id="vidPromptLbl">Prompt</label>
+        <textarea id="vidPrompt" style="min-height:96px" placeholder="Describe la escena, el movimiento de cámara, la acción…"></textarea></div>
+      <div class="field"><label id="vidImgLbl">Imagen inicial · opcional</label>
+        <div class="drop" id="dropVidImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Arrastra, pega o elige imagen</div>
+        <input type="file" id="vidImgFile" accept="image/png,image/jpeg,image/webp" class="hide">
+        <div class="thumbs" id="vidImgThumb"></div></div>
+      <div class="field hide" id="vidAudBox"><label>Audio que hablará · requerido</label>
+        <select id="vidAudSel" style="margin-bottom:8px"><option value="">— elegir del historial de audio —</option></select>
+        <div class="drop" id="dropVidAud" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>…o sube un audio</div>
+        <input type="file" id="vidAudFile" accept="audio/*" class="hide">
+        <p class="hint" id="vidAudInfo"></p></div>
+      <div class="field grid2" id="vidResBox">
+        <div><label>Resolución</label><select id="vidRes"><option value="480p">480p</option><option value="720p" selected>720p</option><option value="1080p">1080p</option></select></div>
+        <div id="vidDurBox"><label>Duración</label><select id="vidDur"><option value="auto" selected>Auto</option><option>4</option><option>5</option><option>6</option><option>8</option><option>10</option><option>12</option><option>15</option></select></div>
+      </div>
+      <div class="field" id="vidAspBox"><label>Aspecto</label>
+        <select id="vidAsp"><option value="auto" selected>Auto</option><option>21:9</option><option>16:9</option><option>4:3</option><option>1:1</option><option>3:4</option><option>9:16</option></select></div>
+      <label class="check" id="vidAudChk"><input type="checkbox" id="vidGenAud" checked> Audio nativo del video</label>
+      <label class="check hide" id="vidTurboChk" style="margin-top:8px"><input type="checkbox" id="vidTurbo"> Turbo · más rápido, algo menos de calidad</label>
+      <div class="field hide" id="vidNegBox" style="margin-top:12px"><label>Prompt negativo</label>
+        <input type="text" id="vidNeg" placeholder="blur, distort, and low quality"></div>
+      <div class="field hide" id="vidCfgBox"><div class="slabel"><label>Fidelidad al prompt (CFG)</label><span class="v mono" id="vidCfgV">0.50</span></div>
+        <input type="range" id="vidCfg" min="0" max="1" step="0.05" value="0.5"></div>
+      <div class="field" id="vidSeedBox"><label>Seed · opcional</label><input type="text" id="vidSeed" class="mono" placeholder="reproducible"></div>
+      <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">~$—</span></div>
+      <button class="primary" id="vidGo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vidGoTxt">Generar video</span></button>
+      <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+    </div>
+   </div>
   </div>
 
   <!-- CENTRO -->
@@ -786,6 +844,20 @@ audio{width:100%;height:40px}
       <span class="costtag" id="cost"></span>
       <div class="acts"><a id="dl" download="imagen.png"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
       <button id="again"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Otra</button></div>
+    </div>
+   </div>
+
+   <div id="videoStage" class="hide">
+    <div class="audcard" id="vidEmpty" style="min-height:320px;align-items:center;justify-content:center">
+      <div class="empty"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><div>Tu video aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · 1–5 min por video</div></div>
+    </div>
+    <div class="audcard hide" id="vidProgress" style="min-height:320px;align-items:center;justify-content:center">
+      <div class="empty"><div class="spin"></div><div id="vidProgTxt">Generando video…</div><div class="hint" id="vidProgSub"></div></div>
+    </div>
+    <div class="audcard hide" id="vidResult">
+      <div class="audhead"><span id="vidTitle"></span><span class="costtag" id="vidCost"></span></div>
+      <video id="vidPlayer" controls style="width:100%;max-height:60vh;border-radius:10px;background:#000"></video>
+      <div class="resbar" style="margin-top:0"><div class="acts"><a id="vidDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a></div></div>
     </div>
    </div>
 
@@ -827,6 +899,10 @@ audio{width:100%;height:40px}
       <div class="thumbs" id="prefThumbs"></div>
       <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al generar</label>
       <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto (Crear y Editar), para mantener el mismo estilo sin re-subirlas. El estilo se guarda como <span class="mono">estilo.md</span> en la carpeta del proyecto y se antepone siempre al prompt.</p>
+    </div>
+    <div class="sec hide" id="vidSec">
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video</h3>
+      <div id="vidList"></div>
     </div>
     <div class="sec hide" id="audSec">
       <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Audio</h3>
@@ -893,14 +969,18 @@ $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$
 function bumpSess(c,n=1){sessCost+=c||0;sessN+=n;
  $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> gen'}
 function setMode(m){mode=m;
- $('mCrear').classList.toggle('on',m==='crear');$('mEditar').classList.toggle('on',m==='editar');$('mAudio').classList.toggle('on',m==='audio');
- const aud=m==='audio';
- $('imgPanel').classList.toggle('hide',aud);$('imgStage').classList.toggle('hide',aud);
+ $('mCrear').classList.toggle('on',m==='crear');$('mEditar').classList.toggle('on',m==='editar');
+ $('mAudio').classList.toggle('on',m==='audio');$('mVideo').classList.toggle('on',m==='video');
+ const aud=m==='audio',vid=m==='video',img=!aud&&!vid;
+ $('imgPanel').classList.toggle('hide',!img);$('imgStage').classList.toggle('hide',!img);
  $('audioPanel').classList.toggle('hide',!aud);$('audioStage').classList.toggle('hide',!aud);
- if(!aud){$('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
+ $('videoPanel').classList.toggle('hide',!vid);$('videoStage').classList.toggle('hide',!vid);
+ if(vid&&!falReady)falInit();
+ if(img){$('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
   $('refLbl').textContent=m==='editar'?'Imágenes a editar / combinar':'Referencias · opcional';
   $('goTxt').textContent=m==='editar'?'Editar':'Generar'}}
-$('mCrear').onclick=()=>setMode('crear');$('mEditar').onclick=()=>setMode('editar');$('mAudio').onclick=()=>setMode('audio');
+$('mCrear').onclick=()=>setMode('crear');$('mEditar').onclick=()=>setMode('editar');
+$('mAudio').onclick=()=>setMode('audio');$('mVideo').onclick=()=>setMode('video');
 
 function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return(a/g)+':'+(b/g)}
 function snap(v){return Math.round(v/16)*16}
@@ -1191,7 +1271,7 @@ const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx=
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 function galFiltered(){const f=$('galFilter').value;
- const imgs=hist.filter(it=>!['tts','stt','sfx'].includes(it.kind));
+ const imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
  return f==='*'?imgs:imgs.filter(it=>(it.project||'')===f)}
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.slice(0,shown).map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
@@ -1527,7 +1607,9 @@ const APAUSE='<svg viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></s
 const ADOC='<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
 let audEl=new Audio(),playingFile=null;
 audEl.onended=()=>{playingFile=null;renderAud()};
-function renderAud(){const items=hist.filter(it=>['tts','stt','sfx'].includes(it.kind));
+function renderAud(){renderVid();
+ if($('vidModel')&&$('vidModel').value==='omnihuman')fillVidAudSel();
+ const items=hist.filter(it=>['tts','stt','sfx'].includes(it.kind));
  $('audSec').classList.toggle('hide',!items.length);
  $('audList').innerHTML=items.slice(0,15).map(it=>{
   const playable=it.kind!=='stt',playing=playingFile===it.file;
@@ -1560,10 +1642,148 @@ $('audList').onclick=async e=>{
  else{audEl.src='/file?name='+encodeURIComponent(it.file);audEl.play();playingFile=it.file}
  renderAud()};
 
+// ===== video: Seedance · Kling · OmniHuman (vía fal.ai) =====
+let falReady=false,vidImg=null,vidAud=null,vidAudDur=0,vidPoll=null;
+const VID_RATES={seedance:{'480p':0.15,'720p':0.30,'1080p':0.68},
+ 'seedance-fast':{'480p':0.12,'720p':0.24,'1080p':0.50},
+ 'kling-pro':{on:0.336,off:0.224},omnihuman:0.14};
+async function falInit(){const s=await(await fetch('/falstatus')).json();
+ falReady=s.ok;
+ $('falConnect').classList.toggle('hide',s.ok);$('vidMain').classList.toggle('hide',!s.ok);
+ if(s.ok)vidModelUI()}
+$('falKeySave').onclick=async()=>{const k=$('falKeyIn').value.trim();if(!k)return;
+ $('falKeySave').textContent='…';
+ const r=await(await fetch('/falkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
+ $('falKeySave').textContent='Conectar';
+ if(!r.ok){toast(r.error||'Clave inválida','bad');return}
+ toast('fal.ai conectado');falInit()};
+function vidModelUI(){const m=$('vidModel').value,omni=m==='omnihuman',kling=m==='kling-pro',seed=m.startsWith('seedance');
+ $('vidPromptLbl').textContent=omni?'Indicaciones · opcional':'Prompt';
+ $('vidImgLbl').textContent=omni?'Imagen de la persona · requerida':'Imagen inicial · opcional';
+ $('vidAudBox').classList.toggle('hide',!omni);
+ $('vidDurBox').classList.toggle('hide',omni);
+ $('vidAspBox').classList.toggle('hide',omni);
+ $('vidAudChk').classList.toggle('hide',omni);
+ $('vidTurboChk').classList.toggle('hide',!omni);
+ $('vidNegBox').classList.toggle('hide',!kling);
+ $('vidCfgBox').classList.toggle('hide',!kling);
+ $('vidSeedBox').classList.toggle('hide',!seed);
+ const res=$('vidRes');
+ [...res.options].forEach(o=>o.disabled=(omni&&o.value==='480p')||(kling&&o.value!=='720p'));
+ if(omni&&res.value==='480p')res.value='1080p';
+ $('vidResBox').style.display=kling?'none':'';
+ if(omni)fillVidAudSel();
+ vidEstCalc()}
+$('vidModel').onchange=vidModelUI;
+function vidEstCalc(){const m=$('vidModel').value;let est=null,note='';
+ if(m==='omnihuman'){if(vidAudDur)est=vidAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
+ else{const auto=$('vidDur').value==='auto';
+  let secs=auto?(m==='kling-pro'?5:8):+$('vidDur').value;
+  if(m==='kling-pro')est=secs*($('vidGenAud').checked?VID_RATES['kling-pro'].on:VID_RATES['kling-pro'].off);
+  else est=secs*(VID_RATES[m][$('vidRes').value]||0.3);
+  if(auto)note=' (auto ≈'+secs+'s)'}
+ $('vidEst').textContent=est!==null?'~$'+est.toFixed(2)+note:note}
+['vidRes','vidDur','vidGenAud'].forEach(id=>$(id).onchange=vidEstCalc);
+$('vidCfg').oninput=()=>$('vidCfgV').textContent=(+$('vidCfg').value).toFixed(2);
+function renderVidImg(){$('vidImgThumb').innerHTML=vidImg?`<div class="thumb"><img src="data:image/png;base64,${vidImg.b64}" alt=""><button class="x" id="vix" title="Quitar">${xicon()}</button></div>`:'';
+ if(vidImg)$('vix').onclick=()=>{vidImg=null;renderVidImg()}}
+$('dropVidImg').onclick=()=>$('vidImgFile').click();
+$('vidImgFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ vidImg={name:f.name,b64:await fileToB64(f)};renderVidImg();e.target.value=''};
+['dragover','dragenter'].forEach(ev=>$('dropVidImg').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropVidImg').classList.add('hot')}));
+$('dropVidImg').addEventListener('dragleave',e=>{e.preventDefault();$('dropVidImg').classList.remove('hot')});
+$('dropVidImg').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropVidImg').classList.remove('hot');$('drop').classList.remove('hot');
+ const sf=e.dataTransfer.getData('text/x-studio-file');
+ if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();vidImg={name:sf,b64:await blobToB64(b)};renderVidImg();return}
+ const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/'));
+ if(f){vidImg={name:f.name,b64:await fileToB64(f)};renderVidImg()}});
+function fillVidAudSel(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='sfx');
+ const cur=$('vidAudSel').value;
+ $('vidAudSel').innerHTML='<option value="">— elegir del historial de audio —</option>'
+  +items.slice(0,20).map(it=>`<option value="${esc(it.file)}" ${it.file===cur?'selected':''}>${esc((it.prompt||it.file).slice(0,50))}</option>`).join('')}
+$('vidAudSel').onchange=async()=>{const f=$('vidAudSel').value;
+ if(!f){vidAud=null;vidAudDur=0;$('vidAudInfo').textContent='';vidEstCalc();return}
+ vidAud={hist_file:f};
+ const a=new Audio('/file?name='+encodeURIComponent(f));
+ a.onloadedmetadata=()=>{vidAudDur=a.duration/60;
+  $('vidAudInfo').textContent='Del historial · '+Math.round(a.duration)+'s';vidEstCalc()}};
+$('dropVidAud').onclick=()=>$('vidAudFile').click();
+$('vidAudFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ vidAud={b64:await fileToB64(f)};$('vidAudSel').value='';
+ const u=URL.createObjectURL(f),a=new Audio();
+ a.onloadedmetadata=()=>{vidAudDur=a.duration/60;URL.revokeObjectURL(u);
+  $('vidAudInfo').textContent=f.name+' · '+Math.round(a.duration)+'s';vidEstCalc()};
+ a.src=u;e.target.value=''};
+async function runVID(){
+ if(!falReady){toast('Conecta tu clave de fal.ai','bad');return}
+ const m=$('vidModel').value,prompt=$('vidPrompt').value.trim();
+ if(m!=='omnihuman'&&!prompt){toast('Escribe el prompt del video','bad');$('vidPrompt').focus();return}
+ if(m==='omnihuman'&&!vidImg){toast('OmniHuman necesita la imagen de la persona','bad');return}
+ if(m==='omnihuman'&&!vidAud){toast('Elige o sube el audio que hablará','bad');return}
+ const est=parseFloat(($('vidEst').textContent.match(/[\d.]+/)||[0])[0])||0;
+ const body={model:m,prompt,resolution:$('vidRes').value,duration:$('vidDur').value,
+  aspect:$('vidAsp').value,gen_audio:$('vidGenAud').checked,seed:$('vidSeed').value.trim(),
+  negative:$('vidNeg').value,cfg:+$('vidCfg').value,turbo:$('vidTurbo').checked,
+  cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ if(vidImg)body.image=vidImg;
+ if(m==='omnihuman')body.audio=vidAud;
+ $('vidGo').disabled=true;$('vidGoTxt').textContent='Enviando…';
+ $('vidEmpty').classList.add('hide');$('vidResult').classList.add('hide');$('vidProgress').classList.remove('hide');
+ $('vidProgTxt').textContent='Generando video…';$('vidProgSub').textContent='Enviando trabajo a fal.ai';
+ try{const d=await(await fetch('/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error){vidFail(d.error);return}
+  const t0=Date.now();
+  if(vidPoll)clearInterval(vidPoll);
+  vidPoll=setInterval(async()=>{
+   try{const s=await(await fetch('/videostatus?id='+encodeURIComponent(d.id))).json();
+    const mins=Math.floor((Date.now()-t0)/60000),secs=Math.floor(((Date.now()-t0)%60000)/1000);
+    if(s.error){clearInterval(vidPoll);vidPoll=null;vidFail(s.error);return}
+    if(!s.done){$('vidProgSub').textContent=(s.status==='IN_QUEUE'?'En cola'+(s.queue!=null?' · posición '+s.queue:''):'Procesando')+' · '+mins+'m '+secs+'s';return}
+    clearInterval(vidPoll);vidPoll=null;
+    $('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
+    $('vidPlayer').src=s.url;$('vidTitle').textContent=prompt.slice(0,60)||'Avatar · OmniHuman';
+    $('vidCost').innerHTML='<b>$'+(s.cost||0).toFixed(2)+'</b>';
+    $('vidDl').href=s.url;$('vidDl').setAttribute('download',s.file);
+    $('vidPlayer').play().catch(()=>{});
+    bumpSess(s.cost||0);loadGal();toast('Video listo');
+    $('vidGo').disabled=false;$('vidGoTxt').textContent='Generar video';
+   }catch(e){}},5000);
+ }catch(e){vidFail(String(e))}}
+function vidFail(msg){toast(msg,'bad');
+ $('vidProgress').classList.add('hide');$('vidEmpty').classList.remove('hide');
+ $('vidGo').disabled=false;$('vidGoTxt').textContent='Generar video'}
+$('vidGo').onclick=runVID;
+function renderVid(){const items=hist.filter(it=>it.kind==='vid');
+ $('vidSec').classList.toggle('hide',!items.length);
+ $('vidList').innerHTML=items.slice(0,10).map(it=>
+  `<div class="arow" data-file="${esc(it.file)}">
+   <button class="ap" title="Ver video"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
+   <div class="ameta"><div class="at" title="${esc(it.prompt||'')}">${esc(it.prompt||it.file)}</div>
+    <div class="as mono">${esc(it.model||'')} · $${(it.cost||0).toFixed(2)}</div></div>
+   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <button class="gfbtn vdel" title="Borrar (doble clic)">${GTR}</button></div>`).join('')}
+$('vidList').onclick=async e=>{
+ const row=e.target.closest('.arow');if(!row||e.target.closest('a'))return;
+ const del=e.target.closest('.vdel');
+ if(del){if(del.classList.contains('arm')){
+   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file})});
+   hist=hist.filter(it=>it.file!==row.dataset.file);renderVid();toast('Video eliminado')}
+  else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
+  return}
+ if(!e.target.closest('.ap'))return;
+ const it=hist.find(x=>x.file===row.dataset.file);if(!it)return;
+ if(mode!=='video')setMode('video');
+ $('vidEmpty').classList.add('hide');$('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
+ $('vidPlayer').src='/file?name='+encodeURIComponent(it.file);
+ $('vidTitle').textContent=(it.prompt||'').slice(0,60);
+ $('vidCost').innerHTML='<b>$'+(it.cost||0).toFixed(2)+'</b>';
+ $('vidDl').href='/file?name='+encodeURIComponent(it.file);$('vidDl').setAttribute('download',it.file)};
+
 // ===== atajos de teclado =====
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();
-  if(mode==='audio'){
+  if(mode==='video'){runVID()}
+  else if(mode==='audio'){
    if(!$('sttBox').classList.contains('hide'))runSTT();
    else if(!$('sfxBox').classList.contains('hide'))runSFX();
    else runTTS()}
@@ -1577,7 +1797,8 @@ document.addEventListener('keydown',e=>{
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
  if(e.key==='1')setMode('crear');
  if(e.key==='2')setMode('editar');
- if(e.key==='3')setMode('audio')});
+ if(e.key==='3')setMode('audio');
+ if(e.key==='4')setMode('video')});
 
 // miniaturas de proporción en los presets
 function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{const W=+c.dataset.w,H=+c.dataset.h,m=14;
@@ -1674,6 +1895,10 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/falstatus":
+            return self._json({"ok": bool(fal_key())})
+        if self.path.startswith("/videostatus?"):
+            return self.h_videostatus()
         if self.path == "/elstatus":
             if not el_key():
                 return self._json({"ok": False})
@@ -1720,7 +1945,8 @@ class H(BaseHTTPRequestHandler):
                  "/speech": self.h_speech, "/transcribe": self.h_transcribe,
                  "/elkey": self.h_elkey, "/elspeech": self.h_elspeech,
                  "/elsfx": self.h_elsfx, "/elclone": self.h_elclone,
-                 "/icloudsync": self.h_icloudsync}.get(self.path)
+                 "/icloudsync": self.h_icloudsync,
+                 "/falkey": self.h_falkey, "/video": self.h_video}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -2230,6 +2456,158 @@ class H(BaseHTTPRequestHandler):
         except urllib.error.URLError as e:
             return self._json({"error": f"Sin conexión con ElevenLabs: {e.reason}"})
         return self._json({"ok": True, "voice_id": data.get("voice_id", "")})
+
+    def _fal_req(self, url, data=None, timeout=60):
+        return urllib.request.urlopen(urllib.request.Request(url,
+            data=json.dumps(data).encode() if data is not None else None,
+            headers={"Authorization": f"Key {fal_key()}", "Content-Type": "application/json"}), timeout=timeout)
+
+    def _fal_err(self, e):
+        try:
+            d = json.loads(e.read())
+            det = d.get("detail") or d.get("message") or d
+            if isinstance(det, list) and det:
+                det = det[0].get("msg", str(det[0])) if isinstance(det[0], dict) else str(det[0])
+            return str(det)[:300]
+        except Exception:
+            return f"HTTP {e.code}"
+
+    def h_falkey(self):
+        k = (self._body().get("key") or "").strip()
+        if not k:
+            return self._json({"ok": False, "error": "Pega tu clave de fal.ai"})
+        # una clave inválida devuelve 401; con clave válida, un id inexistente da 404/400/422
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                f"{FAL_QUEUE}/bytedance/seedance-2.0/text-to-video/requests/00000000-0000-0000-0000-000000000000/status",
+                headers={"Authorization": f"Key {k}"}), timeout=20).read()
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                return self._json({"ok": False, "error": "La clave de fal.ai no es válida"})
+        except Exception:
+            return self._json({"ok": False, "error": "No pude validar la clave (sin conexión)"})
+        FAL_KEY_FILE.write_text(k)
+        try:
+            os.chmod(FAL_KEY_FILE, 0o600)
+        except Exception:
+            pass
+        return self._json({"ok": True})
+
+    def h_video(self):
+        b = self._body()
+        if not fal_key():
+            return self._json({"error": "Conecta tu clave de fal.ai primero."})
+        model = b.get("model", "seedance")
+        if model not in VIDEO_MODELS:
+            return self._json({"error": "Modelo de video desconocido"})
+        prompt = (b.get("prompt") or "").strip()
+        img = b.get("image")  # {name, b64} opcional (obligatoria en omnihuman)
+        if model == "omnihuman":
+            aud = b.get("audio")  # {b64} o {hist_file}
+            if not img:
+                return self._json({"error": "OmniHuman necesita una imagen de la persona."})
+            if aud and aud.get("hist_file"):
+                fp = HIST_DIR / os.path.basename(aud["hist_file"])
+                if not fp.is_file():
+                    return self._json({"error": "No encuentro ese audio del historial."})
+                ext = fp.suffix.lstrip(".").lower()
+                aud_b64 = base64.b64encode(fp.read_bytes()).decode()
+                aud_mime = MIME.get(ext, "audio/mpeg").split(";")[0]
+            elif aud and aud.get("b64"):
+                aud_b64, aud_mime = aud["b64"], "audio/mpeg"
+            else:
+                return self._json({"error": "OmniHuman necesita un audio (súbelo o elige uno del historial)."})
+            payload = {"image_url": "data:image/png;base64," + img["b64"],
+                       "audio_url": f"data:{aud_mime};base64," + aud_b64,
+                       "resolution": b.get("resolution", "1080p"),
+                       "turbo_mode": bool(b.get("turbo"))}
+            if prompt:
+                payload["prompt"] = prompt
+            model_id = VIDEO_MODELS[model]["av"]
+        else:
+            if not prompt:
+                return self._json({"error": "Escribe el prompt del video."})
+            payload = {"prompt": prompt, "generate_audio": bool(b.get("gen_audio", True))}
+            if model.startswith("seedance"):
+                payload["resolution"] = b.get("resolution", "720p")
+                payload["duration"] = str(b.get("duration", "auto"))
+                payload["aspect_ratio"] = b.get("aspect", "auto")
+                if str(b.get("seed") or "").strip().isdigit():
+                    payload["seed"] = int(b["seed"])
+            else:  # kling-pro (no acepta "auto": 3–15s, def. 5)
+                d = str(b.get("duration", "5"))
+                payload["duration"] = d if d.isdigit() else "5"
+                payload["aspect_ratio"] = b.get("aspect", "16:9")
+                if (b.get("negative") or "").strip():
+                    payload["negative_prompt"] = b["negative"].strip()
+                if b.get("cfg") is not None:
+                    payload["cfg_scale"] = float(b["cfg"])
+            if img:
+                payload["image_url"] = "data:image/png;base64," + img["b64"]
+                model_id = VIDEO_MODELS[model]["i2v"]
+            else:
+                model_id = VIDEO_MODELS[model]["t2v"]
+        try:
+            with self._fal_req(f"{FAL_QUEUE}/{model_id}", payload, timeout=120) as r:
+                data = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con fal.ai: {e.reason}"})
+        rid = data.get("request_id")
+        if not rid:
+            return self._json({"error": "fal.ai no devolvió un id de trabajo"})
+        with LOCK:
+            PENDING_VIDEOS[rid] = {"model_id": model_id,
+                                   "meta": {"prompt": prompt or "avatar con audio", "model": model,
+                                            "cost": float(b.get("cost_est") or 0),
+                                            "project": b.get("project", ""),
+                                            "save_desktop": b.get("save_desktop", True)}}
+        return self._json({"id": rid})
+
+    def h_videostatus(self):
+        q = parse_qs(urlparse(self.path).query)
+        rid = q.get("id", [""])[0]
+        job = PENDING_VIDEOS.get(rid)
+        if not job:
+            return self._json({"error": "Trabajo desconocido (¿se reinició el server?)"})
+        mid = job["model_id"]
+        try:
+            with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}/status") as r:
+                st = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con fal.ai: {e.reason}"})
+        status = st.get("status", "")
+        if status in ("IN_QUEUE", "IN_PROGRESS"):
+            return self._json({"done": False, "status": status, "queue": st.get("queue_position")})
+        if status != "COMPLETED":
+            PENDING_VIDEOS.pop(rid, None)
+            return self._json({"error": f"El trabajo terminó con estado {status}"})
+        try:
+            with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}") as r:
+                res = json.loads(r.read())
+            vurl = (res.get("video") or {}).get("url", "")
+            if not vurl:
+                raise ValueError("sin URL de video en la respuesta")
+            with urllib.request.urlopen(vurl, timeout=600) as vr:
+                raw = vr.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except Exception as e:
+            return self._json({"error": f"No pude descargar el video: {e}"})
+        m = job["meta"]
+        cost = m.get("cost") or 0
+        if model_dur := res.get("duration"):  # omnihuman factura por duración real
+            cost = round(float(model_dur) * 0.14, 4)
+        name = self._save_audio(raw, "vid", "mp4",
+            {"kind": "vid", "prompt": m["prompt"][:160], "voice": "", "model": m["model"],
+             "size": "mp4", "quality": "", "mode": "video", "cost": cost, "output_tokens": 0,
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": m.get("project", "")},
+            m.get("save_desktop", True))
+        PENDING_VIDEOS.pop(rid, None)
+        return self._json({"done": True, "file": name, "url": "/file?name=" + name, "cost": cost})
 
     def h_distill(self):
         b = self._body()
