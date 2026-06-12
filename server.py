@@ -1715,8 +1715,9 @@ const VID_RATES={seedance:{'480p':0.15,'720p':0.30,'1080p':0.68},
  'kling-pro':{on:0.336,off:0.224},'kling-std':{on:0.126,off:0.084},omnihuman:0.14};
 async function falInit(){const s=await(await fetch('/falstatus')).json();
  falReady=s.ok;
- $('falConnect').classList.toggle('hide',s.ok);$('vidMain').classList.toggle('hide',!s.ok);
- if(s.ok)vidEstCalc()}
+ $('falConnect').classList.toggle('hide',s.ok);
+ $('vidMain').classList.remove('hide');
+ vidEstCalc()}
 $('falKeySave').onclick=async()=>{const k=$('falKeyIn').value.trim();if(!k)return;
  $('falKeySave').textContent='…';
  const r=await(await fetch('/falkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
