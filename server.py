@@ -1948,11 +1948,11 @@ class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json", extra=None):
         b = body if isinstance(body, bytes) else body.encode()
         self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(b)))
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
-        for k, v in (extra or {}).items():
+        headers = {"Content-Type": ctype, "Content-Length": str(len(b)),
+                   "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+                   "Cache-Control": "no-store"}  # sin esto el navegador cachea la UI vieja
+        headers.update(extra or {})
+        for k, v in headers.items():
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(b)
@@ -2035,7 +2035,7 @@ class H(BaseHTTPRequestHandler):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
-            return self._send(200, fp.read_bytes(), ctype) if fp.exists() else self._send(404, "no", "text/plain")
+            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.exists() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
             fp = PROJ_DIR / safe(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
