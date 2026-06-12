@@ -7,7 +7,7 @@ transparente (gpt-image-1), presets completos incl. anamórficos, editor de
 máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
 múltiples. Sin dependencias: solo Python 3.
 """
-import json, base64, os, re, time, uuid, urllib.request, urllib.error
+import json, base64, os, re, shutil, time, uuid, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -38,14 +38,25 @@ def key():
 
 
 def load_json(p, d):
-    try:
-        return json.loads(p.read_text())
-    except Exception:
-        return d
+    # si el archivo está corrupto o falta, intenta el respaldo .bak
+    for cand in (p, p.with_suffix(p.suffix + ".bak")):
+        try:
+            return json.loads(cand.read_text())
+        except Exception:
+            continue
+    return d
 
 
 def save_json(p, data):
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    # escritura atómica + respaldo del estado anterior
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    if p.exists():
+        try:
+            shutil.copy2(p, p.with_suffix(p.suffix + ".bak"))
+        except Exception:
+            pass
+    tmp.replace(p)
 
 
 def add_history(item):
@@ -62,7 +73,15 @@ def load_projects():
     raw = load_json(PROJ_JSON, {})
     out = {}
     for k, v in raw.items():
-        out[k] = {"style": v, "refs": []} if isinstance(v, str) else {"style": v.get("style", ""), "refs": v.get("refs", [])}
+        d = {"style": v, "refs": []} if isinstance(v, str) else {"style": v.get("style", ""), "refs": v.get("refs", [])}
+        # estilo.md en la carpeta del proyecto manda: editable a mano y a prueba de JSON corrupto
+        f = PROJ_DIR / safe(k) / "estilo.md"
+        if f.exists():
+            try:
+                d["style"] = f.read_text()
+            except Exception:
+                pass
+        out[k] = d
     return out
 
 
@@ -265,6 +284,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .btnrow button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--surface);
  border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:8px;font-size:11.5px;cursor:pointer;transition:.16s}
 .btnrow button:hover{color:var(--txt);border-color:var(--line2)}
+.btnrow button.arm{color:var(--bad);border-color:var(--bad);background:rgba(229,115,115,.1)}
 #style{min-height:74px;font-size:12px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
 .gal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -545,6 +565,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
       <div class="btnrow">
         <button id="newProj"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 5v14M5 12h14"/></svg>Nuevo</button>
         <button id="distill"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>Destilar</button>
+        <button id="delProj" title="Borrar proyecto (doble clic)"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Borrar</button>
       </div>
       <label style="margin-top:14px">estilo.md · texto</label>
       <textarea id="style" placeholder="Estilo: técnica, paleta, luz, mood…"></textarea>
@@ -553,8 +574,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
       <div class="drop" id="dropPref" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Añadir referencia</div>
       <input type="file" id="prefFile" accept="image/png,image/jpeg,image/webp" multiple class="hide">
       <div class="thumbs" id="prefThumbs"></div>
-      <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al crear</label>
-      <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto, para mantener el mismo estilo sin re-subirlas. El texto de estilo.md se antepone siempre al prompt.</p>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al generar</label>
+      <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto (Crear y Editar), para mantener el mismo estilo sin re-subirlas. El estilo se guarda como <span class="mono">estilo.md</span> en la carpeta del proyecto y se antepone siempre al prompt.</p>
     </div>
     <div class="sec">
       <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="margin-left:auto;font-weight:400"></span></h3>
@@ -833,12 +854,27 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
  $('maskModal').classList.add('hide');if(mode!=='editar')setMode('editar');
  toast('Listo: '+made.join(' + ')+(annoOps>0||pins.length?' · instrucciones añadidas al prompt':''))};
 
-async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel'),cur=s.value;
+async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel');
+ const cur=s.value||localStorage.getItem('studio_proj')||'';
  s.innerHTML='<option value="">Sin proyecto</option>'+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
 function renderProj(){const n=$('projSel').value,p=projects[n];$('style').value=p?p.style:'';
  $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt=""><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
-$('projSel').onchange=renderProj;
-$('newProj').onclick=async()=>{const n=prompt('Nombre del proyecto:');if(!n)return;await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:''})});await loadProjects();$('projSel').value=n;renderProj();toast('Proyecto "'+n+'" creado')};
+$('projSel').onchange=()=>{localStorage.setItem('studio_proj',$('projSel').value);renderProj()};
+$('useVis').checked=localStorage.getItem('studio_usevis')!=='0';
+$('useVis').onchange=()=>localStorage.setItem('studio_usevis',$('useVis').checked?'1':'0');
+$('newProj').onclick=async()=>{const n=(prompt('Nombre del proyecto:')||'').trim();if(!n)return;
+ if(projects[n]){$('projSel').value=n;localStorage.setItem('studio_proj',n);renderProj();toast('El proyecto "'+n+'" ya existía · seleccionado');return}
+ await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
+ await loadProjects();$('projSel').value=n;localStorage.setItem('studio_proj',n);renderProj();toast('Proyecto "'+n+'" creado')};
+$('delProj').onclick=async()=>{const n=$('projSel').value;
+ if(!n){toast('Elige el proyecto a borrar','bad');return}
+ if(!$('delProj').classList.contains('arm')){
+  $('delProj').classList.add('arm');toast('Clic otra vez para borrar "'+n+'" (estilo y referencias)','bad');
+  setTimeout(()=>$('delProj').classList.remove('arm'),2500);return}
+ $('delProj').classList.remove('arm');
+ await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
+ localStorage.setItem('studio_proj','');$('projSel').value='';
+ await loadProjects();toast('Proyecto "'+n+'" borrado · sus imágenes del historial se conservan')};
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:$('style').value})});projects[n].style=$('style').value;toast('Estilo guardado')};
 $('distill').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige un proyecto','bad');return}$('distill').textContent='…';
  const r=await(await fetch('/distill',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})})).json();$('distill').innerHTML='Destilar';
@@ -943,6 +979,7 @@ async function run(){
  const proj=$('projSel').value,pdata=projects[proj];
  const useVisual=$('useVis').checked&&proj&&pdata&&pdata.refs.length>0;
  if(mode==='editar'&&refs.length===0&&!useVisual){toast('Sube una imagen (o activa memoria visual)','bad');return}
+ if(mask&&refs.length===0&&useVisual)toast('Ojo: la máscara se aplicará a la primera referencia del proyecto');
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
  $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
@@ -1039,7 +1076,7 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             h = {"/setkey": self.h_setkey, "/generate": self.h_generate, "/edit": self.h_edit,
-                 "/project": self.h_project, "/projectref": self.h_projectref,
+                 "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectref": self.h_projectref,
                  "/projectrefdel": self.h_projectrefdel, "/distill": self.h_distill,
                  "/historydel": self.h_historydel, "/config": self.h_config}.get(self.path)
             if h:
@@ -1063,9 +1100,26 @@ class H(BaseHTTPRequestHandler):
         b = self._body()
         pr = load_projects()
         cur = pr.get(b["name"], {"style": "", "refs": []})
-        cur["style"] = b.get("style", cur.get("style", ""))
+        if "style" in b:  # solo pisa el estilo si la petición lo trae (crear ≠ guardar)
+            cur["style"] = b["style"]
+            try:
+                (proj_folder(b["name"]) / "estilo.md").write_text(b["style"])
+            except Exception:
+                pass
         pr[b["name"]] = cur
         save_json(PROJ_JSON, pr)
+        return self._json({"ok": True})
+
+    def h_projectdel(self):
+        name = self._body().get("name", "")
+        pr = load_projects()
+        if name in pr:
+            del pr[name]
+            save_json(PROJ_JSON, pr)
+        try:
+            shutil.rmtree(PROJ_DIR / safe(name))
+        except Exception:
+            pass
         return self._json({"ok": True})
 
     def h_projectref(self):
