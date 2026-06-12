@@ -33,6 +33,12 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
   - **OmniHuman** (1.5/1.0): avatar que habla a partir de imagen + audio (elegible directo del historial de voces generadas), con indicaciones de texto, turbo y 720p/1080p en la 1.5. $0.14/s.
 
   Generación asíncrona con estado de cola en vivo; el MP4 se descarga solo al historial y a tu carpeta, con su sección de Video en el panel derecho (reproducir, descargar, borrar).
+- **Lote de prompts**: varios prompts (uno por línea) generados en fila con la configuración y memoria actuales.
+- **Música** (cuarta pestaña de Audio, vía fal): **Lyria 2** de Google (instrumental 30s, WAV 48kHz, prompt negativo, seed) y **MiniMax Music** (canciones completas con voz, letra propia u optimizada, modo instrumental).
+- **LipSync** (cuarta pestaña de Video, LatentSync vía fal): toma un video (del historial o subido) y un audio (tus voces/música generadas o archivo) y sincroniza los labios; control de guidance, loop/pingpong si el audio es más largo, seed.
+- **Comparador A/B**: elige dos imágenes del historial y compáralas a pantalla completa con slider deslizante.
+- **Iterar**: botón en el resultado y en cada tarjeta que carga esa imagen como única referencia en modo Editar para describir solo el cambio ("ahora de noche").
+- **Metadata en PNG**: cada imagen generada lleva embebidos su prompt y parámetros (chunks iTXt) — el archivo viaja con su receta.
 - **Atajos**: `⌘↵` genera, `1`/`2`/`3`/`4` cambia Crear/Editar/Audio/Video, `Esc` cierra modales y lightbox.
 - **Notificaciones toast** y errores legibles con botón de reintento.
 - Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.

@@ -7,7 +7,7 @@ transparente (gpt-image-1), presets completos incl. anamórficos, editor de
 máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
 múltiples. Sin dependencias: solo Python 3.
 """
-import io, json, base64, os, re, shutil, threading, time, uuid, urllib.request, urllib.error, zipfile
+import io, json, base64, os, re, shutil, struct, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -108,6 +108,24 @@ def safe(name):
 def safe_fn(name):
     # nombre de archivo seguro para cabeceras multipart (sin comillas ni saltos de línea)
     return re.sub(r'[\r\n"\\]', "", str(name))[:120] or "archivo"
+
+
+def png_meta(raw, pairs):
+    """Incrusta el prompt/parámetros como chunks iTXt: la imagen lleva su receta consigo."""
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return raw
+    try:
+        ihdr_len = struct.unpack(">I", raw[8:12])[0]
+        pos = 8 + 12 + ihdr_len
+        extra = b""
+        for k, v in pairs:
+            if not v:
+                continue
+            data = k.encode()[:79] + b"\x00\x00\x00\x00\x00" + str(v).encode()
+            extra += struct.pack(">I", len(data)) + b"iTXt" + data + struct.pack(">I", zlib.crc32(b"iTXt" + data) & 0xFFFFFFFF)
+        return raw[:pos] + extra + raw[pos:]
+    except Exception:
+        return raw
 
 
 def load_projects():
@@ -464,6 +482,16 @@ audio{width:100%;height:40px}
 .toast.bad::before{background:var(--bad)}
 @keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
+/* comparador A/B */
+.cmpwrap{position:relative;max-width:90vw;max-height:78vh;cursor:default;line-height:0}
+.cmpwrap img{max-width:90vw;max-height:78vh;display:block;border-radius:8px}
+#cmpBwrap{position:absolute;inset:0;overflow:hidden}
+#cmpBwrap img{position:absolute;left:0;top:0}
+#cmpLine{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);box-shadow:0 0 10px rgba(224,165,113,.6);pointer-events:none}
+.cmptag{position:absolute;top:12px;font-family:var(--mono);font-size:11px;font-weight:700;background:rgba(12,12,14,.85);
+ border:1px solid var(--line2);border-radius:6px;padding:3px 8px;pointer-events:none}
+#cmpSlider{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);width:min(420px,80vw)}
+
 .hide{display:none!important}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px;border:2px solid var(--bg)}
 
@@ -651,6 +679,14 @@ audio{width:100%;height:40px}
       </div>
     </details>
 
+    <details class="adv"><summary><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Lote de prompts · varios de una vez<svg class="chev" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="advbody">
+        <label>Un prompt por línea</label>
+        <textarea id="batchTxt" style="min-height:90px;font-size:12.5px" placeholder="logo de cafetería minimalista, taza humeante&#10;banner 21:9 de granos de café sobre madera&#10;patrón seamless de hojas de café"></textarea>
+        <button class="ghost" id="batchGo" style="width:100%;justify-content:center;margin-top:10px">Generar lote</button>
+        <p class="hint">Usa la configuración actual (tamaño, calidad, proyecto, memoria) para cada línea, en fila. Puedes seguir usando otras secciones mientras corre.</p>
+      </div></details>
+
     <div class="meta"><span class="mono" id="ratio">3:2</span><span class="valid ok" id="valid">válido</span></div>
     <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">~$0.00</span></div>
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
@@ -663,6 +699,7 @@ audio{width:100%;height:40px}
       <button class="on" id="audTTS" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Voz</button>
       <button id="audSTT" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>Transcribir</button>
       <button id="audSFX" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>Efectos</button>
+      <button id="audMUS" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Música</button>
     </div>
 
     <div id="ttsBox">
@@ -799,6 +836,24 @@ audio{width:100%;height:40px}
       <button class="primary" id="sfxGo" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg><span id="sfxGoTxt">Generar efecto</span></button>
       <p class="hint">Efectos con ElevenLabs (usa la clave conectada en Voz → ElevenLabs). Hasta 22 segundos por efecto.</p>
     </div>
+
+    <div id="musBox" class="hide">
+      <div class="field"><label>Modelo</label>
+        <select id="musModel">
+          <option value="lyria2" selected>Lyria 2 (Google) · instrumental 30s, calidad estudio</option>
+          <option value="minimax">MiniMax Music · canciones con letra y voz</option>
+        </select></div>
+      <div class="field"><label>Describe la música</label>
+        <textarea id="musPrompt" style="min-height:84px" placeholder="Ej: bossa nova relajada con guitarra y percusión suave, atardecer en la playa…"></textarea></div>
+      <div class="field" id="musLyrBox"><label>Letra · opcional</label>
+        <textarea id="musLyrics" style="min-height:84px;font-size:12.5px" placeholder="Versos separados por líneas… (déjalo vacío y MiniMax la escribe)"></textarea>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="musInstr"> Solo instrumental</label></div>
+      <div class="field" id="musNegBox"><label>Prompt negativo · opcional</label>
+        <input type="text" id="musNeg" placeholder="low quality"></div>
+      <div class="field"><label>Seed · opcional</label><input type="text" id="musSeed" class="mono" placeholder="reproducible"></div>
+      <button class="primary" id="musGo"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span id="musGoTxt">Generar música</span></button>
+      <p class="hint">Vía fal.ai (la clave de la sección Video). Lyria 2 genera 30s instrumentales en WAV 48kHz; MiniMax hace canciones completas con voz. Tarda 1–3 min.</p>
+    </div>
    </div>
 
    <div id="videoPanel" class="hide">
@@ -812,6 +867,7 @@ audio{width:100%;height:40px}
         <button class="on" data-vt="sd" style="flex:1;justify-content:center">Seedance</button>
         <button data-vt="kl" style="flex:1;justify-content:center">Kling</button>
         <button data-vt="oh" style="flex:1;justify-content:center">OmniHuman</button>
+        <button data-vt="ls" style="flex:1;justify-content:center">LipSync</button>
       </div>
       <div class="field" id="vidMemRow" style="display:flex;align-items:center;gap:10px">
         <label class="check" style="flex:1;margin:0"><input type="checkbox" id="vidUseMem" checked> Usar memoria del proyecto</label>
@@ -905,6 +961,25 @@ audio{width:100%;height:40px}
         <p class="hint">Audio ≤30s en 1080p · ≤60s en 720p. Cobra $0.14 por segundo de video.</p>
       </div>
 
+      <div id="lsBox" class="hide">
+        <div class="field"><label>Video a sincronizar · requerido</label>
+          <select id="lsVidSel" style="margin-bottom:8px"><option value="">— elegir del historial de video —</option></select>
+          <div class="drop" id="dropLsVid" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>…o sube un video MP4</div>
+          <input type="file" id="lsVidFile" accept="video/mp4,video/webm,video/quicktime" class="hide">
+          <p class="hint" id="lsVidInfo"></p></div>
+        <div class="field"><label>Audio nuevo · requerido</label>
+          <select id="lsAudSel" style="margin-bottom:8px"><option value="">— elegir del historial de audio —</option></select>
+          <div class="drop" id="dropLsAud" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>…o sube un audio</div>
+          <input type="file" id="lsAudFile" accept="audio/*" class="hide">
+          <p class="hint" id="lsAudInfo"></p></div>
+        <div class="field grid2">
+          <div><label>Si el audio es más largo</label><select id="lsLoop"><option value="">Cortar</option><option value="loop">Repetir video</option><option value="pingpong">Ida y vuelta</option></select></div>
+          <div><label>Seed · opcional</label><input type="text" id="lsSeed" class="mono" placeholder="reproducible"></div></div>
+        <div class="field"><div class="slabel"><label>Guidance</label><span class="v mono" id="lsGuidV">1.0</span></div>
+          <input type="range" id="lsGuid" min="0.5" max="3" step="0.1" value="1"></div>
+        <p class="hint">LatentSync mueve los labios del video para que digan el audio nuevo. Combo: genera una voz en Audio y aplícala aquí.</p>
+      </div>
+
       <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">~$—</span></div>
       <button class="primary" id="vidGo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vidGoTxt">Generar video</span></button>
       <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
@@ -922,6 +997,7 @@ audio{width:100%;height:40px}
       <div class="floaters hide" id="floaters">
         <button class="fbtn" id="fCopy" title="Copiar prompt + referencias usadas"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button class="fbtn" id="fAdd" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="fbtn" id="fIter" title="Iterar: editar este resultado con un cambio"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
         <a class="fbtn" id="fDl" title="Descargar" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
       </div>
     </div>
@@ -1010,6 +1086,16 @@ audio{width:100%;height:40px}
   </div>
 </div>
 
+<div class="lightbox hide" id="cmpModal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <div class="cmpwrap" id="cmpWrap">
+    <img id="cmpA" alt="A"><div id="cmpBwrap"><img id="cmpB" alt="B"></div>
+    <div class="cmptag" style="left:12px">A</div><div class="cmptag" style="right:12px">B</div>
+    <div id="cmpLine"></div>
+  </div>
+  <input type="range" id="cmpSlider" min="0" max="100" value="50">
+</div>
+
 <div class="lightbox hide" id="lightbox">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <img id="lbImg" src="" alt="Vista completa">
@@ -1024,7 +1110,16 @@ audio{width:100%;height:40px}
 const $=id=>document.getElementById(id);
 let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1.5,projects={};
 let results=[],active=0,lastResult=null;
-let hist=[],shown=30;
+let hist=[],shown=30,cmpA=null;
+function openCmp(fa,fb){
+ $('cmpA').src='/file?name='+encodeURIComponent(fa);
+ $('cmpB').src='/file?name='+encodeURIComponent(fb);
+ $('cmpModal').classList.remove('hide');
+ $('cmpA').onload=()=>{const w=$('cmpA').getBoundingClientRect().width;
+  $('cmpB').style.width=w+'px';$('cmpSlider').value=50;cmpUpdate()}}
+function cmpUpdate(){const v=+$('cmpSlider').value;
+ $('cmpBwrap').style.clipPath='inset(0 0 0 '+v+'%)';
+ $('cmpLine').style.left=v+'%'}
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(msg,kind){const t=document.createElement('div');t.className='toast'+(kind==='bad'?' bad':'');
@@ -1378,6 +1473,8 @@ const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>';
 const GUP='<svg viewBox="0 0 24 24"><path d="M21 3h-6m6 0v6m0-6L13 11"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
+const GCM='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/></svg>';
+const GIT='<svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim().toLowerCase();
  const fav=$('galFavBtn').classList.contains('on');
  let imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
@@ -1392,6 +1489,8 @@ function renderGal(){const items=galFiltered();
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
+   <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
+   <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
    <a class="gfbtn" href="/file?name=${fn}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn gcopy" title="Copiar prompt">${GCP}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
@@ -1415,7 +1514,16 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
 $('gal').onclick=async e=>{
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
-  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),card=e.target.closest('.gcard');
+  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),
+  cmp=e.target.closest('.gcmp'),iter=e.target.closest('.giter'),card=e.target.closest('.gcard');
+ if(cmp){if(!cmpA){cmpA=card.dataset.file;cmp.classList.add('fav');toast('A elegida · ahora pulsa comparar en otra imagen')}
+  else if(cmpA===card.dataset.file){cmpA=null;cmp.classList.remove('fav');toast('Comparación cancelada')}
+  else{openCmp(cmpA,card.dataset.file);cmpA=null;renderGal()}
+  return}
+ if(iter){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file))).blob();
+  refs=[{name:card.dataset.file,b64:await blobToB64(b)}];mask=null;renderThumbs();renderMaskThumb();
+  setMode('editar');$('prompt').value='';$('prompt').placeholder='Describe solo el cambio: "ahora de noche", "quita el texto", "hazlo acuarela"…';
+  $('prompt').focus();toast('Iterando sobre esa imagen · describe el cambio');return}
  if(star){const it=hist.find(x=>x.file===card.dataset.file);if(!it)return;
   it.fav=!it.fav;star.classList.toggle('fav',it.fav);
   fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav})});
@@ -1501,10 +1609,27 @@ async function run(){
  $('goTxt').textContent=prevTxt;validate();
 }
 $('go').onclick=run;$('again').onclick=run;
+$('batchGo').onclick=async()=>{
+ const lines=$('batchTxt').value.split('\n').map(l=>l.trim()).filter(Boolean);
+ if(!lines.length){toast('Escribe al menos un prompt (uno por línea)','bad');return}
+ $('batchGo').disabled=true;
+ for(let i=0;i<lines.length;i++){
+  $('batchGo').textContent='Lote '+(i+1)+' / '+lines.length+'…';
+  $('prompt').value=lines[i];
+  await run()}
+ $('batchGo').disabled=false;$('batchGo').textContent='Generar lote';
+ toast('Lote terminado: '+lines.length+' prompts')};
 
 function flash(el){const c=el.style.color;el.style.color='var(--accent)';setTimeout(()=>el.style.color=c,650)}
 $('fCopy').onclick=()=>{if(!lastResult)return;$('prompt').value=lastResult.prompt;refs=lastResult.refsUsed.map(r=>({name:r.name,b64:r.b64}));renderThumbs();try{navigator.clipboard.writeText(lastResult.prompt)}catch(e){}flash($('fCopy'));toast('Prompt y referencias restauradas')};
 $('fAdd').onclick=()=>{if(!results.length)return;refs.push({name:'generada.png',b64:results[active].image.split(',')[1]});renderThumbs();flash($('fAdd'));toast('Añadida como referencia')};
+$('fIter').onclick=()=>{if(!results.length)return;
+ refs=[{name:'iteracion.png',b64:results[active].image.split(',')[1]}];mask=null;
+ renderThumbs();renderMaskThumb();setMode('editar');
+ $('prompt').value='';$('prompt').placeholder='Describe solo el cambio: "ahora de noche", "quita el texto", "hazlo acuarela"…';
+ $('prompt').focus();toast('Iterando sobre el resultado · describe el cambio')};
+$('cmpSlider').oninput=cmpUpdate;
+$('cmpModal').onclick=e=>{if(e.target===$('cmpModal'))$('cmpModal').classList.add('hide')};
 
 // ===== audio: voz (TTS) y transcripción =====
 const VOICES=['alloy','ash','ballad','coral','echo','fable','onyx','nova','sage','shimmer','verse'];
@@ -1514,13 +1639,37 @@ $('voices').innerHTML=VOICES.map(v=>`<span class="chip vchip${v===selVoice?' on'
 $('voices').onclick=e=>{const c=e.target.closest('.vchip');if(!c)return;
  selVoice=c.dataset.v;localStorage.setItem('studio_voice',selVoice);
  [...$('voices').children].forEach(x=>x.classList.toggle('on',x.dataset.v===selVoice))};
-function audTab(t){['audTTS','audSTT','audSFX'].forEach(id=>$(id).classList.toggle('on',id===t));
+function audTab(t){['audTTS','audSTT','audSFX','audMUS'].forEach(id=>$(id).classList.toggle('on',id===t));
  $('ttsBox').classList.toggle('hide',t!=='audTTS');
  $('sttBox').classList.toggle('hide',t!=='audSTT');
- $('sfxBox').classList.toggle('hide',t!=='audSFX')}
+ $('sfxBox').classList.toggle('hide',t!=='audSFX');
+ $('musBox').classList.toggle('hide',t!=='audMUS')}
 $('audTTS').onclick=()=>audTab('audTTS');
 $('audSTT').onclick=()=>audTab('audSTT');
 $('audSFX').onclick=()=>audTab('audSFX');
+$('audMUS').onclick=()=>audTab('audMUS');
+// --- música ---
+$('musModel').onchange=()=>{const mm=$('musModel').value==='minimax';
+ $('musLyrBox').classList.toggle('dim',!mm);$('musNegBox').classList.toggle('dim',mm)};
+$('musModel').onchange();
+async function runMUS(){const p=$('musPrompt').value.trim();
+ if(p.length<10){toast('Describe la música con al menos 10 caracteres','bad');$('musPrompt').focus();return}
+ $('musGo').disabled=true;$('musGoTxt').textContent='Generando · 1–3 min…';
+ const body={model:$('musModel').value,prompt:p,lyrics:$('musLyrics').value,
+  instrumental:$('musInstr').checked,negative:$('musNeg').value,seed:$('musSeed').value.trim(),
+  project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ try{const d=await(await fetch('/music',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error)toast(d.error,'bad');
+  else{$('audPlayer').src='/file?name='+encodeURIComponent(d.file);
+   $('audTitle').textContent='Música · '+($('musModel').value==='minimax'?'MiniMax':'Lyria 2');
+   $('audCost').innerHTML='<b>fal</b>';
+   $('audDl').href='/file?name='+encodeURIComponent(d.file);$('audDl').setAttribute('download',d.file);
+   $('audEmpty').classList.add('hide');$('txResult').classList.add('hide');$('audResult').classList.remove('hide');
+   $('audPlayer').play().catch(()=>{});
+   bumpSess(0);loadGal();toast('Música lista')}
+ }catch(e){toast(String(e),'bad')}
+ $('musGo').disabled=false;$('musGoTxt').textContent='Generar música'}
+$('musGo').onclick=runMUS;
 // --- proveedor: OpenAI / ElevenLabs ---
 let prov=localStorage.getItem('studio_prov')||'oai',elReady=false,elVoices=[];
 function setProv(p){prov=p;localStorage.setItem('studio_prov',p);
@@ -1736,7 +1885,7 @@ const ADOC='<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0
 let audEl=new Audio(),playingFile=null;
 audEl.onended=()=>{playingFile=null;renderAud()};
 function renderAud(){renderVid();fillOhAudSel();
- const items=hist.filter(it=>['tts','stt','sfx'].includes(it.kind));
+ const items=hist.filter(it=>['tts','stt','sfx','music'].includes(it.kind));
  $('audSec').classList.toggle('hide',!items.length);
  $('audList').innerHTML=items.slice(0,15).map(it=>{
   const playable=it.kind!=='stt',playing=playingFile===it.file;
@@ -1791,8 +1940,10 @@ function vidSetTab(t){vidTab=t;
  $('sdBox').classList.toggle('hide',t!=='sd');
  $('klBox').classList.toggle('hide',t!=='kl');
  $('ohBox').classList.toggle('hide',t!=='oh');
- $('vidMemRow').classList.toggle('dim',t==='oh');
+ $('lsBox').classList.toggle('hide',t!=='ls');
+ $('vidMemRow').classList.toggle('dim',t==='oh'||t==='ls');
  if(t==='oh')fillOhAudSel();
+ if(t==='ls'){fillLsSels()}
  vidEstCalc()}
 $('vidSeg').onclick=e=>{const b=e.target.closest('button');if(b)vidSetTab(b.dataset.vt)};
 $('vidUseMem').checked=localStorage.getItem('studio_vidmem')!=='0';
@@ -1805,7 +1956,8 @@ $('vidInsStyle').onclick=()=>{const n=$('projSel').value,p=projects[n];
  ta.value=st+(ta.value.trim()?'\n\n'+ta.value.trim():'');ta.focus();
  toast('Estilo insertado en el prompt')};
 function vidEstCalc(){let est=null,note='';
- if(vidTab==='oh'){if(ohAudDur)est=ohAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
+ if(vidTab==='ls'){note='según segundos procesados (fal)'}
+ else if(vidTab==='oh'){if(ohAudDur)est=ohAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
  else if(vidTab==='kl'){const secs=+$('klDur').value;
   est=secs*($('klGenAud').checked?VID_RATES[$('klTier').value].on:VID_RATES[$('klTier').value].off)}
  else{const auto=$('sdDur').value==='auto',secs=auto?8:+$('sdDur').value;
@@ -1865,7 +2017,7 @@ function renderOh(){$('ohImgThumb').innerHTML=ohImg?thumbHTML(ohImg.b64,'ohi',0)
 $('ohImgThumb').onclick=e=>{if(e.target.closest('.x')){ohImg=null;renderOh()}};
 wireDrop('dropOhImg','ohImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
  if(f)ohImg={name:f.name,b64:await fileToB64(f)};renderOh()});
-function fillOhAudSel(){const items=hist.filter(it=>it.kind==='tts'||it.kind==='sfx');
+function fillOhAudSel(){const items=hist.filter(it=>['tts','sfx','music'].includes(it.kind));
  const cur=$('ohAudSel').value;
  $('ohAudSel').innerHTML='<option value="">— elegir del historial de audio —</option>'
   +items.slice(0,20).map(it=>`<option value="${esc(it.file)}" ${it.file===cur?'selected':''}>${esc((it.prompt||it.file).slice(0,50))}</option>`).join('')}
@@ -1881,6 +2033,24 @@ wireDrop('dropOhAud','ohAudFile',async fs=>{const f=fs.find(x=>x.type.startsWith
  a.onloadedmetadata=()=>{ohAudDur=a.duration/60;URL.revokeObjectURL(u);
   $('ohAudInfo').textContent=f.name+' · '+Math.round(a.duration)+'s';vidEstCalc()};
  a.src=u});
+let lsVid=null,lsAud=null;
+function fillLsSels(){
+ const vids=hist.filter(it=>it.kind==='vid');
+ const auds=hist.filter(it=>['tts','sfx','music'].includes(it.kind));
+ $('lsVidSel').innerHTML='<option value="">— elegir del historial de video —</option>'
+  +vids.slice(0,20).map(it=>`<option value="${esc(it.file)}">${esc((it.prompt||it.file).slice(0,50))}</option>`).join('');
+ $('lsAudSel').innerHTML='<option value="">— elegir del historial de audio —</option>'
+  +auds.slice(0,20).map(it=>`<option value="${esc(it.file)}">${esc((it.prompt||it.file).slice(0,50))}</option>`).join('')}
+$('lsVidSel').onchange=()=>{const f=$('lsVidSel').value;
+ lsVid=f?{hist_file:f}:null;$('lsVidInfo').textContent=f?'Del historial: '+f:''};
+$('lsAudSel').onchange=()=>{const f=$('lsAudSel').value;
+ lsAud=f?{hist_file:f}:null;$('lsAudInfo').textContent=f?'Del historial: '+f:''};
+wireDrop('dropLsVid','lsVidFile',async fs=>{const f=fs.find(x=>x.type.startsWith('video/'))||fs[0];if(!f)return;
+ if(f.size>80*1024*1024){toast(f.name+' supera 80MB','bad');return}
+ lsVid={b64:await fileToB64(f)};$('lsVidSel').value='';$('lsVidInfo').textContent=f.name});
+wireDrop('dropLsAud','lsAudFile',async fs=>{const f=fs.find(x=>x.type.startsWith('audio/'))||fs[0];if(!f)return;
+ lsAud={b64:await fileToB64(f)};$('lsAudSel').value='';$('lsAudInfo').textContent=f.name});
+$('lsGuid').oninput=()=>$('lsGuidV').textContent=(+$('lsGuid').value).toFixed(1);
 function klMultiList(){return $('klMulti').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
  const m=l.split('|');const o={prompt:m[0].trim()};
  if(m[1]&&(+m[1].trim())>0)o.duration=String(Math.round(+m[1].trim()));return o})}
@@ -1904,6 +2074,19 @@ async function runVID(){
    negative:$('klNeg').value,cfg:+$('klCfg').value});
   if(klImg){body.image=klImg;if(klEnd)body.end_image=klEnd}
   title=prompt||multi.map(m=>m.prompt).join(' · ')}
+ else if(vidTab==='ls'){
+  if(!lsVid){toast('Elige o sube el video a sincronizar','bad');return}
+  if(!lsAud){toast('Elige o sube el audio nuevo','bad');return}
+  const body2={video:lsVid,audio:lsAud,guidance:+$('lsGuid').value,loop_mode:$('lsLoop').value,
+   seed:$('lsSeed').value.trim(),label:$('lsAudSel').value||'audio subido',
+   project:$('projSel').value,save_desktop:$('saveDesk').checked};
+  $('vidGo').disabled=true;$('vidGoTxt').textContent='Enviando…';
+  $('vidEmpty').classList.add('hide');$('vidResult').classList.add('hide');$('vidProgress').classList.remove('hide');
+  $('vidProgTxt').textContent='Sincronizando labios…';$('vidProgSub').textContent='Enviando a fal.ai';
+  try{const d=await(await fetch('/lipsync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body2)})).json();
+   if(d.error){vidFail(d.error);return}
+   pollVid(d.id,'Lip-sync')}catch(e){vidFail(String(e))}
+  return}
  else{
   if(!ohImg){toast('OmniHuman necesita la imagen de la persona','bad');return}
   if(!ohAud){toast('Elige o sube el audio que hablará','bad');return}
@@ -1915,23 +2098,25 @@ async function runVID(){
  $('vidProgTxt').textContent='Generando video…';$('vidProgSub').textContent='Enviando trabajo a fal.ai';
  try{const d=await(await fetch('/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(d.error){vidFail(d.error);return}
-  const t0=Date.now();
-  if(vidPoll)clearInterval(vidPoll);
-  vidPoll=setInterval(async()=>{
-   try{const s=await(await fetch('/videostatus?id='+encodeURIComponent(d.id))).json();
-    const mins=Math.floor((Date.now()-t0)/60000),secs=Math.floor(((Date.now()-t0)%60000)/1000);
-    if(s.error){clearInterval(vidPoll);vidPoll=null;vidFail(s.error);return}
-    if(!s.done){$('vidProgSub').textContent=(s.status==='IN_QUEUE'?'En cola'+(s.queue!=null?' · posición '+s.queue:''):'Procesando')+' · '+mins+'m '+secs+'s';return}
-    clearInterval(vidPoll);vidPoll=null;
-    $('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
-    $('vidPlayer').src=s.url;$('vidTitle').textContent=title.slice(0,60);
-    $('vidCost').innerHTML='<b>$'+(s.cost||0).toFixed(2)+'</b>';
-    $('vidDl').href=s.url;$('vidDl').setAttribute('download',s.file);
-    $('vidPlayer').play().catch(()=>{});
-    bumpSess(s.cost||0);loadGal();toast('Video listo');
-    $('vidGo').disabled=false;$('vidGoTxt').textContent='Generar video';
-   }catch(e){}},5000);
+  pollVid(d.id,title);
  }catch(e){vidFail(String(e))}}
+function pollVid(id,title){
+ const t0=Date.now();
+ if(vidPoll)clearInterval(vidPoll);
+ vidPoll=setInterval(async()=>{
+  try{const s=await(await fetch('/videostatus?id='+encodeURIComponent(id))).json();
+   const mins=Math.floor((Date.now()-t0)/60000),secs=Math.floor(((Date.now()-t0)%60000)/1000);
+   if(s.error){clearInterval(vidPoll);vidPoll=null;vidFail(s.error);return}
+   if(!s.done){$('vidProgSub').textContent=(s.status==='IN_QUEUE'?'En cola'+(s.queue!=null?' · posición '+s.queue:''):'Procesando')+' · '+mins+'m '+secs+'s';return}
+   clearInterval(vidPoll);vidPoll=null;
+   $('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
+   $('vidPlayer').src=s.url;$('vidTitle').textContent=title.slice(0,60);
+   $('vidCost').innerHTML='<b>$'+(s.cost||0).toFixed(2)+'</b>';
+   $('vidDl').href=s.url;$('vidDl').setAttribute('download',s.file);
+   $('vidPlayer').play().catch(()=>{});
+   bumpSess(s.cost||0);loadGal();toast('Video listo');
+   $('vidGo').disabled=false;$('vidGoTxt').textContent='Generar video';
+  }catch(e){}},5000)}
 function vidFail(msg){toast(msg,'bad');
  $('vidProgress').classList.add('hide');$('vidEmpty').classList.remove('hide');
  $('vidGo').disabled=false;$('vidGoTxt').textContent='Generar video'}
@@ -1990,9 +2175,11 @@ document.addEventListener('keydown',e=>{
   else if(mode==='audio'){
    if(!$('sttBox').classList.contains('hide'))runSTT();
    else if(!$('sfxBox').classList.contains('hide'))runSFX();
+   else if(!$('musBox').classList.contains('hide'))runMUS();
    else runTTS()}
   else if(!$('go').disabled)run();return}
  if(e.key==='Escape'){
+  if(!$('cmpModal').classList.contains('hide')){$('cmpModal').classList.add('hide');return}
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
   if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
@@ -2152,7 +2339,8 @@ class H(BaseHTTPRequestHandler):
                  "/icloudsync": self.h_icloudsync,
                  "/falkey": self.h_falkey, "/video": self.h_video,
                  "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
-                 "/describe": self.h_describe, "/upscale": self.h_upscale}.get(self.path)
+                 "/describe": self.h_describe, "/upscale": self.h_upscale,
+                 "/music": self.h_music, "/lipsync": self.h_lipsync}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -2294,6 +2482,10 @@ class H(BaseHTTPRequestHandler):
         for d in items:
             b64 = d["b64_json"]
             raw = base64.b64decode(b64)
+            if ext == "png":
+                raw = png_meta(raw, [("prompt", meta.get("prompt", "")),
+                                     ("studio", json.dumps({"size": meta.get("size"), "quality": meta.get("quality"), "mode": meta.get("mode")}, ensure_ascii=False))])
+                b64 = base64.b64encode(raw).decode()
             name = f"img_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
             (HIST_DIR / name).write_bytes(raw)
             if meta.get("save_desktop", True):
@@ -2977,6 +3169,109 @@ class H(BaseHTTPRequestHandler):
              "ts": time.strftime("%Y-%m-%d %H:%M"), "project": orig.get("project", "")},
             b.get("save_desktop", True))
         return self._json({"file": name, "size": size})
+
+    def _fal_wait(self, mid, payload, tries=150):
+        """Envía a la cola de fal y espera el resultado (para trabajos de 30s-5min)."""
+        with self._fal_req(f"{FAL_QUEUE}/{mid}", payload, timeout=120) as r:
+            rid = json.loads(r.read()).get("request_id")
+        for _ in range(tries):
+            time.sleep(2)
+            with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}/status") as r:
+                st = json.loads(r.read()).get("status", "")
+            if st == "COMPLETED":
+                with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}") as r:
+                    return json.loads(r.read())
+            if st not in ("IN_QUEUE", "IN_PROGRESS"):
+                raise ValueError(f"terminó con estado {st}")
+        raise ValueError("tardó demasiado; inténtalo de nuevo")
+
+    def h_music(self):
+        b = self._body()
+        if not fal_key():
+            return self._json({"error": "La música usa fal.ai: conecta tu clave en la sección Video."})
+        prompt = (b.get("prompt") or "").strip()
+        if len(prompt) < 10:
+            return self._json({"error": "Describe la música con al menos 10 caracteres."})
+        if b.get("model") == "minimax":
+            mid = "fal-ai/minimax-music"
+            payload = {"prompt": prompt[:2000],
+                       "audio_setting": {"format": "mp3", "sample_rate": 44100, "bitrate": 256000}}
+            if (b.get("lyrics") or "").strip():
+                payload["lyrics"] = b["lyrics"].strip()[:3500]
+                payload["lyrics_optimizer"] = True
+            if b.get("instrumental"):
+                payload["is_instrumental"] = True
+            label, ext = "MiniMax", "mp3"
+        else:
+            mid = "fal-ai/lyria2"
+            payload = {"prompt": prompt}
+            if (b.get("negative") or "").strip():
+                payload["negative_prompt"] = b["negative"].strip()
+            label, ext = "Lyria 2", "wav"
+        if str(b.get("seed") or "").strip().isdigit():
+            payload["seed"] = int(b["seed"])
+        try:
+            res = self._fal_wait(mid, payload)
+            url = (res.get("audio") or {}).get("url", "")
+            if not url:
+                raise ValueError("sin URL de audio en la respuesta")
+            with urllib.request.urlopen(url, timeout=300) as r:
+                raw = r.read()
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except (urllib.error.URLError, ValueError) as e:
+            return self._json({"error": f"Música: {getattr(e, 'reason', e)}"})
+        if ".mp3" in url:
+            ext = "mp3"
+        elif ".wav" in url:
+            ext = "wav"
+        name = self._save_audio(raw, "mus", ext,
+            {"kind": "music", "prompt": prompt[:160], "voice": label, "model": mid.split("/")[-1],
+             "size": ext, "quality": "", "mode": "audio", "cost": 0, "output_tokens": 0,
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+            b.get("save_desktop", True))
+        return self._json({"file": name})
+
+    def h_lipsync(self):
+        b = self._body()
+        if not fal_key():
+            return self._json({"error": "El lip-sync usa fal.ai: conecta tu clave en la sección Video."})
+        vid = b.get("video")
+        if vid and vid.get("hist_file"):
+            fp = HIST_DIR / os.path.basename(vid["hist_file"])
+            if not fp.is_file():
+                return self._json({"error": "No encuentro ese video del historial."})
+            v_uri = "data:video/mp4;base64," + base64.b64encode(fp.read_bytes()).decode()
+        elif vid and vid.get("b64"):
+            v_uri = "data:video/mp4;base64," + vid["b64"]
+        else:
+            return self._json({"error": "Sube o elige el video a sincronizar."})
+        a = self._audio_b64(b.get("audio"))
+        if not a:
+            return self._json({"error": "Sube o elige el audio (voz del historial o archivo)."})
+        payload = {"video_url": v_uri, "audio_url": f"data:{a[1]};base64," + a[0],
+                   "guidance_scale": float(b.get("guidance", 1))}
+        if b.get("loop_mode") in ("pingpong", "loop"):
+            payload["loop_mode"] = b["loop_mode"]
+        if str(b.get("seed") or "").strip().isdigit():
+            payload["seed"] = int(b["seed"])
+        mid = "fal-ai/latentsync"
+        try:
+            with self._fal_req(f"{FAL_QUEUE}/{mid}", payload, timeout=120) as r:
+                rid = json.loads(r.read()).get("request_id")
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._fal_err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con fal.ai: {e.reason}"})
+        if not rid:
+            return self._json({"error": "fal.ai no devolvió un id de trabajo"})
+        with LOCK:
+            PENDING_VIDEOS[rid] = {"model_id": mid,
+                                   "meta": {"prompt": "[lip-sync] " + (b.get("label") or ""),
+                                            "model": "latentsync", "cost": 0,
+                                            "project": b.get("project", ""),
+                                            "save_desktop": b.get("save_desktop", True)}}
+        return self._json({"id": rid})
 
     def h_distill(self):
         b = self._body()
