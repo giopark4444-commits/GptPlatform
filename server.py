@@ -284,6 +284,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .fbtn:hover{background:var(--elev);border-color:var(--mut)}.fbtn svg{width:16px;height:16px}
 .lightbox{position:fixed;inset:0;background:rgba(5,5,6,.93);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:var(--z-lightbox);cursor:zoom-out;padding:30px 30px 90px}
 .lightbox img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
+.lightbox .mclose{position:fixed;top:18px;right:18px;width:36px;height:36px;background:rgba(16,16,18,.85);backdrop-filter:blur(8px)}
 .lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;
  background:rgba(16,16,18,.9);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:9px 12px;max-width:min(760px,92vw);cursor:default}
@@ -342,7 +343,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(5,5,6,.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:var(--z-modal)}
 .modal{background:var(--surface);border:1px solid var(--line2);border-radius:18px;padding:30px;max-width:440px;width:92%;
- box-shadow:0 30px 80px rgba(0,0,0,.6)}
+ box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative}
+.mclose{position:absolute;top:13px;right:13px;width:30px;height:30px;border-radius:8px;background:var(--surface2);
+ border:1px solid var(--line2);color:var(--mut);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;z-index:2}
+.mclose:hover{color:var(--txt);border-color:var(--mut)}
+.mclose svg{width:13px;height:13px;stroke-width:2}
 .modal .ic{width:42px;height:42px;border-radius:12px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:16px}
 .modal h2{margin:0 0 7px;font-size:19px;font-weight:600}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
@@ -350,8 +355,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 
 /* editor de imagen: máscara · anotar · pins */
 .maskbox{background:var(--surface);border:1px solid var(--line2);border-radius:16px;padding:18px;max-width:980px;width:94%;
- box-shadow:0 30px 80px rgba(0,0,0,.6)}
-.masktop{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+ box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative}
+.masktop{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap;padding-right:38px}
 .masktools{display:flex;align-items:center;gap:7px}
 .mtool{width:32px;height:32px;border-radius:9px;background:var(--surface2);border:1px solid var(--line2);color:var(--mut);
  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
@@ -434,6 +439,7 @@ audio{width:100%;height:40px}
 <div class="toasts" id="toasts"></div>
 
 <div class="overlay hide" id="keyModal"><div class="modal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
   <h2>Conecta tu API de OpenAI</h2>
   <p>Pega tu clave para empezar. Se guarda solo en tu equipo (<span class="mono">~/.openai_key</span>) y nunca sale de aquí. Consíguela en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>.</p>
@@ -443,6 +449,7 @@ audio{width:100%;height:40px}
 </div></div>
 
 <div class="overlay hide" id="bakModal"><div class="modal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <div class="ic"><svg viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg></div>
   <h2>Backup y sincronización</h2>
   <p id="bakInfo">Cargando…</p>
@@ -453,6 +460,7 @@ audio{width:100%;height:40px}
 </div></div>
 
 <div class="overlay hide" id="maskModal"><div class="maskbox">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <div class="masktop">
     <div class="seg" id="edTabs">
       <button class="on" data-tab="mask"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>Máscara</button>
@@ -826,6 +834,7 @@ audio{width:100%;height:40px}
 </div>
 
 <div class="lightbox hide" id="lightbox">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <img id="lbImg" src="" alt="Vista completa">
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
@@ -846,6 +855,11 @@ function toast(msg,kind){const t=document.createElement('div');t.className='toas
 
 async function checkKey(){const r=await(await fetch('/keystatus')).json();$('kdot').classList.toggle('on',r.ok);
  if(!r.ok)$('keyModal').classList.remove('hide');return r.ok}
+// X de cierre en todas las ventanas flotantes + clic fuera para los modales
+document.querySelectorAll('.mclose').forEach(b=>b.onclick=e=>{e.stopPropagation();
+ b.closest('.overlay,.lightbox').classList.add('hide')});
+['keyModal','bakModal'].forEach(id=>$(id).addEventListener('click',e=>{
+ if(e.target===$(id))$(id).classList.add('hide')}));
 $('cfgBtn').onclick=()=>$('keyModal').classList.remove('hide');
 $('bakBtn').onclick=async()=>{$('bakModal').classList.remove('hide');
  const s=await(await fetch('/backupstatus')).json();
