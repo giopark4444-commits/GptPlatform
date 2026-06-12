@@ -122,6 +122,13 @@ def load_projects():
                 d["style"] = f.read_text()
             except Exception:
                 pass
+        d["style_video"] = v.get("style_video", "") if isinstance(v, dict) else ""
+        fv = PROJ_DIR / safe(k) / "estilo-video.md"
+        if fv.exists():
+            try:
+                d["style_video"] = fv.read_text()
+            except Exception:
+                pass
         out[k] = d
     return out
 
@@ -797,6 +804,10 @@ audio{width:100%;height:40px}
         <button data-vt="kl" style="flex:1;justify-content:center">Kling</button>
         <button data-vt="oh" style="flex:1;justify-content:center">OmniHuman</button>
       </div>
+      <div class="field" id="vidMemRow" style="display:flex;align-items:center;gap:10px">
+        <label class="check" style="flex:1;margin:0"><input type="checkbox" id="vidUseMem" checked> Usar memoria del proyecto</label>
+        <button class="ghost" id="vidInsStyle" style="flex:none;padding:6px 11px;font-size:11px">Insertar estilo</button>
+      </div>
 
       <div id="sdBox">
         <div class="field"><label>Variante</label><select id="sdTier">
@@ -956,7 +967,10 @@ audio{width:100%;height:40px}
         <button id="distill"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>Destilar</button>
         <button id="delProj" title="Borrar proyecto (doble clic)"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Borrar</button>
       </div>
-      <label style="margin-top:14px">estilo.md · texto</label>
+      <div class="seg" id="styleSeg" style="margin:14px 0 8px;padding:2px;width:100%">
+        <button class="on" data-st="img" style="flex:1;justify-content:center;padding:5px 0;font-size:11px">estilo.md</button>
+        <button data-st="vid" style="flex:1;justify-content:center;padding:5px 0;font-size:11px">estilo-video.md</button>
+      </div>
       <textarea id="style" placeholder="Estilo: técnica, paleta, luz, mood…"></textarea>
       <div class="btnrow"><button id="saveProj"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar estilo</button></div>
       <label style="margin-top:14px">Memoria visual · referencias</label>
@@ -1289,8 +1303,17 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
 async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
  s.innerHTML='<option value="">Sin proyecto</option>'+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
-function renderProj(){const n=$('projSel').value,p=projects[n];$('style').value=p?p.style:'';
+let styleTab='img';
+function stashStyle(){const n=$('projSel').value;if(!n||!projects[n])return;
+ projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
+function renderProj(){const n=$('projSel').value,p=projects[n];
+ $('style').value=p?(styleTab==='img'?(p.style||''):(p.style_video||'')):'';
+ $('style').placeholder=styleTab==='img'?'Estilo: técnica, paleta, luz, mood…':'Estilo de video: cámara, movimiento, ritmo, grading…';
  $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt=""><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
+$('styleSeg').onclick=e=>{const btn=e.target.closest('button');if(!btn)return;
+ stashStyle();styleTab=btn.dataset.st;
+ [...$('styleSeg').children].forEach(x=>x.classList.toggle('on',x.dataset.st===styleTab));renderProj()};
+$('style').addEventListener('input',stashStyle);
 $('projSel').onchange=()=>{localStorage.setItem('studio_proj',$('projSel').value);renderProj()};
 $('useVis').checked=localStorage.getItem('studio_usevis')!=='0';
 $('useVis').onchange=()=>localStorage.setItem('studio_usevis',$('useVis').checked?'1':'0');
@@ -1307,7 +1330,10 @@ $('delProj').onclick=async()=>{const n=$('projSel').value;
  await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
  localStorage.setItem('studio_proj','');$('projSel').value='';
  await loadProjects();toast('Proyecto "'+n+'" borrado · sus imágenes del historial se conservan')};
-$('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:$('style').value})});projects[n].style=$('style').value;toast('Estilo guardado')};
+$('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}
+ stashStyle();
+ await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
+ toast('Estilos guardados (imagen y video)')};
 $('distill').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige un proyecto','bad');return}$('distill').textContent='…';
  const r=await(await fetch('/distill',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})})).json();$('distill').innerHTML='Destilar';
  if(r.error){toast(r.error,'bad');return}$('style').value=r.style;toast('Estilo destilado · revisa y guarda')};
@@ -1729,9 +1755,19 @@ function vidSetTab(t){vidTab=t;
  $('sdBox').classList.toggle('hide',t!=='sd');
  $('klBox').classList.toggle('hide',t!=='kl');
  $('ohBox').classList.toggle('hide',t!=='oh');
+ $('vidMemRow').classList.toggle('dim',t==='oh');
  if(t==='oh')fillOhAudSel();
  vidEstCalc()}
 $('vidSeg').onclick=e=>{const b=e.target.closest('button');if(b)vidSetTab(b.dataset.vt)};
+$('vidUseMem').checked=localStorage.getItem('studio_vidmem')!=='0';
+$('vidUseMem').onchange=()=>localStorage.setItem('studio_vidmem',$('vidUseMem').checked?'1':'0');
+$('vidInsStyle').onclick=()=>{const n=$('projSel').value,p=projects[n];
+ if(!n||!p){toast('Elige un proyecto con estilo guardado','bad');return}
+ const st=((p.style_video||'').trim()||(p.style||'').trim());
+ if(!st){toast('Este proyecto no tiene estilo guardado','bad');return}
+ const ta=vidTab==='kl'?$('klPrompt'):$('sdPrompt');
+ ta.value=st+(ta.value.trim()?'\n\n'+ta.value.trim():'');ta.focus();
+ toast('Estilo insertado en el prompt')};
 function vidEstCalc(){let est=null,note='';
  if(vidTab==='oh'){if(ohAudDur)est=ohAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
  else if(vidTab==='kl'){const secs=+$('klDur').value;
@@ -1815,7 +1851,8 @@ function klMultiList(){return $('klMulti').value.split('\n').map(l=>l.trim()).fi
 async function runVID(){
  if(!falReady){toast('Conecta tu clave de fal.ai','bad');return}
  const est=parseFloat(($('vidEst').textContent.match(/[\d.]+/)||[0])[0])||0;
- let body={cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked},title='';
+ let body={cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked,
+  use_memory:$('vidUseMem').checked},title='';
  if(vidTab==='sd'){
   const prompt=$('sdPrompt').value.trim();
   if(!prompt){toast('Escribe el prompt del video','bad');$('sdPrompt').focus();return}
@@ -2086,6 +2123,12 @@ class H(BaseHTTPRequestHandler):
                 cur["style"] = b["style"]
                 try:
                     (proj_folder(name) / "estilo.md").write_text(b["style"])
+                except Exception:
+                    pass
+            if "style_video" in b:
+                cur["style_video"] = b["style_video"]
+                try:
+                    (proj_folder(name) / "estilo-video.md").write_text(b["style_video"])
                 except Exception:
                     pass
             pr[name] = cur
@@ -2623,6 +2666,12 @@ class H(BaseHTTPRequestHandler):
         if model not in VIDEO_MODELS:
             return self._json({"error": "Modelo de video desconocido"})
         prompt = (b.get("prompt") or "").strip()
+        use_mem = bool(b.get("use_memory")) and (b.get("project") or "")
+        if use_mem and not model.startswith("omnihuman"):
+            p = load_projects().get(b["project"], {})
+            st = (p.get("style_video") or "").strip() or (p.get("style") or "").strip()
+            if st and not prompt.startswith(st):
+                prompt = st + "\n\n" + prompt
 
         if model.startswith("omnihuman"):
             img = b.get("image")
@@ -2649,7 +2698,14 @@ class H(BaseHTTPRequestHandler):
                        "aspect_ratio": b.get("aspect", "auto")}
             if str(b.get("seed") or "").strip().isdigit():
                 payload["seed"] = int(b["seed"])
-            imgs = b.get("images") or []
+            imgs = list(b.get("images") or [])
+            if use_mem:
+                for f in load_projects().get(b["project"], {}).get("refs", []):
+                    if len(imgs) >= 9:
+                        break
+                    fp = PROJ_DIR / safe(b["project"]) / f
+                    if fp.is_file():
+                        imgs.append({"name": f, "b64": base64.b64encode(fp.read_bytes()).decode()})
             vids = b.get("videos") or []
             auds = b.get("audios") or []
             if len(imgs) > 9 or len(vids) > 3 or len(auds) > 3 or len(imgs) + len(vids) + len(auds) > 12:
