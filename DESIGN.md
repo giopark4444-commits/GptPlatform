@@ -53,7 +53,7 @@ Reglas: micro-labels en mayúsculas, 10px, `letter-spacing:.11em`, color `--fain
 - **Modal de API key:** overlay con blur, icono en chip `--accent-dim`. Botón API con punto de estado (`--ok` cuando hay clave).
 - **Ajustes avanzados:** `<details>` plegable, incluye carpeta de guardado configurable.
 - **Toasts:** pill superior centrada en `--elev`, punto de estado ok/bad, animación de entrada sutil. Sustituyen a `alert()`.
-- **Editor de máscara:** modal grande con la imagen + canvas superpuesto (trazo ámbar al 55%), toolbar pincel/borrador/tamaño/limpiar.
+- **Editor de imagen:** modal grande con pestañas (segmented control) Máscara · Anotar · Pins. Máscara: trazo ámbar al 55% (pincel/borrador/rect/lazo). Anotar: capa opaca en rojo `#e5483f` (flecha/círculo/trazo/texto, deshacer). Pins: badges rojos numerados + lista lateral de instrucciones. El rojo solo existe como tinta de anotación sobre la imagen, nunca en el chrome de la UI.
 - **Tira de resultados:** miniaturas 62px bajo el lienzo cuando hay >1 imagen; activa con anillo ámbar.
 - **Lightbox:** barra inferior flotante con prompt truncado, "usar prompt" y descargar; `Esc` cierra.
 - **Historial:** filtro por proyecto, contador, "ver más", papelera con confirmación armada (doble clic, estado rojo); tarjetas arrastrables a referencias.

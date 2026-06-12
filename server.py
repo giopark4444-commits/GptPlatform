@@ -85,6 +85,16 @@ def save_dir():
     return Path(os.path.expanduser(raw)) if raw else HOME / "Desktop"
 
 
+def balance(conf=None):
+    conf = conf if conf is not None else load_json(CONF_JSON, {})
+    if "credit" not in conf:
+        return {}
+    since = conf.get("credit_set", "")
+    spent = sum(h.get("cost", 0) or 0 for h in load_json(HIST_JSON, []) if h.get("ts", "") >= since)
+    return {"credit": conf["credit"], "credit_set": since,
+            "spent": round(spent, 5), "remaining": round(conf["credit"] - spent, 5)}
+
+
 def g1_size(size):
     try:
         w, h = map(int, size.split("x"))
@@ -162,8 +172,13 @@ textarea{resize:vertical;min-height:78px}select{appearance:none;cursor:pointer;
  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c8c93' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
  background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
 
-.slabel{display:flex;justify-content:space-between;align-items:baseline}
-.slabel .v{font-family:var(--mono);font-size:13px;color:var(--txt)}
+.slabel{display:flex;justify-content:space-between;align-items:center}
+.vnum{width:78px;background:transparent;border:1px solid transparent;color:var(--txt);
+ font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;text-align:right;
+ padding:3px 7px;border-radius:7px;transition:.15s;-moz-appearance:textfield;appearance:textfield}
+.vnum::-webkit-inner-spin-button,.vnum::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.vnum:hover{border-color:var(--line2)}
+.vnum:focus{outline:none;border-color:var(--accent);background:var(--surface2)}
 input[type=range]{-webkit-appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;margin-top:2px}
 input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:3px;background:var(--line2)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--txt);
@@ -286,8 +301,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
 .modal input{margin-bottom:8px}.kmsg{font-size:12px;color:var(--mut);min-height:16px;margin-bottom:12px}
 
-/* mask editor */
-.maskbox{background:var(--surface);border:1px solid var(--line2);border-radius:16px;padding:18px;max-width:900px;width:94%;
+/* editor de imagen: máscara · anotar · pins */
+.maskbox{background:var(--surface);border:1px solid var(--line2);border-radius:16px;padding:18px;max-width:980px;width:94%;
  box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .masktop{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap}
 .masktools{display:flex;align-items:center;gap:7px}
@@ -297,10 +312,30 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .mtool.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 .mtool svg{width:14px;height:14px}
 .masktools input[type=range]{width:110px;height:18px}
+.edbody{display:flex;gap:12px;align-items:stretch}
+.edbody .maskarea{flex:1;min-width:0}
 .maskarea{display:flex;justify-content:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;padding:10px}
 .maskstack{position:relative;display:inline-block;line-height:0}
 .maskstack img{max-width:100%;max-height:58vh;display:block;user-select:none;-webkit-user-drag:none}
-.maskstack canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55;cursor:crosshair;touch-action:none}
+.maskstack canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#maskDraw{opacity:.55}
+#annoDraw{opacity:1;pointer-events:none}
+#pinLayer{position:absolute;inset:0;pointer-events:none;cursor:copy}
+.pin{position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#e5483f;
+ border:2px solid #fff;color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;line-height:1;
+ display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.5);cursor:pointer;pointer-events:inherit}
+#annoText{position:absolute;width:210px;transform:translate(-8px,-130%);background:var(--elev);border:1px solid #e5483f;
+ color:var(--txt);border-radius:8px;padding:7px 10px;font-size:13px;font-family:var(--ui);z-index:3}
+#annoText:focus{outline:none}
+.pinlist{width:236px;flex:none;display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:62vh;padding:2px}
+.pinrow{display:flex;align-items:center;gap:7px}
+.pinrow .pinnum{width:22px;height:22px;border-radius:50%;background:#e5483f;color:#fff;font-family:var(--mono);
+ font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.pinrow input{font-size:12px;padding:8px 10px}
+.pinrow .x{width:24px;height:24px;border:1px solid var(--line2);background:var(--surface2);border-radius:7px;
+ color:var(--mut);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:.15s}
+.pinrow .x:hover{color:var(--bad);border-color:var(--bad)}
+.pinrow .x svg{width:10px;height:10px}
 .maskfoot{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-top:14px}
 .maskfoot .hint{margin:0}
 .maskfoot .acts{display:flex;gap:9px}
@@ -341,20 +376,46 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 
 <div class="overlay hide" id="maskModal"><div class="maskbox">
   <div class="masktop">
-    <span class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>Pintar máscara · la zona pintada se regenera</span>
-    <div class="masktools">
+    <div class="seg" id="edTabs">
+      <button class="on" data-tab="mask"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>Máscara</button>
+      <button data-tab="anno"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M5 19L19 5"/><path d="M19 5h-8M19 5v8"/></svg>Anotar</button>
+      <button data-tab="pins"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Pins</button>
+    </div>
+    <div class="masktools" id="toolsMask">
       <button class="mtool on" id="mBrush" title="Pincel"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
       <button class="mtool" id="mErase" title="Borrador"><svg viewBox="0 0 24 24"><path d="M20 20H7L3 16c-.6-.6-.6-1.5 0-2.1L13 4c.6-.6 1.5-.6 2.1 0l5 5c.6.6.6 1.5 0 2.1L11 20"/></svg></button>
+      <button class="mtool" id="mRect" title="Rectángulo"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+      <button class="mtool" id="mLasso" title="Lazo"><svg viewBox="0 0 24 24"><path d="M7 4.5c4-2 10-1.5 11.5 1.5s-1 6.5-5 7.5-9 .5-10-2 .5-5.5 3.5-7z"/><path d="M6 13c-1.5 2-1 5 1 6.5"/><circle cx="8.5" cy="20" r="1.5"/></svg></button>
       <input type="range" id="mSize" min="8" max="160" value="48" title="Tamaño del pincel">
-      <button class="mtool" id="mClear" title="Limpiar todo"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      <button class="mtool" id="mClear" title="Limpiar máscara"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </div>
+    <div class="masktools hide" id="toolsAnno">
+      <button class="mtool on" id="aArrow" title="Flecha"><svg viewBox="0 0 24 24"><path d="M5 19L19 5"/><path d="M19 5h-8M19 5v8"/></svg></button>
+      <button class="mtool" id="aCircle" title="Círculo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></button>
+      <button class="mtool" id="aFree" title="Trazo libre"><svg viewBox="0 0 24 24"><path d="M3 16c3-8 6 8 9 0s6-8 9 0"/></svg></button>
+      <button class="mtool" id="aText" title="Texto"><svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13"/></svg></button>
+      <button class="mtool" id="aUndo" title="Deshacer"><svg viewBox="0 0 24 24"><path d="M8 5L4 9l4 4"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg></button>
+      <button class="mtool" id="aClear" title="Limpiar anotaciones"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </div>
+    <div class="masktools hide" id="toolsPins">
+      <button class="mtool" id="pClear" title="Quitar todos los pins"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     </div>
   </div>
-  <div class="maskarea"><div class="maskstack"><img id="maskBase" alt="Imagen a enmascarar"><canvas id="maskDraw"></canvas></div></div>
+  <div class="edbody">
+    <div class="maskarea"><div class="maskstack">
+      <img id="maskBase" alt="Imagen a marcar">
+      <canvas id="maskDraw"></canvas>
+      <canvas id="annoDraw"></canvas>
+      <div id="pinLayer"></div>
+      <input id="annoText" class="hide" type="text" placeholder="Texto de la anotación…" spellcheck="false">
+    </div></div>
+    <div class="pinlist hide" id="pinList"></div>
+  </div>
   <div class="maskfoot">
-    <p class="hint">Pinta lo que quieres cambiar. El resto se conserva.</p>
+    <p class="hint" id="edHint">Pinta o selecciona lo que quieres regenerar. El resto se conserva.</p>
     <div class="acts">
       <button class="ghost" id="mCancel">Cancelar</button>
-      <button class="primary" id="mApply">Usar máscara</button>
+      <button class="primary" id="mApply">Aplicar</button>
     </div>
   </div>
 </div></div>
@@ -367,6 +428,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
   </div>
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> img</span>
+    <span class="sess" id="balTxt" title="Estimado: crédito que fijaste menos lo gastado aquí"></span>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
   </div>
 </div>
@@ -393,9 +455,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
     </div>
 
     <div class="field">
-      <div class="slabel"><label>Ancho</label><span class="v" id="wv">1536</span></div>
+      <div class="slabel"><label>Ancho</label><input class="vnum" id="wv" type="number" min="512" max="3840" step="16" value="1536"></div>
       <input type="range" id="w" min="512" max="3840" step="16" value="1536">
-      <div class="slabel" style="margin-top:6px"><label>Alto</label><span class="v" id="hv">1024</span></div>
+      <div class="slabel" style="margin-top:6px"><label>Alto</label><input class="vnum" id="hv" type="number" min="512" max="3840" step="16" value="1024"></div>
       <input type="range" id="h" min="512" max="3840" step="16" value="1024">
       <label class="check" style="margin-top:10px"><input type="checkbox" id="lock"> Mantener proporción</label>
     </div>
@@ -454,6 +516,14 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
             <button class="ghost" id="dirApply" style="flex:none">Aplicar</button>
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
+        </div>
+        <div style="margin-top:12px">
+          <label>Saldo de Platform · estimado</label>
+          <div style="display:flex;gap:7px">
+            <input type="number" id="creditIn" placeholder="20.00" step="0.01" min="0" class="mono">
+            <button class="ghost" id="creditApply" style="flex:none">Fijar</button>
+          </div>
+          <p class="hint">OpenAI no expone tu saldo por API. Mira tu crédito en platform.openai.com → Billing, fíjalo aquí, y el Studio le restará lo que gastes desde ese momento. Pon 0 para ocultarlo.</p>
         </div>
         <p class="hint">Transparente usa <span class="mono">gpt-image-1</span> (tamaño fijo). Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
       </div>
@@ -561,17 +631,28 @@ function applyRes(){if(!selRes)return;
  let W=+$('w').value,H=+$('h').value;const r=W/H;
  if(W>=H){W=selRes;H=W/r}else{H=selRes;W=H*r}
  W=Math.max(512,Math.min(3840,snap(W)));H=Math.max(512,Math.min(3840,snap(H)));
- $('w').value=W;$('h').value=H;$('wv').textContent=W;$('hv').textContent=H;ratio=W/H;validate()}
-$('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').textContent=$('h').value}$('wv').textContent=$('w').value;clearRes();validate()};
-$('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').textContent=$('w').value}$('hv').textContent=$('h').value;clearRes();validate()};
+ $('w').value=W;$('h').value=H;$('wv').value=W;$('hv').value=H;ratio=W/H;validate()}
+$('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').value=$('h').value}$('wv').value=$('w').value;clearRes();validate()};
+$('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').value=$('w').value}$('hv').value=$('h').value;clearRes();validate()};
 $('lock').onchange=()=>ratio=$('w').value/$('h').value;
+function commitNum(numId,sliderId){
+ let v=Math.max(512,Math.min(3840,snap(+$(numId).value||512)));
+ $(numId).value=v;$(sliderId).value=v;
+ if($('lock').checked){
+  if(sliderId==='w'){$('h').value=snap(Math.min(3840,Math.max(512,v/ratio)));$('hv').value=$('h').value}
+  else{$('w').value=snap(Math.min(3840,Math.max(512,v*ratio)));$('wv').value=$('w').value}}
+ clearRes();validate()}
+$('wv').addEventListener('change',()=>commitNum('wv','w'));
+$('hv').addEventListener('change',()=>commitNum('hv','h'));
+['wv','hv'].forEach(n=>$(n).addEventListener('keydown',e=>{
+ if(e.key==='Enter'){e.preventDefault();$(n).blur()}}));
 $('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;
  if(c.dataset.long){const was=c.classList.contains('on');
   document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'));
   if(was){selRes=0;return}
   selRes=+c.dataset.long;c.classList.add('on');applyRes();return}
  document.querySelectorAll('.chip[data-w]').forEach(x=>x.classList.remove('on'));c.classList.add('on');
- $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').textContent=c.dataset.w;$('hv').textContent=c.dataset.h;ratio=c.dataset.w/c.dataset.h;
+ $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').value=c.dataset.w;$('hv').value=c.dataset.h;ratio=c.dataset.w/c.dataset.h;
  if(selRes)applyRes();else validate()};
 $('quality').onchange=validate;$('n').onchange=validate;
 $('fmt').onchange=()=>$('compBox').classList.toggle('hide',$('fmt').value==='png');
@@ -584,12 +665,22 @@ function renderSaveWhere(){
  $('dirBox').style.opacity=$('saveDesk').checked?'1':'.4'}
 $('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
 $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
+function renderBal(r){
+ if(r&&r.remaining!==undefined){
+  const neg=r.remaining<0;
+  $('balTxt').innerHTML='Saldo <b class="mono"'+(neg?' style="color:var(--bad)"':'')+'>~$'+r.remaining.toFixed(2)+'</b>';
+  $('creditIn').value=r.credit}
+ else $('balTxt').innerHTML=''}
 async function loadConfig(){const r=await(await fetch('/config')).json();
- $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere()}
+ $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();renderBal(r)}
 $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
  if(r.error){toast(r.error,'bad');return}
  cfgEffective=r.effective;renderSaveWhere();toast('Las copias irán a '+r.effective)};
+$('creditApply').onclick=async()=>{
+ const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credit:parseFloat($('creditIn').value||'0')})})).json();
+ if(r.error){toast(r.error,'bad');return}
+ renderBal(r);toast(r.remaining!==undefined?'Saldo fijado: ~$'+r.remaining.toFixed(2)+' disponible':'Saldo ocultado')};
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
@@ -625,41 +716,151 @@ function renderMaskThumb(){$('maskThumb').innerHTML=mask?`<div class="thumb"><im
 $('dropMask').onclick=()=>$('maskFile').click();
 $('maskFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;mask={name:f.name,b64:await fileToB64(f)};renderMaskThumb();toast('Máscara cargada')};
 
-// ===== editor de máscara =====
-let mTool='brush',mDrawing=false,mLast=null;
-const mCanvas=()=>$('maskDraw');
+// ===== editor de imagen: máscara · anotar · pins =====
+const RED='#e5483f';
+let edTab='mask',mTool='brush',aTool='arrow';
+let mDrawing=false,mLast=null,mSnap=null,mPts=[];
+let aDrawing=false,aLast=null,aSnap=null,aStart=null;
+let maskOps=0,annoOps=0,annoUndo=[],pins=[];
+const mCanvas=()=>$('maskDraw'),aCanvas=()=>$('annoDraw');
+const aCtx=()=>aCanvas().getContext('2d');
+function selTool(group,id){[...$(group).querySelectorAll('.mtool')].forEach(b=>b.classList.toggle('on',b.id===id))}
+function edSetTab(t){edTab=t;
+ [...$('edTabs').children].forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+ $('toolsMask').classList.toggle('hide',t!=='mask');
+ $('toolsAnno').classList.toggle('hide',t!=='anno');
+ $('toolsPins').classList.toggle('hide',t!=='pins');
+ $('pinList').classList.toggle('hide',t!=='pins'||!pins.length);
+ mCanvas().style.pointerEvents=t==='mask'?'auto':'none';
+ aCanvas().style.pointerEvents=t==='anno'?'auto':'none';
+ $('pinLayer').style.pointerEvents=t==='pins'?'auto':'none';
+ $('annoText').classList.add('hide');
+ $('edHint').textContent=t==='mask'?'Pinta o selecciona lo que quieres regenerar. El resto se conserva.'
+  :t==='anno'?'Dibuja instrucciones en rojo: flechas, círculos, trazos o texto. No saldrán en el resultado.'
+  :'Clic sobre la imagen para soltar pins numerados y escribe la instrucción de cada uno.'}
+$('edTabs').onclick=e=>{const b=e.target.closest('button');if(b)edSetTab(b.dataset.tab)};
 function maskOpen(){
  if(!refs.length){toast('Sube o pega primero una imagen a editar','bad');return}
  const img=$('maskBase');
- img.onload=()=>{const c=mCanvas();c.width=img.naturalWidth;c.height=img.naturalHeight;
-  c.getContext('2d').clearRect(0,0,c.width,c.height)};
+ img.onload=()=>{[mCanvas(),aCanvas()].forEach(c=>{c.width=img.naturalWidth;c.height=img.naturalHeight;
+   c.getContext('2d').clearRect(0,0,c.width,c.height)});
+  maskOps=0;annoOps=0;annoUndo=[];pins=[];renderPins();edSetTab('mask')};
  img.src='data:image/png;base64,'+refs[0].b64;
- mTool='brush';$('mBrush').classList.add('on');$('mErase').classList.remove('on');
+ mTool='brush';aTool='arrow';selTool('toolsMask','mBrush');selTool('toolsAnno','aArrow');
  $('maskModal').classList.remove('hide');
 }
 $('maskPaint').onclick=maskOpen;
-$('mBrush').onclick=()=>{mTool='brush';$('mBrush').classList.add('on');$('mErase').classList.remove('on')};
-$('mErase').onclick=()=>{mTool='erase';$('mErase').classList.add('on');$('mBrush').classList.remove('on')};
-$('mClear').onclick=()=>{const c=mCanvas();c.getContext('2d').clearRect(0,0,c.width,c.height)};
+$('mBrush').onclick=()=>{mTool='brush';selTool('toolsMask','mBrush')};
+$('mErase').onclick=()=>{mTool='erase';selTool('toolsMask','mErase')};
+$('mRect').onclick=()=>{mTool='rect';selTool('toolsMask','mRect')};
+$('mLasso').onclick=()=>{mTool='lasso';selTool('toolsMask','mLasso')};
+$('mClear').onclick=()=>{const c=mCanvas();c.getContext('2d').clearRect(0,0,c.width,c.height);maskOps=0};
+$('aArrow').onclick=()=>{aTool='arrow';selTool('toolsAnno','aArrow')};
+$('aCircle').onclick=()=>{aTool='circle';selTool('toolsAnno','aCircle')};
+$('aFree').onclick=()=>{aTool='free';selTool('toolsAnno','aFree')};
+$('aText').onclick=()=>{aTool='text';selTool('toolsAnno','aText')};
+$('aUndo').onclick=()=>{if(!annoUndo.length)return;aCtx().putImageData(annoUndo.pop(),0,0);annoOps=Math.max(0,annoOps-1)};
+$('aClear').onclick=()=>{const c=aCanvas();c.getContext('2d').clearRect(0,0,c.width,c.height);annoOps=0;annoUndo=[]};
 $('mCancel').onclick=()=>$('maskModal').classList.add('hide');
-function mPt(e){const c=mCanvas(),r=c.getBoundingClientRect();
+function cPt(c,e){const r=c.getBoundingClientRect();
  return{x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height,k:c.width/r.width}}
+function pushUndo(){const c=aCanvas();annoUndo.push(c.getContext('2d').getImageData(0,0,c.width,c.height));
+ if(annoUndo.length>10)annoUndo.shift()}
+// --- máscara: pincel, borrador, rectángulo, lazo ---
 function mStroke(a,b,k){const ctx=mCanvas().getContext('2d');
- ctx.globalCompositeOperation=mTool==='brush'?'source-over':'destination-out';
+ ctx.globalCompositeOperation=mTool==='erase'?'destination-out':'source-over';
  ctx.strokeStyle='#e0a571';ctx.lineWidth=+$('mSize').value*k;ctx.lineCap='round';ctx.lineJoin='round';
  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-$('maskDraw').addEventListener('pointerdown',e=>{mDrawing=true;mCanvas().setPointerCapture(e.pointerId);
- const p=mPt(e);mStroke(p,{x:p.x+.01,y:p.y+.01},p.k);mLast=p});
-$('maskDraw').addEventListener('pointermove',e=>{if(!mDrawing)return;const p=mPt(e);mStroke(mLast,p,p.k);mLast=p});
-['pointerup','pointercancel'].forEach(ev=>$('maskDraw').addEventListener(ev,()=>{mDrawing=false;mLast=null}));
-$('mApply').onclick=()=>{const img=$('maskBase'),dc=mCanvas();
- const out=document.createElement('canvas');out.width=dc.width;out.height=dc.height;
- const ctx=out.getContext('2d');ctx.drawImage(img,0,0,out.width,out.height);
- ctx.globalCompositeOperation='destination-out';ctx.drawImage(dc,0,0);
- mask={name:'mask.png',b64:out.toDataURL('image/png').split(',')[1]};
- renderMaskThumb();$('maskModal').classList.add('hide');
- if(mode!=='editar')setMode('editar');
- toast('Máscara lista · la zona pintada se regenerará')};
+$('maskDraw').addEventListener('pointerdown',e=>{const c=mCanvas();mDrawing=true;c.setPointerCapture(e.pointerId);
+ const p=cPt(c,e);mLast=p;mPts=[p];maskOps++;
+ if(mTool==='rect'||mTool==='lasso')mSnap=c.getContext('2d').getImageData(0,0,c.width,c.height);
+ else mStroke(p,{x:p.x+.01,y:p.y+.01},p.k)});
+$('maskDraw').addEventListener('pointermove',e=>{if(!mDrawing)return;const c=mCanvas(),p=cPt(c,e),ctx=c.getContext('2d');
+ if(mTool==='brush'||mTool==='erase'){mStroke(mLast,p,p.k);mLast=p;return}
+ ctx.putImageData(mSnap,0,0);ctx.globalCompositeOperation='source-over';
+ ctx.strokeStyle='#e0a571';ctx.lineWidth=2*p.k;ctx.setLineDash([6*p.k,5*p.k]);
+ if(mTool==='rect')ctx.strokeRect(mPts[0].x,mPts[0].y,p.x-mPts[0].x,p.y-mPts[0].y);
+ else{mPts.push(p);ctx.beginPath();ctx.moveTo(mPts[0].x,mPts[0].y);mPts.forEach(q=>ctx.lineTo(q.x,q.y));ctx.stroke()}
+ ctx.setLineDash([]);mLast=p});
+['pointerup','pointercancel'].forEach(ev=>$('maskDraw').addEventListener(ev,()=>{
+ if(!mDrawing)return;mDrawing=false;const ctx=mCanvas().getContext('2d');
+ if(mSnap){ctx.putImageData(mSnap,0,0);ctx.globalCompositeOperation='source-over';ctx.fillStyle='#e0a571';
+  if(mTool==='rect'&&mLast)ctx.fillRect(mPts[0].x,mPts[0].y,mLast.x-mPts[0].x,mLast.y-mPts[0].y);
+  if(mTool==='lasso'&&mPts.length>2){ctx.beginPath();ctx.moveTo(mPts[0].x,mPts[0].y);
+   mPts.forEach(q=>ctx.lineTo(q.x,q.y));ctx.closePath();ctx.fill()}}
+ mSnap=null;mLast=null;mPts=[]}));
+// --- anotaciones: flecha, círculo, trazo, texto ---
+function aFreeSeg(a,b,k){const ctx=aCtx();ctx.globalCompositeOperation='source-over';
+ ctx.strokeStyle=RED;ctx.lineWidth=6*k;ctx.lineCap='round';ctx.lineJoin='round';
+ ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+function drawArrow(ctx,a,b,k){ctx.strokeStyle=RED;ctx.fillStyle=RED;ctx.lineWidth=6*k;ctx.lineCap='round';
+ ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+ const ang=Math.atan2(b.y-a.y,b.x-a.x),L=22*k;
+ ctx.beginPath();ctx.moveTo(b.x,b.y);
+ ctx.lineTo(b.x-L*Math.cos(ang-0.45),b.y-L*Math.sin(ang-0.45));
+ ctx.lineTo(b.x-L*Math.cos(ang+0.45),b.y-L*Math.sin(ang+0.45));
+ ctx.closePath();ctx.fill()}
+function drawEllipse(ctx,a,b,k){ctx.strokeStyle=RED;ctx.lineWidth=6*k;
+ ctx.beginPath();ctx.ellipse((a.x+b.x)/2,(a.y+b.y)/2,Math.abs(b.x-a.x)/2||1,Math.abs(b.y-a.y)/2||1,0,0,Math.PI*2);ctx.stroke()}
+$('annoDraw').addEventListener('pointerdown',e=>{const c=aCanvas(),p=cPt(c,e);
+ if(aTool==='text'){placeText(e,p);return}
+ aDrawing=true;c.setPointerCapture(e.pointerId);pushUndo();annoOps++;aStart=p;aLast=p;
+ if(aTool==='arrow'||aTool==='circle')aSnap=aCtx().getImageData(0,0,c.width,c.height);
+ else aFreeSeg(p,{x:p.x+.01,y:p.y+.01},p.k)});
+$('annoDraw').addEventListener('pointermove',e=>{if(!aDrawing)return;const c=aCanvas(),p=cPt(c,e);
+ if(aTool==='free'){aFreeSeg(aLast,p,p.k);aLast=p;return}
+ const ctx=aCtx();ctx.putImageData(aSnap,0,0);
+ if(aTool==='arrow')drawArrow(ctx,aStart,p,p.k);else drawEllipse(ctx,aStart,p,p.k);aLast=p});
+['pointerup','pointercancel'].forEach(ev=>$('annoDraw').addEventListener(ev,()=>{aDrawing=false;aSnap=null;aLast=null;aStart=null}));
+function placeText(e,p){const inp=$('annoText'),stack=document.querySelector('.maskstack'),r=stack.getBoundingClientRect();
+ inp.style.left=(e.clientX-r.left)+'px';inp.style.top=(e.clientY-r.top)+'px';
+ inp.dataset.x=p.x;inp.dataset.y=p.y;inp.dataset.k=p.k;inp.value='';inp.classList.remove('hide');inp.focus()}
+$('annoText').addEventListener('keydown',e=>{e.stopPropagation();
+ if(e.key==='Escape'){$('annoText').classList.add('hide');return}
+ if(e.key!=='Enter')return;
+ const inp=$('annoText'),t=inp.value.trim();inp.classList.add('hide');if(!t)return;
+ pushUndo();annoOps++;const ctx=aCtx(),k=+inp.dataset.k;
+ ctx.font='600 '+Math.round(38*k)+"px 'Schibsted Grotesk',sans-serif";
+ ctx.textAlign='left';ctx.textBaseline='middle';
+ ctx.lineWidth=4*k;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.strokeText(t,+inp.dataset.x,+inp.dataset.y);
+ ctx.fillStyle=RED;ctx.fillText(t,+inp.dataset.x,+inp.dataset.y)});
+// --- pins numerados ---
+function renderPins(){
+ $('pinLayer').innerHTML=pins.map((p,i)=>`<div class="pin" data-i="${i}" style="left:${p.fx*100}%;top:${p.fy*100}%">${i+1}</div>`).join('');
+ $('pinList').innerHTML=pins.map((p,i)=>`<div class="pinrow"><span class="pinnum">${i+1}</span><input type="text" data-i="${i}" placeholder="Instrucción del punto ${i+1}…" value="${esc(p.text)}"><button class="x" data-del="${i}" title="Quitar pin">${xicon()}</button></div>`).join('');
+ $('pinList').classList.toggle('hide',edTab!=='pins'||!pins.length)}
+$('pinLayer').onclick=e=>{
+ const pin=e.target.closest('.pin');
+ if(pin){const inp=$('pinList').querySelector(`input[data-i="${pin.dataset.i}"]`);if(inp)inp.focus();return}
+ const r=$('pinLayer').getBoundingClientRect();
+ pins.push({fx:(e.clientX-r.left)/r.width,fy:(e.clientY-r.top)/r.height,text:''});renderPins();
+ const inp=$('pinList').querySelector(`input[data-i="${pins.length-1}"]`);if(inp)inp.focus()};
+$('pinList').addEventListener('input',e=>{const i=e.target.dataset.i;if(i!==undefined)pins[+i].text=e.target.value});
+$('pinList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;pins.splice(+b.dataset.del,1);renderPins()});
+$('pClear').onclick=()=>{pins=[];renderPins()};
+// --- aplicar ---
+$('mApply').onclick=()=>{const img=$('maskBase');let made=[];
+ if(maskOps>0){const dc=mCanvas(),out=document.createElement('canvas');out.width=dc.width;out.height=dc.height;
+  const ctx=out.getContext('2d');ctx.drawImage(img,0,0,out.width,out.height);
+  ctx.globalCompositeOperation='destination-out';ctx.drawImage(dc,0,0);
+  mask={name:'mask.png',b64:out.toDataURL('image/png').split(',')[1]};renderMaskThumb();made.push('máscara')}
+ if(annoOps>0||pins.length){const ac=aCanvas(),out=document.createElement('canvas');out.width=ac.width;out.height=ac.height;
+  const ctx=out.getContext('2d');ctx.drawImage(img,0,0,out.width,out.height);ctx.drawImage(ac,0,0);
+  const R=Math.max(16,out.width*0.018);
+  pins.forEach((p,i)=>{const x=p.fx*out.width,y=p.fy*out.height;
+   ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fillStyle=RED;ctx.fill();
+   ctx.lineWidth=R*0.18;ctx.strokeStyle='#fff';ctx.stroke();
+   ctx.fillStyle='#fff';ctx.font='700 '+Math.round(R*1.15)+"px 'Geist Mono',monospace";
+   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(i+1),x,y)});
+  refs.push({name:'instrucciones.png',b64:out.toDataURL('image/png').split(',')[1]});renderThumbs();
+  let note='Sigue las instrucciones marcadas en rojo en la imagen "instrucciones" (flechas, círculos, texto y pins numerados) y aplícalas a la primera imagen. No incluyas ninguna marca roja en el resultado.';
+  const lines=pins.map((p,i)=>p.text.trim()?'Punto '+(i+1)+': '+p.text.trim():'').filter(Boolean);
+  if(lines.length)note+='\n'+lines.join('\n');
+  $('prompt').value=($('prompt').value.trim()?$('prompt').value.trim()+'\n\n':'')+note;
+  made.push(pins.length?'anotaciones y pins':'anotaciones')}
+ if(!made.length){toast('No has marcado nada todavía','bad');return}
+ $('maskModal').classList.add('hide');if(mode!=='editar')setMode('editar');
+ toast('Listo: '+made.join(' + ')+(annoOps>0||pins.length?' · instrucciones añadidas al prompt':''))};
 
 async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel'),cur=s.value;
  s.innerHTML='<option value="">Sin proyecto</option>'+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
@@ -793,7 +994,7 @@ async function run(){
     +(results.length>1?' · '+results.length+' imágenes':'')
     +(d.via_visual?' · memoria visual':'')+(d.model_used==='gpt-image-1'?' · transparente':'');
    $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> img';
-   loadGal()}
+   loadGal();fetch('/config').then(x=>x.json()).then(renderBal).catch(()=>{})}
  }catch(e){err(e)}
  $('goTxt').textContent=prevTxt;validate();
 }
@@ -853,7 +1054,8 @@ class H(BaseHTTPRequestHandler):
             return self._json(load_projects())
         if self.path == "/config":
             return self._json({"save_dir": load_json(CONF_JSON, {}).get("save_dir", ""),
-                               "effective": str(save_dir()).replace(str(HOME), "~")})
+                               "effective": str(save_dir()).replace(str(HOME), "~"),
+                               **balance()})
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
@@ -924,20 +1126,34 @@ class H(BaseHTTPRequestHandler):
         return self._json({"ok": True})
 
     def h_config(self):
-        raw = (self._body().get("save_dir") or "").strip()
-        if raw:
-            p = Path(os.path.expanduser(raw))
-            try:
-                p.mkdir(parents=True, exist_ok=True)
-                t = p / ".studio_test"
-                t.write_text("")
-                t.unlink()
-            except Exception as e:
-                return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
+        b = self._body()
         conf = load_json(CONF_JSON, {})
-        conf["save_dir"] = raw
+        if "save_dir" in b:
+            raw = (b.get("save_dir") or "").strip()
+            if raw:
+                p = Path(os.path.expanduser(raw))
+                try:
+                    p.mkdir(parents=True, exist_ok=True)
+                    t = p / ".studio_test"
+                    t.write_text("")
+                    t.unlink()
+                except Exception as e:
+                    return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
+            conf["save_dir"] = raw
+        if "credit" in b:
+            try:
+                c = float(b["credit"])
+            except (TypeError, ValueError):
+                return self._json({"error": "Escribe el saldo en dólares, p. ej. 20 o 17.50"})
+            if c <= 0:
+                conf.pop("credit", None)
+                conf.pop("credit_set", None)
+            else:
+                conf["credit"] = c
+                conf["credit_set"] = time.strftime("%Y-%m-%d %H:%M")
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~")})
+        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~"),
+                           **balance(conf)})
 
     def h_historydel(self):
         f = os.path.basename(self._body().get("file", ""))

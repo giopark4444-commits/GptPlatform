@@ -10,13 +10,14 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 ## Qué hace
 
 - **Crear** (texto → imagen) y **Editar / combinar** (sube imágenes de referencia + prompt).
-- **Inpainting con editor de máscara integrado**: pinta directamente sobre la imagen (pincel, borrador, tamaño) o sube tu PNG.
+- **Editor de imagen integrado con 3 pestañas**: **Máscara** (pincel, borrador, rectángulo, lazo — o sube tu PNG), **Anotar** (flechas, círculos, trazo libre y texto en rojo: el modelo sigue las instrucciones dibujadas sin incluirlas en el resultado) y **Pins** (marcadores numerados con una instrucción por punto que se añade sola al prompt).
 - **Cantidad 1–4 con resultados múltiples**: todas las imágenes se muestran en una tira, se guardan y se cobran bien (antes solo se conservaba la primera).
 - **Pegar con ⌘V** y **arrastrar a cualquier parte** (archivos del Mac o miniaturas del propio historial) para añadir referencias.
 - **Tamaño libre** con sliders + presets de aspect ratio (social, foto, **cine / anamórfico**) con miniaturas, candado de proporción, y **chips de resolución (1080 / 2K / 3K / 4K)** que escalan el ratio actual manteniendo la proporción.
 - **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
 - **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
-- **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
+- **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión + **saldo restante estimado** (fijas tu crédito de Platform y el Studio le resta lo que gastes; OpenAI no expone el saldo por API).
+- **Ancho/alto editables con el teclado**: clic en el número, escribe y Enter (ajusta solo a múltiplos de 16).
 - **Historial pro**: filtro por proyecto, "ver más", borrar (doble clic en la papelera), clic abre lightbox con prompt y descarga, arrastrar al panel de referencias.
 - **Memoria de proyecto**: `estilo.md` (texto que se antepone) + **referencias visuales** que se adjuntan solas al generar. Botón para **destilar el estilo** con IA.
 - **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra; el destino se muestra siempre bajo el botón Generar.
