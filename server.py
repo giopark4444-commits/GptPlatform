@@ -30,7 +30,6 @@ VIDEO_MODELS = {
     "kling-std": {"t2v": "fal-ai/kling-video/v3/standard/text-to-video", "i2v": "fal-ai/kling-video/v3/standard/image-to-video"},
     "omnihuman": {"av": "fal-ai/bytedance/omnihuman/v1.5"},
     "omnihuman-v1": {"av": "fal-ai/bytedance/omnihuman"},
-    "veo": {"t2v": "fal-ai/veo3.1", "i2v": "fal-ai/veo3.1/image-to-video"},
 }
 PENDING_VIDEOS = {}  # request_id -> {model_id, meta}
 ROOT = HOME / "image-studio"
@@ -796,7 +795,6 @@ audio{width:100%;height:40px}
       <div class="seg" id="vidSeg" style="margin-bottom:18px;width:100%">
         <button class="on" data-vt="sd" style="flex:1;justify-content:center">Seedance</button>
         <button data-vt="kl" style="flex:1;justify-content:center">Kling</button>
-        <button data-vt="veo" style="flex:1;justify-content:center">Veo</button>
         <button data-vt="oh" style="flex:1;justify-content:center">OmniHuman</button>
       </div>
 
@@ -864,27 +862,6 @@ audio{width:100%;height:40px}
           <input type="text" id="klNeg" placeholder="blur, distort, and low quality"></div>
         <div class="field"><div class="slabel"><label>Fidelidad al prompt (CFG)</label><span class="v mono" id="klCfgV">0.50</span></div>
           <input type="range" id="klCfg" min="0" max="1" step="0.05" value="0.5"></div>
-      </div>
-
-      <div id="veoBox" class="hide">
-        <div class="field"><label>Modelo</label>
-          <select disabled><option>Google Veo 3.1 · audio nativo, hasta 4K</option></select></div>
-        <div class="field"><label>Prompt</label>
-          <textarea id="veoPrompt" style="min-height:96px" placeholder="Describe la escena, los diálogos y sonidos que quieres oír…"></textarea></div>
-        <div class="field"><label>Imagen inicial · opcional</label>
-          <div class="drop" id="dropVeoImg" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Arrastra o elige imagen</div>
-          <input type="file" id="veoImgFile" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" class="hide">
-          <div class="thumbs" id="veoImgThumb"></div></div>
-        <div class="field grid2">
-          <div><label>Duración</label><select id="veoDur"><option value="4s">4s</option><option value="6s">6s</option><option value="8s" selected>8s</option></select></div>
-          <div><label>Resolución</label><select id="veoRes"><option>720p</option><option selected>1080p</option><option value="4k">4K</option></select></div></div>
-        <div class="field"><label>Aspecto</label>
-          <select id="veoAsp"><option selected>16:9</option><option>9:16</option></select></div>
-        <label class="check"><input type="checkbox" id="veoGenAud" checked> Audio nativo (diálogos, música, ambiente)</label>
-        <label class="check" style="margin-top:8px"><input type="checkbox" id="veoFix" checked> Auto-fix · corrige el prompt si lo rechaza</label>
-        <div class="field" style="margin-top:12px"><label>Prompt negativo · opcional</label>
-          <input type="text" id="veoNeg" placeholder="lo que NO quieres ver"></div>
-        <div class="field"><label>Seed · opcional</label><input type="text" id="veoSeed" class="mono" placeholder="reproducible"></div>
       </div>
 
       <div id="ohBox" class="hide">
@@ -1732,11 +1709,10 @@ $('audList').onclick=async e=>{
 
 // ===== video: Seedance · Kling · OmniHuman (vía fal.ai) =====
 let falReady=false,vidTab='sd',vidPoll=null;
-let sdImgs=[],sdEnd=null,sdAuds=[],sdVids=[],klImg=null,klEnd=null,ohImg=null,ohAud=null,ohAudDur=0,veoImg=null;
+let sdImgs=[],sdEnd=null,sdAuds=[],sdVids=[],klImg=null,klEnd=null,ohImg=null,ohAud=null,ohAudDur=0;
 const VID_RATES={seedance:{'480p':0.15,'720p':0.30,'1080p':0.68},
  'seedance-fast':{'480p':0.12,'720p':0.24,'1080p':0.50},
- 'kling-pro':{on:0.336,off:0.224},'kling-std':{on:0.126,off:0.084},omnihuman:0.14,
- veo:{'720p':{on:0.40,off:0.20},'1080p':{on:0.40,off:0.20},'4k':{on:0.60,off:0.40}}};
+ 'kling-pro':{on:0.336,off:0.224},'kling-std':{on:0.126,off:0.084},omnihuman:0.14};
 async function falInit(){const s=await(await fetch('/falstatus')).json();
  falReady=s.ok;
  $('falConnect').classList.toggle('hide',s.ok);
@@ -1752,23 +1728,19 @@ function vidSetTab(t){vidTab=t;
  [...$('vidSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.vt===t));
  $('sdBox').classList.toggle('hide',t!=='sd');
  $('klBox').classList.toggle('hide',t!=='kl');
- $('veoBox').classList.toggle('hide',t!=='veo');
  $('ohBox').classList.toggle('hide',t!=='oh');
  if(t==='oh')fillOhAudSel();
  vidEstCalc()}
 $('vidSeg').onclick=e=>{const b=e.target.closest('button');if(b)vidSetTab(b.dataset.vt)};
 function vidEstCalc(){let est=null,note='';
  if(vidTab==='oh'){if(ohAudDur)est=ohAudDur*60*VID_RATES.omnihuman;else note='$0.14/seg de audio'}
- else if(vidTab==='veo'){const secs=+$('veoDur').value.replace('s','');
-  const r=VID_RATES.veo[$('veoRes').value]||VID_RATES.veo['1080p'];
-  est=secs*($('veoGenAud').checked?r.on:r.off)}
  else if(vidTab==='kl'){const secs=+$('klDur').value;
   est=secs*($('klGenAud').checked?VID_RATES[$('klTier').value].on:VID_RATES[$('klTier').value].off)}
  else{const auto=$('sdDur').value==='auto',secs=auto?8:+$('sdDur').value;
   est=secs*(VID_RATES[$('sdTier').value][$('sdRes').value]||0.3);
   if(auto)note=' (auto ≈8s)'}
  $('vidEst').textContent=est!==null?'~$'+est.toFixed(2)+note:note}
-['sdTier','sdRes','sdDur','klTier','klDur','klGenAud','ohVer','veoDur','veoRes','veoGenAud'].forEach(id=>$(id).onchange=vidEstCalc);
+['sdTier','sdRes','sdDur','klTier','klDur','klGenAud','ohVer'].forEach(id=>$(id).onchange=vidEstCalc);
 $('klCfg').oninput=()=>$('klCfgV').textContent=(+$('klCfg').value).toFixed(2);
 $('ohVer').addEventListener('change',()=>{const v15=$('ohVer').value==='omnihuman';
  $('ohPromptBox').classList.toggle('dim',!v15);$('ohResRow').classList.toggle('dim',!v15)});
@@ -1817,10 +1789,6 @@ wireDrop('dropKlImg','klImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith
  if(f)klImg={name:f.name,b64:await fileToB64(f)};renderKl()});
 wireDrop('dropKlEnd','klEndFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
  if(f)klEnd={name:f.name,b64:await fileToB64(f)};renderKl()});
-function renderVeo(){$('veoImgThumb').innerHTML=veoImg?thumbHTML(veoImg.b64,'vei',0):''}
-$('veoImgThumb').onclick=e=>{if(e.target.closest('.x')){veoImg=null;renderVeo()}};
-wireDrop('dropVeoImg','veoImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
- if(f)veoImg={name:f.name,b64:await fileToB64(f)};renderVeo()});
 function renderOh(){$('ohImgThumb').innerHTML=ohImg?thumbHTML(ohImg.b64,'ohi',0):''}
 $('ohImgThumb').onclick=e=>{if(e.target.closest('.x')){ohImg=null;renderOh()}};
 wireDrop('dropOhImg','ohImgFile',async fs=>{const f=fs.find(x=>x.type.startsWith('image/'));
@@ -1863,13 +1831,6 @@ async function runVID(){
    negative:$('klNeg').value,cfg:+$('klCfg').value});
   if(klImg){body.image=klImg;if(klEnd)body.end_image=klEnd}
   title=prompt||multi.map(m=>m.prompt).join(' · ')}
- else if(vidTab==='veo'){
-  const prompt=$('veoPrompt').value.trim();
-  if(!prompt){toast('Escribe el prompt del video','bad');$('veoPrompt').focus();return}
-  Object.assign(body,{model:'veo',prompt,duration:$('veoDur').value,resolution:$('veoRes').value,
-   aspect:$('veoAsp').value,gen_audio:$('veoGenAud').checked,auto_fix:$('veoFix').checked,
-   negative:$('veoNeg').value,seed:$('veoSeed').value.trim()});
-  if(veoImg)body.image=veoImg;title=prompt}
  else{
   if(!ohImg){toast('OmniHuman necesita la imagen de la persona','bad');return}
   if(!ohAud){toast('Elige o sube el audio que hablará','bad');return}
@@ -2706,27 +2667,6 @@ class H(BaseHTTPRequestHandler):
                 if auds:
                     payload["audio_urls"] = ["data:audio/mpeg;base64," + a["b64"] for a in auds]
                 model_id = VIDEO_MODELS[model]["r2v"]
-            else:
-                model_id = VIDEO_MODELS[model]["t2v"]
-
-        elif model == "veo":
-            if not prompt:
-                return self._json({"error": "Escribe el prompt del video."})
-            d = str(b.get("duration", "8s"))
-            payload = {"prompt": prompt,
-                       "duration": d if d.endswith("s") else d + "s",
-                       "resolution": b.get("resolution", "1080p"),
-                       "aspect_ratio": b.get("aspect", "16:9"),
-                       "generate_audio": bool(b.get("gen_audio", True)),
-                       "auto_fix": bool(b.get("auto_fix", True))}
-            if (b.get("negative") or "").strip():
-                payload["negative_prompt"] = b["negative"].strip()
-            if str(b.get("seed") or "").strip().isdigit():
-                payload["seed"] = int(b["seed"])
-            img = b.get("image")
-            if img:
-                payload["image_url"] = "data:image/png;base64," + img["b64"]
-                model_id = VIDEO_MODELS[model]["i2v"]
             else:
                 model_id = VIDEO_MODELS[model]["t2v"]
 
