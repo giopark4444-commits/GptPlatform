@@ -7,7 +7,7 @@ transparente (gpt-image-1), presets completos incl. anamórficos, editor de
 máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
 múltiples. Sin dependencias: solo Python 3.
 """
-import json, base64, os, re, shutil, time, uuid, urllib.request, urllib.error
+import io, json, base64, os, re, shutil, time, uuid, urllib.request, urllib.error, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -118,6 +118,27 @@ def validate_key(k):
 def save_dir():
     raw = load_json(CONF_JSON, {}).get("save_dir") or ""
     return Path(os.path.expanduser(raw)) if raw else HOME / "Desktop"
+
+
+def icloud_dir():
+    return HOME / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+
+
+def backup_status():
+    real = ROOT.resolve()
+    icl = icloud_dir()
+    n, size = 0, 0
+    for p in real.rglob("*"):
+        if p.is_file():
+            n += 1
+            try:
+                size += p.stat().st_size
+            except Exception:
+                pass
+    human = f"{size/1024/1024:.1f} MB" if size < 1024**3 else f"{size/1024**3:.2f} GB"
+    return {"icloud": ROOT.is_symlink() and str(real).startswith(str(icl)),
+            "icloud_available": icl.exists(), "size": human, "files": n,
+            "path": str(real).replace(str(HOME), "~")}
 
 
 def g1_size(size):
@@ -421,6 +442,16 @@ audio{width:100%;height:40px}
   <button class="primary" id="keySave">Conectar</button>
 </div></div>
 
+<div class="overlay hide" id="bakModal"><div class="modal">
+  <div class="ic"><svg viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg></div>
+  <h2>Backup y sincronización</h2>
+  <p id="bakInfo">Cargando…</p>
+  <div class="kmsg" id="bakState"></div>
+  <button class="primary" id="bakZip" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip</button>
+  <button class="ghost hide" id="bakSync" style="width:100%;justify-content:center;padding:11px">Activar sincronización iCloud</button>
+  <p class="hint" style="margin-top:12px">El zip incluye historial, proyectos, estilos y configuración. Las claves API no se incluyen (se conectan una vez por equipo). En otro Mac: clona el repo y usa "Sincronizar iCloud.command" o restaura el zip en <span class="mono">~/image-studio</span>.</p>
+</div></div>
+
 <div class="overlay hide" id="maskModal"><div class="maskbox">
   <div class="masktop">
     <div class="seg" id="edTabs">
@@ -476,6 +507,7 @@ audio{width:100%;height:40px}
   </div>
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
+    <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
   </div>
 </div>
@@ -815,6 +847,22 @@ function toast(msg,kind){const t=document.createElement('div');t.className='toas
 async function checkKey(){const r=await(await fetch('/keystatus')).json();$('kdot').classList.toggle('on',r.ok);
  if(!r.ok)$('keyModal').classList.remove('hide');return r.ok}
 $('cfgBtn').onclick=()=>$('keyModal').classList.remove('hide');
+$('bakBtn').onclick=async()=>{$('bakModal').classList.remove('hide');
+ const s=await(await fetch('/backupstatus')).json();
+ $('bakInfo').textContent='Tus datos ('+s.size+' · '+s.files+' archivos) viven en '+s.path+' y sobreviven apagados y reinicios.';
+ $('bakState').innerHTML=s.icloud
+  ?'<span style="color:var(--ok)">●</span> Sincronización iCloud activa · tus Macs comparten sesiones y memorias'
+  :(s.icloud_available
+    ?'<span style="color:var(--bad)">●</span> Sin sincronización automática entre equipos'
+    :'<span style="color:var(--faint)">●</span> iCloud Drive no está disponible en este equipo');
+ $('bakSync').classList.toggle('hide',s.icloud||!s.icloud_available)};
+$('bakZip').onclick=()=>{const a=document.createElement('a');a.href='/backup.zip';a.download='studio-backup.zip';
+ document.body.appendChild(a);a.click();a.remove();toast('Generando respaldo .zip…')};
+$('bakSync').onclick=async()=>{$('bakSync').textContent='Activando…';
+ const r=await(await fetch('/icloudsync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+ $('bakSync').textContent='Activar sincronización iCloud';
+ if(r.error){toast(r.error,'bad');return}
+ toast(r.note||'Sincronización iCloud activada');$('bakBtn').click()};
 $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$('keyMsg').textContent='Validando…';
  const r=await(await fetch('/setkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
  if(r.ok){$('keyMsg').textContent='Conectada ✓';$('keyModal').classList.add('hide');$('kdot').classList.add('on');toast('API conectada')}
@@ -1501,7 +1549,8 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
-  if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}}
+  if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
+  if(!$('bakModal').classList.contains('hide')){$('bakModal').classList.add('hide');return}}
  const tag=document.activeElement.tagName;
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
  if(e.key==='1')setMode('crear');
@@ -1549,6 +1598,27 @@ class H(BaseHTTPRequestHandler):
             return self._json({"save_dir": conf.get("save_dir", ""),
                                "effective": str(save_dir()).replace(str(HOME), "~"),
                                "voice_styles": conf.get("voice_styles", [])})
+        if self.path == "/backupstatus":
+            return self._json(backup_status())
+        if self.path == "/backup.zip":
+            real = ROOT.resolve()
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                for p in real.rglob("*"):
+                    if not p.is_file() or p.name.endswith(".tmp") or p.name == ".DS_Store" or ".git" in p.parts:
+                        continue
+                    try:
+                        z.write(p, p.relative_to(real))
+                    except Exception:
+                        pass
+            data = buf.getvalue()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition",
+                             f'attachment; filename="studio-backup-{time.strftime("%Y%m%d_%H%M")}.zip"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path == "/elstatus":
             if not el_key():
                 return self._json({"ok": False})
@@ -1591,7 +1661,8 @@ class H(BaseHTTPRequestHandler):
                  "/historydel": self.h_historydel, "/config": self.h_config,
                  "/speech": self.h_speech, "/transcribe": self.h_transcribe,
                  "/elkey": self.h_elkey, "/elspeech": self.h_elspeech,
-                 "/elsfx": self.h_elsfx, "/elclone": self.h_elclone}.get(self.path)
+                 "/elsfx": self.h_elsfx, "/elclone": self.h_elclone,
+                 "/icloudsync": self.h_icloudsync}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -1950,6 +2021,26 @@ class H(BaseHTTPRequestHandler):
         hist_item["file"] = name
         add_history(hist_item)
         return name
+
+    def h_icloudsync(self):
+        icl = icloud_dir()
+        if not icl.exists():
+            return self._json({"error": "iCloud Drive no está activo en este Mac (Ajustes → Apple ID → iCloud)."})
+        if ROOT.is_symlink():
+            return self._json({"ok": True, "note": "Ya estaba activa."})
+        target = icl / "image-studio"
+        try:
+            if target.exists():
+                bak = HOME / f"image-studio-backup-{time.strftime('%Y%m%d_%H%M')}"
+                ROOT.rename(bak)
+                note = f"iCloud ya tenía datos; los locales quedaron respaldados en {bak.name}/"
+            else:
+                shutil.move(str(ROOT), str(target))
+                note = "Datos movidos a iCloud Drive."
+            ROOT.symlink_to(target)
+        except Exception as e:
+            return self._json({"error": f"No pude activar la sincronización: {e}"})
+        return self._json({"ok": True, "note": note})
 
     def h_elkey(self):
         k = (self._body().get("key") or "").strip()
