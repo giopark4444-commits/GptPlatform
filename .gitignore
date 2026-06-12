@@ -1,0 +1,14 @@
+# Datos locales del usuario — nunca subir
+historial/
+proyectos/
+historial.json
+proyectos.json
+studio.log
+
+# Claves / secretos
+.openai_key
+*.key
+
+# Sistema
+.DS_Store
+.playwright-mcp/
