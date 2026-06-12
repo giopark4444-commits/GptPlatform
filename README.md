@@ -39,7 +39,7 @@ buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por p
 - **Comparador A/B**: elige dos imágenes del historial y compáralas a pantalla completa con slider deslizante.
 - **Iterar**: botón en el resultado y en cada tarjeta que carga esa imagen como única referencia en modo Editar para describir solo el cambio ("ahora de noche").
 - **Metadata en PNG**: cada imagen generada lleva embebidos su prompt y parámetros (chunks iTXt) — el archivo viaja con su receta.
-- **Atajos**: `⌘↵` genera, `1`/`2`/`3`/`4` cambia Crear/Editar/Audio/Video, `Esc` cierra modales y lightbox.
+- **Atajos**: `⌘↵` genera, `1`/`2`/`3` cambia Imagen/Audio/Video (Imagen recuerda si estabas en GPT 2 · Crear o Editar), `Esc` cierra modales y lightbox.
 - **Notificaciones toast** y errores legibles con botón de reintento.
 - Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.
 

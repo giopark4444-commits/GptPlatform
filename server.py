@@ -502,7 +502,7 @@ html,body{overflow-x:hidden}
 @media(max-width:760px){
  .top{flex-wrap:wrap;gap:8px;padding:10px 12px}
  .top .right{margin-left:auto;gap:8px}
- .sess{display:none}
+ .sess{font-size:11px}
  .seg button kbd{display:none}
  .seg button{padding:6px 10px;font-size:12px}
  .col{padding:14px}
@@ -612,10 +612,9 @@ html,body{overflow-x:hidden}
 <div class="top">
   <div class="brand"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg></span>Studio</div>
   <div class="seg">
-    <button id="mCrear" class="on"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>Crear<kbd>1</kbd></button>
-    <button id="mEditar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.4"/></svg>Editar<kbd>2</kbd></button>
-    <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>3</kbd></button>
-    <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>4</kbd></button>
+    <button id="mImagen" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Imagen<kbd>1</kbd></button>
+    <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>2</kbd></button>
+    <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>3</kbd></button>
   </div>
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
@@ -628,6 +627,10 @@ html,body{overflow-x:hidden}
   <!-- IZQUIERDA -->
   <div class="col an">
    <div id="imgPanel">
+    <div class="seg" id="imgSeg" style="margin-bottom:18px;width:100%">
+      <button class="on" id="subCrear" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg>GPT 2 · Crear</button>
+      <button id="subEditar" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.4"/></svg>Editar</button>
+    </div>
     <div class="field" id="editBox">
       <label><span id="refLbl">Referencias · opcional</span></label>
       <div class="drop" id="drop"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Arrastra, pega (⌘V) o elige</div>
@@ -1026,7 +1029,7 @@ html,body{overflow-x:hidden}
   <div class="col mid an">
    <div id="imgStage" style="display:flex;flex-direction:column;flex:1;min-height:0">
     <div class="canvas" id="canvas">
-      <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd>/<kbd>2</kbd> cambiar modo · <kbd>⌘</kbd><kbd>V</kbd> pegar referencia</div></div>
+      <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd> Imagen <kbd>2</kbd> Audio <kbd>3</kbd> Video · <kbd>⌘</kbd><kbd>V</kbd> pegar</div></div>
       <div class="spin hide" id="spinner"></div>
       <img class="result hide" id="resultImg" alt="Resultado">
       <div class="floaters hide" id="floaters">
@@ -1192,18 +1195,22 @@ $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$
 
 function bumpSess(c,n=1){sessCost+=c||0;sessN+=n;
  $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> gen'}
+let lastImgMode=localStorage.getItem('studio_imgmode')||'crear';
 function setMode(m){mode=m;
- $('mCrear').classList.toggle('on',m==='crear');$('mEditar').classList.toggle('on',m==='editar');
- $('mAudio').classList.toggle('on',m==='audio');$('mVideo').classList.toggle('on',m==='video');
  const aud=m==='audio',vid=m==='video',img=!aud&&!vid;
+ $('mImagen').classList.toggle('on',img);
+ $('mAudio').classList.toggle('on',aud);$('mVideo').classList.toggle('on',vid);
  $('imgPanel').classList.toggle('hide',!img);$('imgStage').classList.toggle('hide',!img);
  $('audioPanel').classList.toggle('hide',!aud);$('audioStage').classList.toggle('hide',!aud);
  $('videoPanel').classList.toggle('hide',!vid);$('videoStage').classList.toggle('hide',!vid);
  if(vid&&!falReady)falInit();
- if(img){$('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
+ if(img){lastImgMode=m;localStorage.setItem('studio_imgmode',m);
+  $('subCrear').classList.toggle('on',m==='crear');$('subEditar').classList.toggle('on',m==='editar');
+  $('lblPrompt').textContent=m==='editar'?'Instrucción de edición':'Prompt';
   $('refLbl').textContent=m==='editar'?'Imágenes a editar / combinar':'Referencias · opcional';
   $('goTxt').textContent=m==='editar'?'Editar':'Generar'}}
-$('mCrear').onclick=()=>setMode('crear');$('mEditar').onclick=()=>setMode('editar');
+$('mImagen').onclick=()=>setMode(lastImgMode);
+$('subCrear').onclick=()=>setMode('crear');$('subEditar').onclick=()=>setMode('editar');
 $('mAudio').onclick=()=>setMode('audio');$('mVideo').onclick=()=>setMode('video');
 
 function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return(a/g)+':'+(b/g)}
@@ -2221,10 +2228,9 @@ document.addEventListener('keydown',e=>{
   if(!$('bakModal').classList.contains('hide')){$('bakModal').classList.add('hide');return}}
  const tag=document.activeElement.tagName;
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
- if(e.key==='1')setMode('crear');
- if(e.key==='2')setMode('editar');
- if(e.key==='3')setMode('audio');
- if(e.key==='4')setMode('video')});
+ if(e.key==='1')setMode(lastImgMode);
+ if(e.key==='2')setMode('audio');
+ if(e.key==='3')setMode('video')});
 
 // miniaturas de proporción en los presets
 function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{const W=+c.dataset.w,H=+c.dataset.h,m=14;
