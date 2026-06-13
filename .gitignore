@@ -8,6 +8,20 @@ studio.log
 # Claves / secretos
 .openai_key
 *.key
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+
+# Node (tooling local)
+node_modules/
 
 # Sistema
 .DS_Store
