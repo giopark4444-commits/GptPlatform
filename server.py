@@ -31,12 +31,13 @@ VIDEO_MODELS = {
     "omnihuman": {"av": "fal-ai/bytedance/omnihuman/v1.5"},
     "omnihuman-v1": {"av": "fal-ai/bytedance/omnihuman"},
 }
-PENDING_VIDEOS = {}  # request_id -> {model_id, meta}
+PENDING_VIDEOS = {}  # request_id -> {model_id, meta}; persistido en JOBS_JSON
 ROOT = HOME / "image-studio"
 HIST_DIR = ROOT / "historial"
 HIST_JSON = ROOT / "historial.json"
 PROJ_JSON = ROOT / "proyectos.json"
 CONF_JSON = ROOT / "config.json"
+JOBS_JSON = ROOT / "jobs.json"
 PROJ_DIR = ROOT / "proyectos"
 HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,6 +81,14 @@ def load_json(p, d):
         except Exception:
             continue
     return d
+
+
+def save_jobs():
+    # persiste los trabajos de video en curso para sobrevivir reinicios del server
+    try:
+        JOBS_JSON.write_text(json.dumps(PENDING_VIDEOS, ensure_ascii=False))
+    except Exception:
+        pass
 
 
 def save_json(p, data):
@@ -3155,6 +3164,7 @@ class H(BaseHTTPRequestHandler):
                                             "cost": float(b.get("cost_est") or 0),
                                             "project": b.get("project", ""),
                                             "save_desktop": b.get("save_desktop", True)}}
+            save_jobs()
         return self._json({"id": rid})
 
     def h_videostatus(self):
@@ -3175,7 +3185,8 @@ class H(BaseHTTPRequestHandler):
         if status in ("IN_QUEUE", "IN_PROGRESS"):
             return self._json({"done": False, "status": status, "queue": st.get("queue_position")})
         if status != "COMPLETED":
-            PENDING_VIDEOS.pop(rid, None)
+            with LOCK:
+                PENDING_VIDEOS.pop(rid, None); save_jobs()
             return self._json({"error": f"El trabajo terminó con estado {status}"})
         try:
             with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}") as r:
@@ -3198,7 +3209,8 @@ class H(BaseHTTPRequestHandler):
              "size": "mp4", "quality": "", "mode": "video", "cost": cost, "output_tokens": 0,
              "ts": time.strftime("%Y-%m-%d %H:%M"), "project": m.get("project", "")},
             m.get("save_desktop", True))
-        PENDING_VIDEOS.pop(rid, None)
+        with LOCK:
+            PENDING_VIDEOS.pop(rid, None); save_jobs()
         return self._json({"done": True, "file": name, "url": "/file?name=" + name, "cost": cost})
 
     def h_histfav(self):
@@ -3408,6 +3420,7 @@ class H(BaseHTTPRequestHandler):
                                             "model": "latentsync", "cost": 0,
                                             "project": b.get("project", ""),
                                             "save_desktop": b.get("save_desktop", True)}}
+            save_jobs()
         return self._json({"id": rid})
 
     def h_distill(self):
@@ -3441,5 +3454,6 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    PENDING_VIDEOS.update(load_json(JOBS_JSON, {}))  # recupera trabajos de video en curso
     print(f"Estudio v4 en  http://localhost:{PORT}")
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
