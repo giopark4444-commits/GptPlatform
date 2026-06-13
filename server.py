@@ -7,7 +7,7 @@ transparente (gpt-image-1), presets completos incl. anamórficos, editor de
 máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
 múltiples. Sin dependencias: solo Python 3.
 """
-import io, json, base64, os, re, shutil, struct, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib
+import io, json, base64, os, re, shutil, struct, subprocess, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -188,6 +188,7 @@ def backup_status():
     human = f"{size/1024/1024:.1f} MB" if size < 1024**3 else f"{size/1024**3:.2f} GB"
     return {"icloud": ROOT.is_symlink() and str(real).startswith(str(icl)),
             "icloud_available": icl.exists(), "size": human, "files": n,
+            "git": (real / ".git").exists(),
             "path": str(real).replace(str(HOME), "~")}
 
 
@@ -572,8 +573,8 @@ html,body{overflow-x:hidden}
   <h2>Backup y sincronización</h2>
   <p id="bakInfo">Cargando…</p>
   <div class="kmsg" id="bakState"></div>
-  <button class="primary" id="bakZip" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip</button>
-  <button class="ghost hide" id="bakSync" style="width:100%;justify-content:center;padding:11px">Activar sincronización iCloud</button>
+  <button class="primary" id="bakSync" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span id="bakSyncTxt">Sincronizar ahora</span></button>
+  <button class="ghost" id="bakZip" style="width:100%;justify-content:center;padding:11px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip</button>
   <p class="hint" style="margin-top:12px">El zip incluye historial, proyectos, estilos y configuración. Las claves API no se incluyen (se conectan una vez por equipo). En otro Mac: clona el repo y usa "Sincronizar iCloud.command" o restaura el zip en <span class="mono">~/image-studio</span>.</p>
 </div></div>
 
@@ -1181,19 +1182,17 @@ $('cfgBtn').onclick=()=>$('keyModal').classList.remove('hide');
 $('bakBtn').onclick=async()=>{$('bakModal').classList.remove('hide');
  const s=await(await fetch('/backupstatus')).json();
  $('bakInfo').textContent='Tus datos ('+s.size+' · '+s.files+' archivos) viven en '+s.path+' y sobreviven apagados y reinicios.';
- $('bakState').innerHTML=s.icloud
-  ?'<span style="color:var(--ok)">●</span> Sincronización iCloud activa · tus Macs comparten sesiones y memorias'
-  :(s.icloud_available
-    ?'<span style="color:var(--bad)">●</span> Sin sincronización automática entre equipos'
-    :'<span style="color:var(--faint)">●</span> iCloud Drive no está disponible en este equipo');
- $('bakSync').classList.toggle('hide',s.icloud||!s.icloud_available)};
+ $('bakState').innerHTML=s.git
+  ?'<span style="color:var(--ok)">●</span> Sincronización por git activa · pulsa "Sincronizar ahora" en cada equipo'
+  :'<span style="color:var(--faint)">●</span> Sin sincronización configurada (usa el respaldo .zip)';
+ $('bakSync').classList.toggle('hide',!s.git)};
 $('bakZip').onclick=()=>{const a=document.createElement('a');a.href='/backup.zip';a.download='studio-backup.zip';
  document.body.appendChild(a);a.click();a.remove();toast('Generando respaldo .zip…')};
-$('bakSync').onclick=async()=>{$('bakSync').textContent='Activando…';
- const r=await(await fetch('/icloudsync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
- $('bakSync').textContent='Activar sincronización iCloud';
+$('bakSync').onclick=async()=>{$('bakSync').disabled=true;$('bakSyncTxt').textContent='Sincronizando…';
+ const r=await(await fetch('/datasync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+ $('bakSync').disabled=false;$('bakSyncTxt').textContent='Sincronizar ahora';
  if(r.error){toast(r.error,'bad');return}
- toast(r.note||'Sincronización iCloud activada');$('bakBtn').click()};
+ toast('Datos sincronizados con la nube');loadGal()};
 $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$('keyMsg').textContent='Validando…';
  const r=await(await fetch('/setkey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})).json();
  if(r.ok){$('keyMsg').textContent='Conectada ✓';$('keyModal').classList.add('hide');$('kdot').classList.add('on');toast('API conectada')}
@@ -2444,7 +2443,7 @@ class H(BaseHTTPRequestHandler):
                  "/speech": self.h_speech, "/transcribe": self.h_transcribe,
                  "/elkey": self.h_elkey, "/elspeech": self.h_elspeech,
                  "/elsfx": self.h_elsfx, "/elclone": self.h_elclone,
-                 "/icloudsync": self.h_icloudsync,
+                 "/icloudsync": self.h_icloudsync, "/datasync": self.h_datasync,
                  "/falkey": self.h_falkey, "/video": self.h_video,
                  "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
@@ -2831,6 +2830,31 @@ class H(BaseHTTPRequestHandler):
         hist_item["file"] = name
         add_history(hist_item)
         return name
+
+    def h_datasync(self):
+        root = ROOT.resolve()
+        if not (root / ".git").exists():
+            return self._json({"error": "Esta carpeta no está configurada para sincronizar por git."})
+
+        def git(*args, timeout=180):
+            return subprocess.run(["git", "-C", str(root),
+                                   "-c", "user.email=gio.park.4444@gmail.com", "-c", "user.name=Gio"] + list(args),
+                                  capture_output=True, text=True, timeout=timeout)
+        try:
+            git("add", "-A")
+            git("commit", "-m", "sync " + time.strftime("%Y-%m-%d %H:%M"))  # puede no haber cambios
+            pull = git("pull", "--no-rebase", "--no-edit", "origin", "main")
+            if pull.returncode != 0 and "CONFLICT" in (pull.stdout + pull.stderr):
+                git("merge", "--abort")
+                return self._json({"error": "Conflicto de sincronización: hay cambios distintos en los dos equipos. Descarga un respaldo .zip y avísame para resolverlo a mano."})
+            push = git("push", "origin", "main")
+            if push.returncode != 0:
+                return self._json({"error": "No pude subir: " + (push.stderr or push.stdout).strip()[:200]})
+        except subprocess.TimeoutExpired:
+            return self._json({"error": "La sincronización tardó demasiado."})
+        except Exception as e:
+            return self._json({"error": str(e)})
+        return self._json({"ok": True})
 
     def h_icloudsync(self):
         icl = icloud_dir()

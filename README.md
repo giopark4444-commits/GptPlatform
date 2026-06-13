@@ -84,10 +84,17 @@ servicio de macOS que arranca solo al iniciar sesión y se reinicia si se cae.
 - Fondo transparente solo en `gpt-image-1`.
 - Moderación: `auto` o `low` (OpenAI siempre modera; no hay modo sin filtro).
 
-## Sincronizar entre Macs (iCloud Drive)
+## Sincronizar entre Macs (git)
 
-Los datos viven en `~/image-studio/`. Para compartir sesiones, historial y memorias
-entre tus Macs, doble clic en **`Sincronizar iCloud.command`**: mueve la carpeta a
-iCloud Drive y deja un symlink en su lugar (la app no nota la diferencia). En el otro
-Mac: clona el repo, ejecuta el mismo script y conecta tus claves con el botón API.
-Si el otro Mac tenía datos propios, se respaldan en `~/image-studio-backup-<fecha>/`.
+Los datos viven en `~/image-studio/` (carpeta local, fuera de iCloud para evitar
+restricciones de permisos de macOS) y se versionan en un repo privado de GitHub.
+En la app: **Backup → Sincronizar ahora** sube tus cambios y baja los del otro equipo.
+En un Mac nuevo: doble clic en **`Sincronizar datos.command`** (descarga todo) o
+`git clone https://github.com/giopark4444-commits/studio-datos.git ~/image-studio`.
+Respaldo puntual: **Backup → Descargar .zip**.
+
+## Arranque automático (macOS)
+
+`Studio Server.app` (en `~/Applications`, sin icono en el Dock) mantiene el server
+vivo: arranca al iniciar sesión y se reinicia si se cae. Se instala como Elemento
+de Inicio de Sesión.
