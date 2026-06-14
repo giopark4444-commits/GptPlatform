@@ -61,6 +61,20 @@ MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "
         "vtt": "text/vtt", "json": "application/json"}
 
 
+def write_secret(path, value):
+    # escribe la clave con permisos 600 desde el inicio (sin ventana world-readable):
+    # os.open con mode crea el archivo ya restringido; el umask solo puede quitar bits.
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, value.encode())
+    finally:
+        os.close(fd)
+    try:
+        os.chmod(path, 0o600)  # por si el archivo ya existía con permisos más laxos
+    except Exception:
+        pass
+
+
 def key():
     return KEY_FILE.read_text().strip() if KEY_FILE.exists() else ""
 
@@ -2467,11 +2481,7 @@ class H(BaseHTTPRequestHandler):
         k = (self._body().get("key") or "").strip()
         if not validate_key(k):
             return self._json({"ok": False, "error": "La clave no es válida"})
-        KEY_FILE.write_text(k)
-        try:
-            os.chmod(KEY_FILE, 0o600)
-        except Exception:
-            pass
+        write_secret(KEY_FILE, k)
         return self._json({"ok": True})
 
     def h_project(self):
@@ -2892,11 +2902,7 @@ class H(BaseHTTPRequestHandler):
                 headers={"xi-api-key": k}), timeout=20).read()
         except Exception:
             return self._json({"ok": False, "error": "La clave de ElevenLabs no es válida"})
-        EL_KEY_FILE.write_text(k)
-        try:
-            os.chmod(EL_KEY_FILE, 0o600)
-        except Exception:
-            pass
+        write_secret(EL_KEY_FILE, k)
         return self._json({"ok": True})
 
     def h_elspeech(self):
@@ -3031,11 +3037,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": False, "error": "La clave de fal.ai no es válida"})
         except Exception:
             return self._json({"ok": False, "error": "No pude validar la clave (sin conexión)"})
-        FAL_KEY_FILE.write_text(k)
-        try:
-            os.chmod(FAL_KEY_FILE, 0o600)
-        except Exception:
-            pass
+        write_secret(FAL_KEY_FILE, k)
         return self._json({"ok": True})
 
     def _audio_b64(self, aud):
