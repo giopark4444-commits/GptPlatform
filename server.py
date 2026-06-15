@@ -230,6 +230,11 @@ def backup_status():
 
 
 
+try:
+    I18N_JSON = (Path(__file__).resolve().parent / "i18n.json").read_text(encoding="utf-8")
+except Exception:
+    I18N_JSON = "{}"
+
 HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Studio</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23e0a571'/%3E%3Cpath d='M12 5l1.6 4.7 4.7 1.2-3.8 2.7L15.8 18 12 15.3 8.2 18l1.3-4.4-3.8-2.7 4.7-1.2z' fill='%231a1206'/%3E%3C/svg%3E">
@@ -241,14 +246,31 @@ HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
  --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.11);
  --txt:#ededee;--mut:#9a9aa1;--faint:#67676f;
  --accent:#e0a571;--accent-dim:rgba(224,165,113,.14);--ok:#7bd99a;--bad:#e57373;
+ --glow:rgba(224,165,113,.05);
  --ui:'Schibsted Grotesk',-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
  --z-sticky:5;--z-modal:30;--z-lightbox:40;--z-toast:60;
 }
+/* ===== temas (se aplican con body[data-theme]) ===== */
+body[data-theme="dia"]{--bg:#faf8f5;--surface:#ffffff;--surface2:#f1ede7;--elev:#ffffff;
+ --line:rgba(0,0,0,.08);--line2:rgba(0,0,0,.15);--txt:#1b1a18;--mut:#6b675f;--faint:#a39d92;
+ --accent:#c2410c;--accent-dim:rgba(194,65,12,.10);--ok:#15803d;--bad:#dc2626;--glow:rgba(194,65,12,.05)}
+body[data-theme="medianoche"]{--bg:#0a0e1a;--surface:#101626;--surface2:#161e30;--elev:#1c2740;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#e8edf5;--mut:#8b96ad;--faint:#566075;
+ --accent:#38bdf8;--accent-dim:rgba(56,189,248,.14);--ok:#34d399;--bad:#fb7185;--glow:rgba(56,189,248,.06)}
+body[data-theme="bosque"]{--bg:#0b140e;--surface:#0f1a13;--surface2:#15241a;--elev:#1b2f22;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.11);--txt:#e7f0e9;--mut:#8aa593;--faint:#566b5d;
+ --accent:#84cc16;--accent-dim:rgba(132,204,22,.14);--ok:#4ade80;--bad:#f87171;--glow:rgba(132,204,22,.05)}
+body[data-theme="vino"]{--bg:#160a0e;--surface:#1e0f14;--surface2:#28151b;--elev:#341c24;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#f2e6ea;--mut:#b08a96;--faint:#785662;
+ --accent:#f5b942;--accent-dim:rgba(245,185,66,.14);--ok:#86efac;--bad:#fb7185;--glow:rgba(245,185,66,.05)}
+body[data-theme="neon"]{--bg:#14081c;--surface:#1c0e28;--surface2:#261335;--elev:#321a45;
+ --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);--txt:#f3e8ff;--mut:#a98bc4;--faint:#705788;
+ --accent:#f472b6;--accent-dim:rgba(244,114,182,.16);--ok:#5eead4;--bad:#fb7185;--glow:rgba(244,114,182,.07)}
 *{box-sizing:border-box}
 ::selection{background:var(--accent-dim)}
 body{margin:0;font-family:var(--ui);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45;
  -webkit-font-smoothing:antialiased;
- background-image:radial-gradient(1200px 600px at 80% -10%,rgba(224,165,113,.05),transparent 60%);}
+ background-image:radial-gradient(1200px 600px at 80% -10%,var(--glow),transparent 60%);transition:background-color .25s,color .25s;}
 svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .eyebrow{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600;display:flex;align-items:center;gap:7px}
@@ -477,6 +499,18 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .modal .ic{width:42px;height:42px;border-radius:12px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:16px}
 .modal h2{margin:0 0 7px;font-size:19px;font-weight:600}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
+.setmodal{max-width:520px}
+.setsec{margin-top:20px}
+.setlabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;font-weight:600}
+.langseg{display:flex;gap:6px}
+.langseg button{flex:1;padding:9px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);color:var(--mut);cursor:pointer;font-size:13px;font-family:var(--ui);transition:.15s}
+.langseg button:hover{color:var(--txt);border-color:var(--line2)}
+.langseg button.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.themegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.swatch{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:11px;background:var(--surface2);border:1px solid var(--line);color:var(--mut);cursor:pointer;font-size:12.5px;font-family:var(--ui);transition:.15s}
+.swatch:hover{color:var(--txt);border-color:var(--line2)}
+.swatch.on{border-color:var(--accent);color:var(--txt)}
+.swatch span{width:18px;height:18px;border-radius:50%;flex:none;background:var(--s-bg);border:1px solid rgba(128,128,128,.45);box-shadow:inset -7px -7px 0 -3px var(--s-ac)}
 .modal input{margin-bottom:8px}.kmsg{font-size:12px;color:var(--mut);min-height:16px;margin-bottom:12px}
 
 /* editor de imagen: máscara · anotar · pins */
@@ -633,6 +667,30 @@ html,body{overflow-x:hidden}
   <button class="primary" id="keySave">Conectar</button>
 </div></div>
 
+<div class="overlay hide" id="setModal"><div class="modal setmodal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <h2>Ajustes</h2>
+  <div class="setsec">
+    <div class="setlabel">Idioma</div>
+    <div class="langseg" id="langSeg">
+      <button data-lang="es" class="on">Español</button>
+      <button data-lang="en">English</button>
+      <button data-lang="fr">Français</button>
+    </div>
+  </div>
+  <div class="setsec">
+    <div class="setlabel">Tema</div>
+    <div class="themegrid" id="themeGrid">
+      <button class="swatch" data-theme="carbon" style="--s-bg:#0a0a0b;--s-ac:#e0a571"><span></span>Carbón</button>
+      <button class="swatch" data-theme="dia" style="--s-bg:#faf8f5;--s-ac:#c2410c"><span></span>Día</button>
+      <button class="swatch" data-theme="medianoche" style="--s-bg:#0a0e1a;--s-ac:#38bdf8"><span></span>Medianoche</button>
+      <button class="swatch" data-theme="bosque" style="--s-bg:#0b140e;--s-ac:#84cc16"><span></span>Bosque</button>
+      <button class="swatch" data-theme="vino" style="--s-bg:#160a0e;--s-ac:#f5b942"><span></span>Vino</button>
+      <button class="swatch" data-theme="neon" style="--s-bg:#14081c;--s-ac:#f472b6"><span></span>Neón</button>
+    </div>
+  </div>
+</div></div>
+
 <div class="overlay hide" id="bakModal"><div class="modal">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <div class="ic"><svg viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg></div>
@@ -701,6 +759,7 @@ html,body{overflow-x:hidden}
   <div class="right">
     <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
     <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
+    <button class="ghost" id="setBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes</button>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
   </div>
 </div>
@@ -1251,7 +1310,7 @@ function cmpUpdate(){const v=+$('cmpSlider').value;
  $('cmpLine').style.left=v+'%'}
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function toast(msg,kind){const t=document.createElement('div');t.className='toast'+(kind==='bad'?' bad':'');
+function toast(msg,kind){try{msg=trVal(String(msg).trim(),LANG)}catch(e){}const t=document.createElement('div');t.className='toast'+(kind==='bad'?' bad':'');
  t.textContent=msg;$('toasts').appendChild(t);
  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(-6px)';setTimeout(()=>t.remove(),260)},2600)}
 
@@ -2416,6 +2475,7 @@ document.addEventListener('keydown',e=>{
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
   if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
+  if(!$('setModal').classList.contains('hide')){$('setModal').classList.add('hide');return}
   if(!$('bakModal').classList.contains('hide')){$('bakModal').classList.add('hide');return}}
  const tag=document.activeElement.tagName;
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
@@ -2492,7 +2552,36 @@ function markValidChips(){
  // los chips de resolución ajustan el área a un tamaño válido, así que siempre funcionan
  document.querySelectorAll('.rchip').forEach(c=>c.classList.add('gok'));
 }
+// ===== Temas e idioma =====
+const THEMES=['carbon','dia','medianoche','bosque','vino','neon'];
+function applyTheme(t){if(!THEMES.includes(t))t='carbon';
+ if(t==='carbon')document.body.removeAttribute('data-theme');else document.body.dataset.theme=t;
+ localStorage.setItem('studio_theme',t);
+ document.querySelectorAll('#themeGrid .swatch').forEach(s=>s.classList.toggle('on',s.dataset.theme===t));}
+let LANG=localStorage.getItem('studio_lang')||'es';
+let _i18nTxt=[],_i18nAttr=[],_i18nHtml=[];
+function trVal(key,lang){const e=(window.I18N||{})[key];return lang==='es'||!e?key:(e[lang]||key);}
+function i18nSnapshot(){const I=window.I18N||{};
+ _i18nHtml=[];const htmlEls=new Set();
+ document.querySelectorAll('p,span,label,button,option,h1,h2,h3,a,div').forEach(el=>{
+  const h=el.innerHTML.trim();if(h&&I[h]&&/[<&]/.test(h)){_i18nHtml.push({el,orig:el.innerHTML});htmlEls.add(el);}});
+ _i18nTxt=[];const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+ while(n=w.nextNode()){const p=n.parentElement;if(!p||p.tagName==='SCRIPT'||p.tagName==='STYLE')continue;
+  let a=p,skip=false;while(a){if(htmlEls.has(a)){skip=true;break}a=a.parentElement}if(skip)continue;
+  const t=n.nodeValue.trim();if(t&&I[t])_i18nTxt.push({node:n,orig:n.nodeValue});}
+ _i18nAttr=[];
+ document.querySelectorAll('[placeholder],[title],[alt]').forEach(el=>{
+  ['placeholder','title','alt'].forEach(at=>{const v=el.getAttribute(at);if(v){const k=v.trim();if(I[k])_i18nAttr.push({el,attr:at,orig:v});}});});}
+function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);document.documentElement.lang=lang;
+ _i18nHtml.forEach(o=>{o.el.innerHTML=lang==='es'?o.orig:trVal(o.orig.trim(),lang);});
+ _i18nTxt.forEach(o=>{const k=o.orig.trim();o.node.nodeValue=lang==='es'?o.orig:o.orig.replace(k,()=>trVal(k,lang));});
+ _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
+ document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
+$('setBtn').onclick=()=>$('setModal').classList.remove('hide');
+$('themeGrid').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme);};
+$('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
 buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();
+applyTheme(localStorage.getItem('studio_theme')||'carbon');i18nSnapshot();applyLang(LANG);
 </script></body></html>"""
 
 
@@ -2549,7 +2638,8 @@ class H(BaseHTTPRequestHandler):
         if not self._guard():
             return
         if urlparse(self.path).path in ("/", "/index.html"):
-            return self._send(200, HTML, "text/html; charset=utf-8",
+            page = HTML.replace("<script>", "<script>\nwindow.I18N=" + I18N_JSON + ";\n", 1)
+            return self._send(200, page, "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         if self.path == "/keystatus":
             try:
