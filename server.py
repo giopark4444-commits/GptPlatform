@@ -1313,13 +1313,18 @@ $('mAudio').onclick=()=>setMode('audio');$('mVideo').onclick=()=>setMode('video'
 function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return(a/g)+':'+(b/g)}
 function snap(v){return Math.round(v/16)*16}
 function estTokens(){const W=+$('w').value,H=+$('h').value,MP=W*H/1e6,q=$('quality').value;
- let t;if(q==='low'||q==='auto')t=129+64*MP;else if(q==='medium')t=1150+577*MP;else t=4600+2308*MP;return Math.max(80,Math.round(t))}
+ let t;if(q==='low'||q==='auto')t=129+64*MP;else if(q==='medium')t=1150+577*MP;else t=4600+2308*MP;
+ // gpt-image-2 cobra MENOS los no-cuadrados; factor lado corto/largo calibrado con la tabla oficial
+ // (cuadrado → ×1 sin cambio; 1024×1536 high → $0.165, exacto)
+ t*=Math.min(W,H)/Math.max(W,H);
+ return Math.max(80,Math.round(t))}
 function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=W*H,rls=long/Math.min(W,H);let ok=true,msg='válido';
  // límites de gpt-image-2: lado ≤3840, 0.65–8.29 MP, ratio largo:corto ≤3:1
  if(long>3840){ok=false;msg='lado > 3840'}
  else if(mp>8294400){ok=false;msg='> 8.29 MP (máx)'}
  else if(mp<655360){ok=false;msg='< 0.65 MP (mín)'}
  else if(rls>3.0001){ok=false;msg='ratio > 3:1'}
+ else if(mp>3686400){msg='válido · >2K experimental'}   // OpenAI marca >2K como experimental
  $('valid').textContent=msg;$('valid').className='valid '+(ok?'ok':'bad');$('ratio').textContent=fr(W,H);
  const n=+$('n').value;let est=estTokens()*n*30/1e6;
  // referencias = tokens de imagen de entrada (~$8/1M). Aproximado; el costo real al terminar es exacto.
@@ -3741,9 +3746,24 @@ class H(BaseHTTPRequestHandler):
 
     def _err(self, e):
         try:
-            return json.loads(e.read()).get("error", {}).get("message", f"HTTP {e.code}")
+            err = json.loads(e.read()).get("error", {})
         except Exception:
             return f"HTTP {e.code}"
+        if err.get("code") == "moderation_blocked":
+            det = err.get("moderation_details") or {}
+            cats = det.get("categories") or []
+            stage = det.get("moderation_stage")
+            es = {"harassment": "acoso", "self-harm": "autolesión",
+                  "sexual": "contenido sexual", "violence": "violencia"}
+            hint = "Bloqueado por la política de contenido de OpenAI."
+            if cats:
+                hint += " Categoría: " + ", ".join(es.get(c, c) for c in cats) + "."
+            if stage == "input":
+                hint += " Vino del prompt — reescríbelo sin ese contenido."
+            elif stage == "output":
+                hint += " La imagen generada se bloqueó — cambia el prompt e intenta de nuevo."
+            return hint
+        return err.get("message", f"HTTP {e.code}")
 
 
 if __name__ == "__main__":
