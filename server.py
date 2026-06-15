@@ -242,30 +242,30 @@ HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
- --bg:#0a0a0b;--surface:#101012;--surface2:#161618;--elev:#1c1c1f;
- --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.11);
- --txt:#ededee;--mut:#9a9aa1;--faint:#67676f;
- --accent:#e0a571;--accent-dim:rgba(224,165,113,.14);--ok:#7bd99a;--bad:#e57373;
- --glow:rgba(224,165,113,.05);
+ --bg:#0f0d0c;--surface:#1a1715;--surface2:#231f1c;--elev:#2c2723;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);
+ --txt:#f1ece7;--mut:#a89f97;--faint:#6f665f;
+ --accent:#e0a571;--accent-dim:rgba(224,165,113,.14);--ok:#7bbf8f;--bad:#e07a6b;
+ --glow:rgba(224,165,113,.06);
  --ui:'Schibsted Grotesk',-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
  --z-sticky:5;--z-modal:30;--z-lightbox:40;--z-toast:60;
 }
-/* ===== temas (se aplican con body[data-theme]) ===== */
-body[data-theme="dia"]{--bg:#faf8f5;--surface:#ffffff;--surface2:#f1ede7;--elev:#ffffff;
- --line:rgba(0,0,0,.08);--line2:rgba(0,0,0,.15);--txt:#1b1a18;--mut:#6b675f;--faint:#a39d92;
- --accent:#c2410c;--accent-dim:rgba(194,65,12,.10);--ok:#15803d;--bad:#dc2626;--glow:rgba(194,65,12,.05)}
-body[data-theme="medianoche"]{--bg:#0a0e1a;--surface:#101626;--surface2:#161e30;--elev:#1c2740;
- --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#e8edf5;--mut:#8b96ad;--faint:#566075;
- --accent:#38bdf8;--accent-dim:rgba(56,189,248,.14);--ok:#34d399;--bad:#fb7185;--glow:rgba(56,189,248,.06)}
-body[data-theme="bosque"]{--bg:#0b140e;--surface:#0f1a13;--surface2:#15241a;--elev:#1b2f22;
- --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.11);--txt:#e7f0e9;--mut:#8aa593;--faint:#566b5d;
- --accent:#84cc16;--accent-dim:rgba(132,204,22,.14);--ok:#4ade80;--bad:#f87171;--glow:rgba(132,204,22,.05)}
-body[data-theme="vino"]{--bg:#160a0e;--surface:#1e0f14;--surface2:#28151b;--elev:#341c24;
- --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#f2e6ea;--mut:#b08a96;--faint:#785662;
- --accent:#f5b942;--accent-dim:rgba(245,185,66,.14);--ok:#86efac;--bad:#fb7185;--glow:rgba(245,185,66,.05)}
-body[data-theme="neon"]{--bg:#14081c;--surface:#1c0e28;--surface2:#261335;--elev:#321a45;
- --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);--txt:#f3e8ff;--mut:#a98bc4;--faint:#705788;
- --accent:#f472b6;--accent-dim:rgba(244,114,182,.16);--ok:#5eead4;--bad:#fb7185;--glow:rgba(244,114,182,.07)}
+/* ===== temas — 3 oscuros (Carbón = raíz) + 3 claros, via body[data-theme] ===== */
+body[data-theme="medianoche"]{--bg:#070d18;--surface:#0d1626;--surface2:#161f31;--elev:#1b2840;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#eaf1f8;--mut:#9fb1c6;--faint:#647a96;
+ --accent:#22d3ee;--accent-dim:rgba(34,211,238,.14);--ok:#34d399;--bad:#f87171;--glow:rgba(34,211,238,.06)}
+body[data-theme="neon"]{--bg:#0c0716;--surface:#15102a;--surface2:#1e1838;--elev:#272047;
+ --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#f2eefb;--mut:#a99fc4;--faint:#6f6690;
+ --accent:#ff3ea5;--accent-dim:rgba(255,62,165,.14);--ok:#3ee6a8;--bad:#ff5c72;--glow:rgba(255,62,165,.06)}
+body[data-theme="dia"]{--bg:#faf7f2;--surface:#fdfbf7;--surface2:#ffffff;--elev:#ffffff;
+ --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#211e1b;--mut:#6b655d;--faint:#9c958b;
+ --accent:#b8492a;--accent-dim:rgba(184,73,42,.13);--ok:#3f7d52;--bad:#c0392b;--glow:rgba(184,73,42,.06)}
+body[data-theme="bruma"]{--bg:#eef1f6;--surface:#f8fafc;--surface2:#ffffff;--elev:#ffffff;
+ --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#1d2230;--mut:#5a6478;--faint:#9aa2b4;
+ --accent:#4654c7;--accent-dim:rgba(70,84,199,.14);--ok:#1f8a5b;--bad:#c8324b;--glow:rgba(70,84,199,.06)}
+body[data-theme="crema"]{--bg:#f4efe3;--surface:#faf6ec;--surface2:#fffdf6;--elev:#ffffff;
+ --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#22201b;--mut:#6b665a;--faint:#9c9788;
+ --accent:#1f6b54;--accent-dim:rgba(31,107,84,.14);--ok:#2f7a4a;--bad:#b4452f;--glow:rgba(31,107,84,.06)}
 *{box-sizing:border-box}
 ::selection{background:var(--accent-dim)}
 body{margin:0;font-family:var(--ui);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45;
@@ -502,6 +502,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .setmodal{max-width:520px}
 .setsec{margin-top:20px}
 .setlabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;font-weight:600}
+.setsublabel{font-size:11px;color:var(--mut);margin:12px 0 8px;font-weight:500}
+.setsublabel:first-of-type{margin-top:2px}
 .langseg{display:flex;gap:6px}
 .langseg button{flex:1;padding:9px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);color:var(--mut);cursor:pointer;font-size:13px;font-family:var(--ui);transition:.15s}
 .langseg button:hover{color:var(--txt);border-color:var(--line2)}
@@ -678,15 +680,19 @@ html,body{overflow-x:hidden}
       <button data-lang="fr">Français</button>
     </div>
   </div>
-  <div class="setsec">
+  <div class="setsec" id="themeWrap">
     <div class="setlabel">Tema</div>
-    <div class="themegrid" id="themeGrid">
-      <button class="swatch" data-theme="carbon" style="--s-bg:#0a0a0b;--s-ac:#e0a571"><span></span>Carbón</button>
-      <button class="swatch" data-theme="dia" style="--s-bg:#faf8f5;--s-ac:#c2410c"><span></span>Día</button>
-      <button class="swatch" data-theme="medianoche" style="--s-bg:#0a0e1a;--s-ac:#38bdf8"><span></span>Medianoche</button>
-      <button class="swatch" data-theme="bosque" style="--s-bg:#0b140e;--s-ac:#84cc16"><span></span>Bosque</button>
-      <button class="swatch" data-theme="vino" style="--s-bg:#160a0e;--s-ac:#f5b942"><span></span>Vino</button>
-      <button class="swatch" data-theme="neon" style="--s-bg:#14081c;--s-ac:#f472b6"><span></span>Neón</button>
+    <div class="setsublabel">Oscuros</div>
+    <div class="themegrid">
+      <button class="swatch" data-theme="carbon" style="--s-bg:#0f0d0c;--s-ac:#e0a571"><span></span>Carbón</button>
+      <button class="swatch" data-theme="medianoche" style="--s-bg:#070d18;--s-ac:#22d3ee"><span></span>Medianoche</button>
+      <button class="swatch" data-theme="neon" style="--s-bg:#0c0716;--s-ac:#ff3ea5"><span></span>Neón</button>
+    </div>
+    <div class="setsublabel">Claros</div>
+    <div class="themegrid">
+      <button class="swatch" data-theme="dia" style="--s-bg:#faf7f2;--s-ac:#b8492a"><span></span>Día</button>
+      <button class="swatch" data-theme="bruma" style="--s-bg:#eef1f6;--s-ac:#4654c7"><span></span>Bruma</button>
+      <button class="swatch" data-theme="crema" style="--s-bg:#f4efe3;--s-ac:#1f6b54"><span></span>Crema</button>
     </div>
   </div>
 </div></div>
@@ -2553,11 +2559,11 @@ function markValidChips(){
  document.querySelectorAll('.rchip').forEach(c=>c.classList.add('gok'));
 }
 // ===== Temas e idioma =====
-const THEMES=['carbon','dia','medianoche','bosque','vino','neon'];
+const THEMES=['carbon','medianoche','neon','dia','bruma','crema'];
 function applyTheme(t){if(!THEMES.includes(t))t='carbon';
  if(t==='carbon')document.body.removeAttribute('data-theme');else document.body.dataset.theme=t;
  localStorage.setItem('studio_theme',t);
- document.querySelectorAll('#themeGrid .swatch').forEach(s=>s.classList.toggle('on',s.dataset.theme===t));}
+ document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('on',s.dataset.theme===t));}
 let LANG=localStorage.getItem('studio_lang')||'es';
 let _i18nTxt=[],_i18nAttr=[],_i18nHtml=[];
 function trVal(key,lang){const e=(window.I18N||{})[key];return lang==='es'||!e?key:(e[lang]||key);}
@@ -2578,7 +2584,7 @@ function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);docu
  _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
  document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
 $('setBtn').onclick=()=>$('setModal').classList.remove('hide');
-$('themeGrid').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme);};
+$('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme);};
 $('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
 buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();
 applyTheme(localStorage.getItem('studio_theme')||'carbon');i18nSnapshot();applyLang(LANG);
