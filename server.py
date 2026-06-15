@@ -59,10 +59,28 @@ API_TRANSL = "https://api.openai.com/v1/audio/translations"
 TTS_PRICE = {"tts-1": 15.0, "tts-1-hd": 30.0}  # USD por 1M de caracteres
 STT_PRICE = {"whisper-1": 0.006, "gpt-4o-transcribe": 0.006, "gpt-4o-mini-transcribe": 0.003}  # USD por minuto
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
+        "gif": "image/gif",
         "mp3": "audio/mpeg", "wav": "audio/wav", "aac": "audio/aac", "flac": "audio/flac",
         "opus": "audio/ogg", "pcm": "application/octet-stream", "mp4": "video/mp4",
         "txt": "text/plain; charset=utf-8", "srt": "text/plain; charset=utf-8",
         "vtt": "text/vtt", "json": "application/json"}
+
+# Requisitos de imagen de entrada de OpenAI (visión / referencias)
+IMG_MAX_PAYLOAD = 512 * 1024 * 1024   # 512 MB total por petición
+IMG_MAX_COUNT = 1500                   # imágenes por petición
+
+
+def sniff_image(raw):
+    """Devuelve la extensión si los bytes son un tipo aceptado por OpenAI (png/jpeg/webp/gif), o None."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if raw[:3] == b"\xff\xd8\xff":
+        return "jpg"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "webp"
+    if raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    return None
 
 
 def key():
@@ -698,7 +716,7 @@ html,body{overflow-x:hidden}
     <div class="field" id="editBox">
       <label><span id="refLbl">Referencias · opcional</span></label>
       <div class="drop" id="drop"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Arrastra, pega (⌘V) o elige</div>
-      <input type="file" id="files" accept="image/png,image/jpeg,image/webp" multiple class="hide">
+      <input type="file" id="files" accept="image/png,image/jpeg,image/webp,image/gif" multiple class="hide">
       <div class="thumbs" id="thumbs"></div>
       <div class="thumbs" id="maskThumb"></div>
       <div class="grid2" style="margin-top:9px;gap:7px">
@@ -1113,7 +1131,7 @@ html,body{overflow-x:hidden}
         <button class="linklike" id="shelfDirEdit">cambiar</button>
         <span id="shelfDirRow" class="hide"><input type="text" id="shelfDirIn" placeholder="~/Pictures/MiEstante" spellcheck="false"><button class="ghost sm" id="shelfDirSave">Guardar</button></span>
       </div>
-      <input type="file" id="shelfFile" accept="image/*" multiple hidden>
+      <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
       <div class="shelfgrid" id="shelfGrid"></div>
       <div class="shelfempty" id="shelfEmpty">Arrastra, pega o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, descargarla o quitarla.</div>
     </div>
@@ -1364,10 +1382,14 @@ $('dirApply').onclick=async()=>{
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
 function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
-async function addFiles(list){let added=0;
- for(const f of list){if(!f.type.startsWith('image/'))continue;
+// formatos que acepta OpenAI para entrada de imagen
+const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
+async function addFiles(list){let added=0,bad=0;
+ for(const f of list){
+  if(!OK_IMG_TYPES.has(f.type)){bad++;continue}
   if(f.size>50*1024*1024){toast(f.name+' supera 50MB','bad');continue}
   refs.push({name:f.name,b64:await fileToB64(f)});added++}
+ if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
  if(added)renderThumbs();return added}
 $('drop').onclick=()=>$('files').click();
 $('files').onchange=e=>{addFiles(e.target.files);e.target.value=''};
@@ -2416,20 +2438,32 @@ function renderShelf(){
   return `<div class="scard" title="${esc(it.name||'')}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
+  <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}).join('');}
-async function shelfAddFiles(files){const imgs=[];
- for(const f of files){if(!f.type.startsWith('image/'))continue;imgs.push({name:f.name,b64:await fileToB64(f)});}
- if(!imgs.length){toast('Arrastra imágenes (PNG/JPG/WebP)','bad');return;}
+async function shelfAddFiles(files){const imgs=[];let bad=0;
+ for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
+ if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
+ if(!imgs.length)return;
  const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs})})).json();
  if(r.error){toast(r.error,'bad');return;}
- shelfItems=r.items||shelfItems;renderShelf();toast(imgs.length+(imgs.length>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
+ if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
+ shelfItems=r.items||shelfItems;renderShelf();
+ const n=imgs.length-(r.skipped?r.skipped.length:0);
+ if(n>0)toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
 $('shelfFile').onchange=e=>{shelfAddFiles([...e.target.files]);e.target.value='';};
-$('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del');
+$('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;
   const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file))).blob();
   refs.push({name:it.name||it.file,b64:await blobToB64(b)});renderThumbs();
   if(mode!=='editar')setMode('editar');validate();toast('Añadida como referencia');return;}
+ if(desc){const it=shelfItems.find(x=>x.file===desc.dataset.file);if(!it)return;
+  desc.classList.add('busy');toast('Describiendo imagen…');
+  try{const d=await(await fetch('/describe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file})})).json();
+   if(d.error)toast(d.error,'bad');
+   else{setMode('crear');$('prompt').value=d.prompt;validate();$('prompt').focus();toast('Prompt de la imagen copiado al panel Crear');}
+  }catch(x){toast(String(x),'bad')}
+  desc.classList.remove('busy');return;}
  if(del){const f=del.dataset.file;
   await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});
   shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}};
@@ -2760,9 +2794,10 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Sin imágenes"})
         ext_dir = shelf_dir()
         mirror = ext_dir.resolve() != SHELF_DIR.resolve()
+        skipped = []
         with LOCK:
             items = load_json(SHELF_JSON, [])
-            for im in imgs[:50]:
+            for im in imgs[:IMG_MAX_COUNT]:
                 try:
                     raw = base64.b64decode(im.get("b64", ""))
                 except Exception:
@@ -2770,9 +2805,10 @@ class H(BaseHTTPRequestHandler):
                 if not raw:
                     continue
                 nm = im.get("name", "") or ""
-                ext = nm.rsplit(".", 1)[-1].lower() if "." in nm else "png"
-                if ext not in ("png", "jpg", "jpeg", "webp", "gif"):
-                    ext = "png"
+                ext = sniff_image(raw)   # validamos por contenido, no por nombre
+                if not ext:
+                    skipped.append(nm or "imagen")
+                    continue
                 fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
                 (SHELF_DIR / fn).write_bytes(raw)   # copia interna: el estante siempre funciona
                 if mirror:
@@ -2783,7 +2819,7 @@ class H(BaseHTTPRequestHandler):
                         pass
                 items.insert(0, {"file": fn, "name": nm or fn, "ts": time.strftime("%Y-%m-%d %H:%M")})
             save_json(SHELF_JSON, items)
-        return self._json({"ok": True, "items": items,
+        return self._json({"ok": True, "items": items, "skipped": skipped,
                            "dir": str(shelf_dir()).replace(str(HOME), "~")})
 
     def h_shelf_del(self):
@@ -2921,19 +2957,30 @@ class H(BaseHTTPRequestHandler):
         if b.get("output_compression") is not None and fmt != "png":
             field("output_compression", str(b["output_compression"]))
         nimg = 0
+        total_bytes = 0
         for img in b.get("images", []):
-            filepart("image[]", img.get("name", "ref.png"), base64.b64decode(img["b64"]))
+            raw = base64.b64decode(img["b64"])
+            if not sniff_image(raw):
+                return self._json({"error": f"'{img.get('name','imagen')}' no es PNG/JPEG/WebP/GIF (formatos que acepta OpenAI)."})
+            total_bytes += len(raw)
+            filepart("image[]", img.get("name", "ref.png"), raw)
             nimg += 1
         via_visual = False
         if b.get("use_project_refs") and b.get("project"):
             for f in load_projects().get(b["project"], {}).get("refs", []):
                 fp = proj_folder(b["project"]) / f
                 if fp.exists():
-                    filepart("image[]", f, fp.read_bytes())
+                    raw = fp.read_bytes()
+                    total_bytes += len(raw)
+                    filepart("image[]", f, raw)
                     nimg += 1
                     via_visual = True
         if nimg == 0:
             return self._json({"error": "No hay imágenes de referencia."})
+        if nimg > IMG_MAX_COUNT:
+            return self._json({"error": f"Demasiadas referencias ({nimg}); OpenAI permite hasta {IMG_MAX_COUNT} por petición."})
+        if total_bytes > IMG_MAX_PAYLOAD:
+            return self._json({"error": f"Las referencias pesan {total_bytes/1048576:.0f} MB; el máximo de OpenAI es 512 MB por petición."})
         if b.get("mask"):
             filepart("mask", b["mask"].get("name", "mask.png"), base64.b64decode(b["mask"]["b64"]))
         parts.append(f"--{boundary}--\r\n".encode())
@@ -3497,15 +3544,21 @@ class H(BaseHTTPRequestHandler):
         if not key():
             return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
         f = os.path.basename(b.get("file", ""))
-        fp = HIST_DIR / f
+        fp = HIST_DIR / f                       # imágenes del historial...
+        if not fp.is_file():
+            fp = SHELF_DIR / f                  # ...o del estante (Mis imágenes)
         if not fp.is_file():
             return self._json({"error": "No encuentro esa imagen."})
+        # detalle de visión: high = lectura fiel (gpt-4o-mini soporta low/high/auto, no 'original')
+        detail = b.get("detail", "high")
+        if detail not in ("low", "high", "auto"):
+            detail = "high"
         mime = MIME.get(fp.suffix.lstrip(".").lower(), "image/png").split(";")[0]
         uri = f"data:{mime};base64," + base64.b64encode(fp.read_bytes()).decode()
         try:
             out = self._chat([{"role": "user", "content": [
                 {"type": "text", "text": "Describe esta imagen como un prompt detallado (sujeto, composición, iluminación, lente, paleta, estilo) para recrearla con un modelo de generación de imágenes. Devuelve solo el prompt, en español."},
-                {"type": "image_url", "image_url": {"url": uri}}]}])
+                {"type": "image_url", "image_url": {"url": uri, "detail": detail}}]}])
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except urllib.error.URLError as e:
