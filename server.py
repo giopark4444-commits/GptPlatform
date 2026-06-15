@@ -311,6 +311,16 @@ input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
  border-radius:7px;padding:5px 9px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
 .chip:hover{border-color:var(--line2);color:var(--txt)}
 .chip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+/* validez para gpt-image-2: verde sutil = válido (lados ÷16); verde lleno = nativo; rojo = inválido */
+.chip.gok{border-color:rgba(123,217,154,.42)}
+.chip.gok:hover{border-color:rgba(123,217,154,.75)}
+.chip.gnat{border-color:var(--ok);color:var(--ok);background:rgba(123,217,154,.12)}
+.chip.gbad{border-color:#d9776b;color:#d9776b}
+.chip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.preslegend{width:100%;font-size:10px;color:var(--faint);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;line-height:1.5}
+.preslegend .dotok,.preslegend .dotnat{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.preslegend .dotok{border:1px solid rgba(123,217,154,.7)}
+.preslegend .dotnat{background:var(--ok)}
 
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .drop{display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line2);border-radius:10px;
@@ -341,6 +351,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .primary:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
 .hint{font-size:11px;color:var(--faint);margin-top:10px;line-height:1.55}
+.hint.warn{color:#e0b070;border-left:2px solid #e0b070;padding-left:9px}
 
 /* center */
 .canvas{aspect-ratio:4/3;width:100%;max-height:74vh;margin:0 auto;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:16px;
@@ -729,8 +740,8 @@ html,body{overflow-x:hidden}
         <span class="pgroup">Social</span>
         <span class="chip" data-w="1024" data-h="1024">1:1</span>
         <span class="chip" data-w="1024" data-h="1280">4:5</span>
-        <span class="chip" data-w="1088" data-h="1920">9:16</span>
-        <span class="chip" data-w="1920" data-h="1088">16:9</span>
+        <span class="chip" data-w="1152" data-h="2048">9:16</span>
+        <span class="chip" data-w="2048" data-h="1152">16:9</span>
         <span class="pgroup">Foto</span>
         <span class="chip" data-w="1024" data-h="1536">2:3</span>
         <span class="chip" data-w="1536" data-h="1024">3:2</span>
@@ -743,13 +754,14 @@ html,body{overflow-x:hidden}
         <span class="chip" data-w="2560" data-h="1088">2.35:1</span>
         <span class="chip" data-w="2608" data-h="1088">2.39:1</span>
         <span class="chip" data-w="2544" data-h="1088">21:9</span>
-        <span class="chip" data-w="2400" data-h="1000">2.4:1</span>
+        <span class="chip" data-w="2384" data-h="992">2.4:1</span>
         <span class="chip" data-w="3072" data-h="1024">Pano 3:1</span>
         <span class="pgroup">Resolución · escala el ratio actual (área en píxeles)</span>
-        <span class="chip rchip" data-px="2073600">1080p</span>
-        <span class="chip rchip" data-px="3686400">2K</span>
-        <span class="chip rchip" data-px="5308416">3K</span>
-        <span class="chip rchip" data-px="8294400">4K</span>
+        <span class="chip rchip" data-px="921600">720p · HD</span>
+        <span class="chip rchip" data-px="2073600">1080p · FHD</span>
+        <span class="chip rchip" data-px="3686400">1440p · QHD</span>
+        <span class="chip rchip" data-px="8294400">4K · UHD</span>
+        <div class="preslegend"><span class="dotnat"></span> nativo gpt-image-2 (sin reescalado) · <span class="dotok"></span> tamaño válido (lados ÷16) · DCI 4K (4096px) no cabe en el límite de 3840</div>
       </div>
     </div>
 
@@ -762,7 +774,7 @@ html,body{overflow-x:hidden}
       <div class="advbody">
         <div class="grid2" style="margin-bottom:12px">
           <div><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
-          <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option><option value="transparent">Transparente</option></select></div>
+          <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option><option value="transparent">Transparente · gpt-image-1</option></select></div>
         </div>
         <div class="grid2">
           <div><label>Moderación</label><select id="mod"><option value="auto">Auto</option><option value="low">Low</option></select></div>
@@ -779,6 +791,7 @@ html,body{overflow-x:hidden}
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
         </div>
         <p class="hint">Transparente usa <span class="mono">gpt-image-1</span> (tamaño fijo). Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
+        <p class="hint warn hide" id="bgWarn">⚠ <b>Transparencia = gpt-image-1</b> (modelo anterior, calidad menor): gpt-image-2 no soporta fondo transparente. Para recortes limpios describe un sujeto aislado sobre fondo simple. La app fuerza PNG y sube la calidad a Media automáticamente.</p>
       </div>
     </details>
 
@@ -2444,7 +2457,22 @@ $('shelfDirSave').onclick=async()=>{
  if(r.shelf_effective)$('shelfDirLbl').textContent=r.shelf_effective;
  $('shelfDirRow').classList.add('hide');toast('El estante se guardará en '+(r.shelf_effective||'tu carpeta'));};
 $('shelfDirIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shelfDirSave').click();}});
-buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();
+// ===== marcado de validez de presets para gpt-image-2 =====
+const NATIVE_SIZES=new Set(['1024x1024','1536x1024','1024x1536']);
+function chipValid(w,h){return w%16===0&&h%16===0&&w>=512&&h>=512&&Math.max(w,h)<=3840
+ &&Math.max(w,h)/Math.min(w,h)<=3.0001&&w*h>=655360&&w*h<=8294400;}
+function markValidChips(){
+ document.querySelectorAll('.chip[data-w]').forEach(c=>{
+  const w=+c.dataset.w,h=+c.dataset.h,nat=NATIVE_SIZES.has(w+'x'+h),v=chipValid(w,h);
+  c.classList.toggle('gnat',nat);c.classList.toggle('gok',v&&!nat);c.classList.toggle('gbad',!v);
+  c.title=v?`${w}×${h} · ${nat?'nativo gpt-image-2':'válido (lados ÷16)'}`:`${w}×${h} · NO válido para gpt-image-2`;});
+ // los chips de resolución ajustan el área a un tamaño válido, así que siempre funcionan
+ document.querySelectorAll('.rchip').forEach(c=>c.classList.add('gok'));
+}
+// aviso de transparencia (usa gpt-image-1)
+function syncBgWarn(){$('bgWarn').classList.toggle('hide',$('bg').value!=='transparent');}
+$('bg').addEventListener('change',syncBgWarn);
+buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();syncBgWarn();
 </script></body></html>"""
 
 
@@ -2855,8 +2883,11 @@ class H(BaseHTTPRequestHandler):
         fmt = b.get("output_format", "png")
         if transparent and fmt == "jpeg":
             fmt = "png"
+        quality = b.get("quality", "auto")
+        if transparent and quality in ("auto", "low"):
+            quality = "medium"   # gpt-image-1 con alfa en auto/low da recortes sucios
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
-        payload = {"model": model, "prompt": prompt, "size": size, "quality": b.get("quality", "auto"),
+        payload = {"model": model, "prompt": prompt, "size": size, "quality": quality,
                    "n": b.get("n", 1), "output_format": fmt, "background": bg, "moderation": b.get("moderation", "auto")}
         if b.get("output_compression") is not None and fmt != "png":
             payload["output_compression"] = b["output_compression"]
@@ -2884,6 +2915,9 @@ class H(BaseHTTPRequestHandler):
         fmt = b.get("output_format", "png")
         if transparent and fmt == "jpeg":
             fmt = "png"
+        quality = b.get("quality", "auto")
+        if transparent and quality in ("auto", "low"):
+            quality = "medium"   # gpt-image-1 con alfa en auto/low da recortes sucios
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
         boundary = "----studio" + uuid.uuid4().hex
         parts = []
@@ -2897,7 +2931,7 @@ class H(BaseHTTPRequestHandler):
         field("model", model)
         field("prompt", prompt)
         field("size", size)
-        field("quality", b.get("quality", "auto"))
+        field("quality", quality)
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
         field("moderation", b.get("moderation", "auto"))
