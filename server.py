@@ -785,10 +785,7 @@ html,body{overflow-x:hidden}
           <div><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
           <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option></select></div>
         </div>
-        <div class="grid2">
-          <div><label>Moderación</label><select id="mod"><option value="auto">Auto</option><option value="low">Low</option></select></div>
-          <div><label>Fidelidad</label><select disabled><option>High</option></select></div>
-        </div>
+        <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="saveDesk" checked> Guardar copia en una carpeta</label>
         <div id="dirBox" style="margin-top:10px">
@@ -799,7 +796,7 @@ html,body{overflow-x:hidden}
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
         </div>
-        <p class="hint">Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
+        <p class="hint">Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura". La fidelidad de las referencias es siempre <b>alta</b> en gpt-image-2 (no se puede cambiar).</p>
       </div>
     </details>
 
@@ -2913,7 +2910,7 @@ class H(BaseHTTPRequestHandler):
         quality = b.get("quality", "auto")
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
         payload = {"model": model, "prompt": prompt, "size": size, "quality": quality,
-                   "n": b.get("n", 1), "output_format": fmt, "background": bg, "moderation": b.get("moderation", "auto")}
+                   "n": b.get("n", 1), "output_format": fmt, "background": bg, "moderation": b.get("moderation", "low")}
         if b.get("output_compression") is not None and fmt != "png":
             payload["output_compression"] = b["output_compression"]
         try:
@@ -2956,7 +2953,7 @@ class H(BaseHTTPRequestHandler):
         field("quality", quality)
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
-        field("moderation", b.get("moderation", "auto"))
+        field("moderation", b.get("moderation", "low"))
         if bg == "opaque":
             field("background", bg)
         if b.get("output_compression") is not None and fmt != "png":
