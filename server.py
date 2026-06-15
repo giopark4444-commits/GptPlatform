@@ -232,6 +232,10 @@ def backup_status():
 
 try:
     I18N_JSON = (Path(__file__).resolve().parent / "i18n.json").read_text(encoding="utf-8")
+    # inyección segura dentro de <script>: < solo aparece dentro de strings, < es válido
+    # en JSON y JS; U+2028/U+2029 rompen literales de cadena en JS
+    I18N_JSON = (I18N_JSON.replace("<", "\\u003c")
+                 .replace(" ", "\\u2028").replace(" ", "\\u2029"))
 except Exception:
     I18N_JSON = "{}"
 
@@ -247,6 +251,7 @@ HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
  --txt:#f1ece7;--mut:#a89f97;--faint:#6f665f;
  --accent:#e0a571;--accent-dim:rgba(224,165,113,.14);--ok:#7bbf8f;--bad:#e07a6b;
  --glow:rgba(224,165,113,.06);
+ --btn-bg:var(--txt);--btn-fg:#12100d;
  --ui:'Schibsted Grotesk',-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
  --z-sticky:5;--z-modal:30;--z-lightbox:40;--z-toast:60;
 }
@@ -259,13 +264,13 @@ body[data-theme="neon"]{--bg:#0c0716;--surface:#15102a;--surface2:#1e1838;--elev
  --accent:#ff3ea5;--accent-dim:rgba(255,62,165,.14);--ok:#3ee6a8;--bad:#ff5c72;--glow:rgba(255,62,165,.06)}
 body[data-theme="dia"]{--bg:#faf7f2;--surface:#fdfbf7;--surface2:#ffffff;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#211e1b;--mut:#6b655d;--faint:#9c958b;
- --accent:#b8492a;--accent-dim:rgba(184,73,42,.13);--ok:#3f7d52;--bad:#c0392b;--glow:rgba(184,73,42,.06)}
+ --accent:#b8492a;--accent-dim:rgba(184,73,42,.13);--ok:#3f7d52;--bad:#c0392b;--glow:rgba(184,73,42,.06);--btn-bg:#2a241f;--btn-fg:#faf7f2}
 body[data-theme="bruma"]{--bg:#eef1f6;--surface:#f8fafc;--surface2:#ffffff;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#1d2230;--mut:#5a6478;--faint:#9aa2b4;
- --accent:#4654c7;--accent-dim:rgba(70,84,199,.14);--ok:#1f8a5b;--bad:#c8324b;--glow:rgba(70,84,199,.06)}
+ --accent:#4654c7;--accent-dim:rgba(70,84,199,.14);--ok:#1f8a5b;--bad:#c8324b;--glow:rgba(70,84,199,.06);--btn-bg:#1d2230;--btn-fg:#f8fafc}
 body[data-theme="crema"]{--bg:#f4efe3;--surface:#faf6ec;--surface2:#fffdf6;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#22201b;--mut:#6b665a;--faint:#9c9788;
- --accent:#1f6b54;--accent-dim:rgba(31,107,84,.14);--ok:#2f7a4a;--bad:#b4452f;--glow:rgba(31,107,84,.06)}
+ --accent:#1f6b54;--accent-dim:rgba(31,107,84,.14);--ok:#2f7a4a;--bad:#b4452f;--glow:rgba(31,107,84,.06);--btn-bg:#23211b;--btn-fg:#faf6ec}
 *{box-sizing:border-box}
 ::selection{background:var(--accent-dim)}
 body{margin:0;font-family:var(--ui);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45;
@@ -284,7 +289,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .top{display:flex;align-items:center;gap:18px;padding:15px 26px;border-bottom:1px solid var(--line);
  position:sticky;top:0;z-index:var(--z-sticky);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
-.brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),#b87a45);
+.brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),color-mix(in srgb,var(--accent) 65%,#000));
  display:flex;align-items:center;justify-content:center;color:#1a1206}
 .brand .dot svg{width:13px;height:13px;stroke-width:2}
 .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
@@ -377,7 +382,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .estbar{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;background:var(--surface);
  border:1px solid var(--line);border-radius:11px;margin-bottom:12px;font-size:12px;color:var(--mut)}
 .estbar .num{font-family:var(--mono);color:var(--accent);font-size:15px}
-.primary{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--txt);color:#0a0a0b;
+.primary{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--btn-bg);color:var(--btn-fg);
  border:0;border-radius:11px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;transition:.16s}
 .primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .primary:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
@@ -401,7 +406,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;
  background:rgba(16,16,18,.9);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:9px 12px;max-width:min(760px,92vw);cursor:default}
-.lbprompt{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px}
+.lbprompt{font-size:12px;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px}
 .lbbar button,.lbbar a{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line2);
  color:var(--txt);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;flex:none}
 .lbbar button:hover,.lbbar a:hover{border-color:var(--mut)}
@@ -606,7 +611,7 @@ audio{width:100%;height:40px}
 #cmpBwrap{position:absolute;inset:0;overflow:hidden}
 #cmpBwrap img{position:absolute;left:0;top:0}
 #cmpLine{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);box-shadow:0 0 10px rgba(224,165,113,.6);pointer-events:none}
-.cmptag{position:absolute;top:12px;font-family:var(--mono);font-size:11px;font-weight:700;background:rgba(12,12,14,.85);
+.cmptag{position:absolute;top:12px;font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;background:rgba(12,12,14,.85);
  border:1px solid var(--line2);border-radius:6px;padding:3px 8px;pointer-events:none}
 #cmpSlider{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);width:min(420px,80vw)}
 
@@ -762,7 +767,7 @@ html,body{overflow-x:hidden}
     <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>3</kbd></button>
   </div>
   <div class="right">
-    <span class="sess" id="sessTot">Sesión <b class="mono">$0.0000</b> · <b class="mono">0</b> gen</span>
+    <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">$0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
     <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
     <button class="ghost" id="setBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes</button>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
@@ -1193,7 +1198,7 @@ html,body{overflow-x:hidden}
       </div>
       <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
       <div class="shelfgrid" id="shelfGrid"></div>
-      <div class="shelfempty" id="shelfEmpty">Arrastra, pega o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, descargarla o quitarla.</div>
+      <div class="shelfempty" id="shelfEmpty">Arrastra imágenes aquí o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, describirla, descargarla o quitarla.</div>
     </div>
    </div>
 
@@ -1351,7 +1356,7 @@ $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$
  else{$('keyMsg').textContent=(r.error||'clave inválida')}};
 
 function bumpSess(c,n=1){sessCost+=c||0;sessN+=n;
- $('sessTot').innerHTML='Sesión <b class="mono">$'+sessCost.toFixed(4)+'</b> · <b class="mono">'+sessN+'</b> gen'}
+ $('sessCostV').textContent='$'+sessCost.toFixed(4);$('sessNV').textContent=sessN}
 let lastImgMode=localStorage.getItem('studio_imgmode')||'crear';
 function setMode(m){mode=m;
  const aud=m==='audio',vid=m==='video',img=!aud&&!vid;
@@ -2649,8 +2654,8 @@ class H(BaseHTTPRequestHandler):
 
     def _body(self):
         n = int(self.headers.get("Content-Length", 0))
-        if n > 256 * 1024 * 1024:
-            raise ValueError("La petición supera el límite de 256MB")
+        if n > 720 * 1024 * 1024:   # ~512MB de imágenes crudas + inflación base64 (límite real de OpenAI)
+            raise ValueError("La petición supera el límite de 720MB")
         return json.loads(self.rfile.read(n) or b"{}")
 
     def do_GET(self):
@@ -2728,7 +2733,7 @@ class H(BaseHTTPRequestHandler):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = HIST_DIR / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
-            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.exists() else self._send(404, "no", "text/plain")
+            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
             fp = PROJ_DIR / safe(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
@@ -2929,7 +2934,7 @@ class H(BaseHTTPRequestHandler):
                 if not ext:
                     skipped.append(nm or "imagen")
                     continue
-                fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
+                fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}.{ext}"
                 (SHELF_DIR / fn).write_bytes(raw)   # copia interna: el estante siempre funciona
                 if mirror:
                     try:
@@ -2987,7 +2992,7 @@ class H(BaseHTTPRequestHandler):
         out_cost = out_t * PRICE_OUT / 1e6
         total = round(out_cost + in_cost, 5)
         items = data.get("data", [])
-        per = round(total / max(1, len(items)), 5)
+        per = round(total / max(1, len(items)), 7)
         images = []
         for d in items:
             b64 = d["b64_json"]
@@ -3000,9 +3005,9 @@ class H(BaseHTTPRequestHandler):
             (HIST_DIR / name).write_bytes(raw)
             if meta.get("save_desktop", True):
                 try:
-                    d = save_dir()
-                    d.mkdir(parents=True, exist_ok=True)
-                    (d / name).write_bytes(raw)
+                    dst = save_dir()
+                    dst.mkdir(parents=True, exist_ok=True)
+                    (dst / name).write_bytes(raw)
                 except Exception:
                     pass
             add_history({"file": name, "prompt": meta["prompt"], "size": meta["size"],
