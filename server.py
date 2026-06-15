@@ -1665,6 +1665,23 @@ async function run(){
  $('goTxt').textContent=prevTxt;validate();
 }
 $('go').onclick=run;$('again').onclick=run;
+// Enter genera (Shift+Enter = salto de línea) en los campos de prompt principales.
+// Los campos multilínea por naturaleza (lote de prompts, letra de canción) se
+// quedan con Enter = salto de línea para no romper su función.
+function enterGen(taId,btnId,fn){
+ const el=$(taId); if(!el)return;
+ el.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){
+   e.preventDefault();
+   if(!btnId||!$(btnId)||!$(btnId).disabled)fn();}});
+}
+enterGen('prompt','go',run);          // imagen
+enterGen('sdPrompt','vidGo',runVID);  // video · Seedance
+enterGen('klPrompt','vidGo',runVID);  // video · Kling
+enterGen('ttsText','ttsGo',runTTS);   // voz
+enterGen('sfxText','sfxGo',runSFX);   // efectos
+enterGen('musPrompt','musGo',runMUS); // música
+enterGen('sttPrompt','sttGo',runSTT); // transcribir (contexto opcional)
 $('batchGo').onclick=async()=>{
  const lines=$('batchTxt').value.split('\n').map(l=>l.trim()).filter(Boolean);
  if(!lines.length){toast('Escribe al menos un prompt (uno por línea)','bad');return}
