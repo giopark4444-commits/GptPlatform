@@ -781,10 +781,7 @@ html,body{overflow-x:hidden}
 
     <details class="adv"><summary><svg viewBox="0 0 24 24" style="width:14px;height:14px"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Ajustes avanzados<svg class="chev" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg></summary>
       <div class="advbody">
-        <div class="grid2" style="margin-bottom:12px">
-          <div><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
-          <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option></select></div>
-        </div>
+        <div style="margin-bottom:12px"><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
         <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="saveDesk" checked> Guardar copia en una carpeta</label>
@@ -1744,7 +1741,7 @@ async function run(){
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
  $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
-  output_format:$('fmt').value,background:$('bg').value,moderation:$('mod').value,project:proj,
+  output_format:$('fmt').value,moderation:$('mod').value,project:proj,
   save_desktop:$('saveDesk').checked};
  if($('fmt').value!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
@@ -2901,16 +2898,13 @@ class H(BaseHTTPRequestHandler):
         b = self._body()
         if not key():
             return self._json({"error": "Conecta tu API (botón API)."})
-        bg = b.get("background", "auto")
-        if bg not in ("auto", "opaque"):
-            bg = "auto"
         model = "gpt-image-2"
         size = b.get("size", "1536x1024")
         fmt = b.get("output_format", "png")
         quality = b.get("quality", "auto")
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
         payload = {"model": model, "prompt": prompt, "size": size, "quality": quality,
-                   "n": b.get("n", 1), "output_format": fmt, "background": bg, "moderation": b.get("moderation", "low")}
+                   "n": b.get("n", 1), "output_format": fmt, "moderation": b.get("moderation", "low")}
         if b.get("output_compression") is not None and fmt != "png":
             payload["output_compression"] = b["output_compression"]
         try:
@@ -2930,9 +2924,6 @@ class H(BaseHTTPRequestHandler):
         b = self._body()
         if not key():
             return self._json({"error": "Conecta tu API (botón API)."})
-        bg = b.get("background", "auto")
-        if bg not in ("auto", "opaque"):
-            bg = "auto"
         model = "gpt-image-2"
         size = b.get("size", "1024x1024")
         fmt = b.get("output_format", "png")
@@ -2954,8 +2945,6 @@ class H(BaseHTTPRequestHandler):
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
         field("moderation", b.get("moderation", "low"))
-        if bg == "opaque":
-            field("background", bg)
         if b.get("output_compression") is not None and fmt != "png":
             field("output_compression", str(b["output_compression"]))
         nimg = 0
