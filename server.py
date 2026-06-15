@@ -867,8 +867,9 @@ html,body{overflow-x:hidden}
       <div class="advbody">
         <label>Un prompt por línea</label>
         <textarea id="batchTxt" style="min-height:90px;font-size:12.5px" placeholder="logo de cafetería minimalista, taza humeante&#10;banner 21:9 de granos de café sobre madera&#10;patrón seamless de hojas de café"></textarea>
+        <div class="estbar" style="margin-top:10px"><span>Costo del lote</span><span class="num" id="batchEst">—</span></div>
         <button class="ghost" id="batchGo" style="width:100%;justify-content:center;margin-top:10px">Generar lote</button>
-        <p class="hint">Usa la configuración actual (tamaño, calidad, proyecto, memoria) para cada línea, en fila. Puedes seguir usando otras secciones mientras corre.</p>
+        <p class="hint">Usa la configuración actual (tamaño, calidad, proyecto, memoria) para cada línea, en fila. Cada prompt se cobra aparte; el estimado es aproximado.</p>
       </div></details>
 
     <div class="meta"><span class="mono" id="ratio">3:2</span><span class="valid ok" id="valid">válido</span></div>
@@ -1392,7 +1393,8 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
   const pd=projects[$('projSel').value];
   if($('useVis').checked&&pd&&pd.refs)toks+=pd.refs.length*REF_IMG_TOKENS;
   est+=toks*8/1e6;}
- $('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok}
+ $('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok;
+ try{batchEst()}catch(e){}}
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
 function applyRes(){if(!selRes)return;
@@ -1857,9 +1859,15 @@ enterGen('ttsText','ttsGo',runTTS);   // voz
 enterGen('sfxText','sfxGo',runSFX);   // efectos
 enterGen('musPrompt','musGo',runMUS); // música
 enterGen('sttPrompt','sttGo',runSTT); // transcribir (contexto opcional)
+function batchLines(){return $('batchTxt').value.split('\n').map(l=>l.trim()).filter(Boolean);}
+function batchEst(){const lines=batchLines().length,n=+$('n').value,imgs=lines*n,tot=imgs*estTokens()*30/1e6;
+ $('batchEst').textContent=lines?imgs+(imgs>1?' imágenes':' imagen')+' ('+lines+'×'+n+') · ~$'+tot.toFixed(tot<0.1?4:2):'—';}
+$('batchTxt').addEventListener('input',batchEst);
 $('batchGo').onclick=async()=>{
- const lines=$('batchTxt').value.split('\n').map(l=>l.trim()).filter(Boolean);
+ const lines=batchLines();
  if(!lines.length){toast('Escribe al menos un prompt (uno por línea)','bad');return}
+ const n=+$('n').value,imgs=lines.length*n,tot=imgs*estTokens()*30/1e6;
+ if(imgs>3&&!confirm('Vas a generar '+imgs+' imágenes (~$'+tot.toFixed(2)+'). ¿Continuar?'))return;
  $('batchGo').disabled=true;
  for(let i=0;i<lines.length;i++){
   $('batchGo').textContent='Lote '+(i+1)+' / '+lines.length+'…';
