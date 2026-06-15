@@ -464,7 +464,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .btnrow button.arm{color:var(--bad);border-color:var(--bad);background:rgba(229,115,115,.1)}
 #style{min-height:74px;font-size:12px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
-.gal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gal{display:grid;grid-template-columns:1fr;gap:8px}
 .gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s}
 .gcard:hover{border-color:var(--line2)}
 .gcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
@@ -643,7 +643,6 @@ html,body{overflow-x:hidden}
  .modal{padding:20px}
  .maskfoot{flex-wrap:wrap}
  .strip .sth{width:50px;height:50px}
- .gal{grid-template-columns:1fr 1fr}
  #cmpSlider{bottom:16px}
 }
 
