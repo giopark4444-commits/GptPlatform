@@ -282,7 +282,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 
 /* top bar */
 .top{display:flex;align-items:center;gap:18px;padding:15px 26px;border-bottom:1px solid var(--line);
- position:sticky;top:0;z-index:var(--z-sticky);background:rgba(10,10,11,.82);backdrop-filter:blur(14px)}
+ position:sticky;top:0;z-index:var(--z-sticky);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
 .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),#b87a45);
  display:flex;align-items:center;justify-content:center;color:#1a1206}
@@ -392,7 +392,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .canvas img.result{max-width:100%;max-height:100%;display:block;cursor:zoom-in;border-radius:3px}
 .floaters{position:absolute;top:12px;right:12px;display:flex;gap:7px;opacity:0;transform:translateY(-4px);transition:.18s;z-index:2}
 .canvas:hover .floaters,.canvas:focus-within .floaters{opacity:1;transform:none}
-.fbtn{width:34px;height:34px;border-radius:9px;background:rgba(16,16,18,.82);backdrop-filter:blur(8px);border:1px solid var(--line2);
+.fbtn{width:34px;height:34px;border-radius:9px;background:color-mix(in srgb,var(--elev) 88%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line2);
  color:var(--txt);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;text-decoration:none}
 .fbtn:hover{background:var(--elev);border-color:var(--mut)}.fbtn svg{width:16px;height:16px}
 .lightbox{position:fixed;inset:0;background:rgba(5,5,6,.93);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:var(--z-lightbox);cursor:zoom-out;padding:30px 30px 90px}
