@@ -1,100 +1,80 @@
-# GptPlatform
+# GptPlatform — Estudio local de imagen, audio y video con OpenAI
 
-Estudio local de generación y edición de **imágenes y audio** con la API de OpenAI
-(`gpt-image-2`, `gpt-image-1` para fondo transparente, `gpt-4o-mini-tts`/`tts-1` para voz
-y `gpt-4o-transcribe`/`whisper-1` para transcripción). Una sola página servida
-por un script de Python sin dependencias externas. La idea: hacer en local, con
-buena UX, todo lo que permite OpenAI Platform, y sumar **memoria de estilo por proyecto**.
+Estudio web **local** para crear y editar **imágenes** (OpenAI `gpt-image-2`), **voz/transcripción/música**
+y **video** — todo desde una sola página servida por un script de Python **sin dependencias externas**
+(solo librería estándar). La idea: hacer en tu propio Mac, con buena UX, lo que permite OpenAI Platform
+(+ proveedores extra vía fal.ai y ElevenLabs), y que **nada se quede en la nube salvo lo que tú generas**.
 
-![tema oscuro · minimalista](#)
+- **Código:** este repo (`server.py`, un único archivo) — corre en **http://localhost:7860**.
+- **Datos:** `~/image-studio/` (historial, proyectos, estante, config). Las imágenes y claves viven **solo en tu equipo**.
+- **Arranque:** doble clic en `Estudio.command`, o `python3 server.py`.
 
-## Qué hace
+## Estado
+
+| Sección | Estado |
+|---|---|
+| 🖼️ **Imagen** (crear/editar) | ✅ **Completa y pulida** |
+| 🔊 **Audio** (voz/transcripción/música) | Funcional — pendiente de pulido |
+| 🎬 **Video** (Seedance/Kling/OmniHuman/LipSync) | Funcional — pendiente de pulido |
+
+---
+
+## 🖼️ Imagen (gpt-image-2) — completa
 
 - **Crear** (texto → imagen) y **Editar / combinar** (sube imágenes de referencia + prompt).
-- **Editor de imagen integrado con 3 pestañas**: **Máscara** (pincel, borrador, rectángulo, lazo — o sube tu PNG), **Anotar** (flechas, círculos, trazo libre y texto en rojo: el modelo sigue las instrucciones dibujadas sin incluirlas en el resultado) y **Pins** (marcadores numerados con una instrucción por punto que se añade sola al prompt).
-- **Cantidad 1–4 con resultados múltiples**: todas las imágenes se muestran en una tira, se guardan y se cobran bien (antes solo se conservaba la primera).
-- **Pegar con ⌘V** y **arrastrar a cualquier parte** (archivos del Mac o miniaturas del propio historial) para añadir referencias.
-- **Tamaño libre** con sliders + presets de aspect ratio (social, foto, **cine / anamórfico**) con miniaturas, candado de proporción, y **chips de resolución (1080 / 2K / 3K / 4K)** que escalan el ratio actual manteniendo la proporción.
-- **Calidad, formato (PNG/JPG/WebP), compresión, moderación**.
-- **Fondo transparente** (cambia automáticamente a `gpt-image-1`).
-- **Estimador de costo** antes de generar + **costo real** (tokens) después + total de sesión.
-- **Mejorar prompt con IA** (✨ junto a cada prompt de imagen y video): gpt-4o-mini lo expande con composición, luz, lente y atmósfera por ~$0.0001; ⌘Z recupera el tuyo.
-- **Ancho/alto editables con el teclado**: clic en el número, escribe y Enter (ajusta solo a múltiplos de 16).
-- **Historial pro**: **búsqueda por texto del prompt**, **favoritas ★** con filtro, filtro por proyecto, "ver más", **Mejorar 2× (upscale IA vía fal)** y borrar (doble clic) en cada tarjeta, clic abre lightbox con prompt, **Describir** (imagen→prompt con visión) y descarga; arrastrar al panel de referencias.
-- **Memoria de proyecto**: `estilo.md` (imágenes) y `estilo-video.md` (lenguaje de cine: cámara, ritmo, grading) por proyecto, con toggle en el panel + **referencias visuales** que se adjuntan solas al generar imágenes **y también videos** (entran al modo referencia de Seedance). En Video: checkbox "Usar memoria del proyecto" y botón "Insertar estilo" para pegarlo y editarlo a mano en el prompt. Botón para **destilar el estilo** con IA.
-- **Carpeta de guardado configurable** (por defecto el Escritorio) o sin copia extra; el destino se muestra siempre bajo el botón Generar.
-- **Memoria visual con drag & drop**: arrastra imágenes (del Mac o del historial) directo a "Añadir referencia" del proyecto.
-- **Sección Audio** (modo `3` en la barra): **Voz (TTS)** con `gpt-4o-mini-tts` (instrucciones de tono libres), `tts-1-hd` y `tts-1` (velocidad 0.25–4×), 11 voces con vista previa, 6 formatos (MP3/WAV/AAC/FLAC/Opus/PCM), contador 0/4096 y estimador de costo. **Transcripción** con `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` y `whisper-1`: idioma, contexto, temperatura, salida en texto/SRT/VTT/JSON con tiempos, y **traducción al inglés**. Historial de audio con reproductor inline, descarga y borrado; arrastra cualquier audio a la ventana y se carga solo para transcribir.
-- **Estilos de voz guardados**: combinaciones voz + instrucciones de tono con nombre propio ("Narrador docu", "Promo bar"…) que se aplican con un clic; persisten en `config.json`.
-- **ElevenLabs como segundo proveedor de voz** (clave en `~/.elevenlabs_key`, plan gratis disponible): voces de tu cuenta en vivo **incluidas las clonadas**, modelos Multilingual v2 / Eleven v3 / Turbo v2.5 / Flash v2.5, ajustes completos (estabilidad, similitud, exageración de estilo, velocidad 0.7–1.2×, speaker boost), seed reproducible, normalización de texto, 6 formatos de salida, **cuota de créditos visible** (ElevenLabs sí expone el saldo), vista previa, **clonación de voz** (IVC, sube muestras y la voz aparece en la lista) y pestaña de **efectos de sonido** (texto → SFX de hasta 22 s con duración y apego al prompt).
-- **Sección Video** (modo `4`, vía fal.ai con una sola clave en `~/.fal_key`) con **tres pestañas independientes y la API completa de cada modelo**:
-  - **Seedance 2.0** (Estándar/Fast): texto→video, imagen→video con **frame final opcional**, y **modo referencia multimodal** (hasta 9 imágenes + 3 videos de estilo/movimiento + 3 audios guía, máx 12 archivos) para mantener personajes y estética entre tomas. 480p–1080p, duración auto/4–15s, 7 aspectos, audio nativo, seed.
-  - **Kling 3.0** (Pro/Standard, este ~2.6× más barato): prompt único o **multi-toma** (varias escenas con duración por toma, formato "texto | segundos") con estructura customize/intelligent, imagen inicial **y final**, 3–15s, 3 aspectos, audio nativo es/en, prompt negativo y CFG.
-  - **OmniHuman** (1.5/1.0): avatar que habla a partir de imagen + audio (elegible directo del historial de voces generadas), con indicaciones de texto, turbo y 720p/1080p en la 1.5. $0.14/s.
+- **Editor integrado de 3 pestañas**: **Máscara** (pincel, borrador, rectángulo, lazo, o sube PNG con alfa),
+  **Anotar** (flechas, círculos, trazo libre, texto en rojo que el modelo sigue sin incluir) y
+  **Pins** (marcadores numerados con una instrucción por punto).
+- **Enter genera** en el campo de prompt (Shift+Enter = salto de línea); también en los demás campos.
+- **Tamaños** con sliders + presets de aspecto (Social, Foto, **Cine/anamórfico**) **marcados por validez**:
+  🟢 verde lleno = nativo gpt-image-2 (1024², 1536×1024, 1024×1536, sin reescalado), 🟩 verde = válido.
+  Chips de resolución por **área**: **720p · HD / 1080p · FHD / 1440p · QHD / 4K · UHD**.
+  Validación según los límites reales de gpt-image-2: lados ÷16, ≤3840, ratio ≤3:1, 0.65–8.29 MP (aviso ">2K experimental").
+- **Calidad** (low/medium/high/auto), **formato** (PNG/JPG/WebP) + compresión, **moderación** (low por defecto).
+- **Costos exactos**: estimador antes de generar (calibrado a la tabla oficial, incl. el ajuste de no-cuadrados),
+  costo real por tokens después (texto $5 / imagen de entrada $8 / cacheada $2 por 1M, separados), total de sesión,
+  y desglose salida/entrada. **Estimado del lote** con confirmación antes de lanzar.
+- **Mejorar prompt con IA** (✨, gpt-4o-mini) · **Describir** (imagen → prompt, visión con `detail`) en historial y estante.
+- **🗂️ Mis imágenes (estante local)**: carga/arrastra imágenes propias que se **guardan en tu equipo** (no en OpenAI)
+  y quedan siempre a la mano debajo del lienzo; **carpeta configurable**, y por imagen: usar como referencia, describir, descargar, quitar.
+- **Carpeta de guardado** con **selector nativo de macOS** (botón "Examinar"), o ruta a mano.
+- **Historial pro**: una imagen por fila, búsqueda por prompt, favoritas ★, filtro por proyecto, lightbox,
+  upscale 2× (fal), borrar, arrastrar a referencias. **Comparador A/B** a pantalla completa con slider. **Iterar** sobre un resultado.
+- **Memoria de estilo por proyecto** (`estilo.md` / `estilo-video.md`) + referencias visuales que se adjuntan solas; destilado con IA.
+- **Validación de entrada** según OpenAI: solo PNG/JPEG/WebP/GIF (por bytes), ≤1500 imágenes y ≤512 MB por petición.
 
-  Generación asíncrona con estado de cola en vivo; el MP4 se descarga solo al historial y a tu carpeta, con su sección de Video en el panel derecho (reproducir, descargar, borrar).
-- **Lote de prompts**: varios prompts (uno por línea) generados en fila con la configuración y memoria actuales.
-- **Música** (cuarta pestaña de Audio, vía fal): **Lyria 2** de Google (instrumental 30s, WAV 48kHz, prompt negativo, seed) y **MiniMax Music** (canciones completas con voz, letra propia u optimizada, modo instrumental).
-- **LipSync** (cuarta pestaña de Video, LatentSync vía fal): toma un video (del historial o subido) y un audio (tus voces/música generadas o archivo) y sincroniza los labios; control de guidance, loop/pingpong si el audio es más largo, seed.
-- **Comparador A/B**: elige dos imágenes del historial y compáralas a pantalla completa con slider deslizante.
-- **Iterar**: botón en el resultado y en cada tarjeta que carga esa imagen como única referencia en modo Editar para describir solo el cambio ("ahora de noche").
-- **Metadata en PNG**: cada imagen generada lleva embebidos su prompt y parámetros (chunks iTXt) — el archivo viaja con su receta.
-- **Atajos**: `⌘↵` genera, `1`/`2`/`3` cambia Imagen/Audio/Video (Imagen recuerda si estabas en GPT 2 · Crear o Editar), `Esc` cierra modales y lightbox.
-- **Notificaciones toast** y errores legibles con botón de reintento.
-- Pantalla para **conectar tu API key** desde el navegador (se guarda en `~/.openai_key`), con indicador de conexión en la barra.
+## 🎨 Apariencia e idioma (Ajustes)
 
-## Requisitos
+- **6 temas** (selector en Ajustes, se recuerdan): **3 oscuros** — Carbón, Medianoche, Neón — y **3 claros** — Día, Bruma, Crema.
+- **Interfaz en 3 idiomas**: Español · English · Français (cambio al vuelo, se recuerda).
 
-- macOS o Linux con **Python 3** (sin librerías extra).
-- Una **API key de OpenAI** (https://platform.openai.com/api-keys).
+## 🔊 Audio
 
-## Uso
+- **Voz (TTS)**: `gpt-4o-mini-tts` (instrucciones de tono libres), `tts-1-hd`, `tts-1` (0.25–4×), 11 voces con vista previa,
+  6 formatos, contador 0/4096, estimador. **Estilos de voz guardados** (voz + tono con nombre).
+- **Transcripción**: `gpt-4o-transcribe` / `gpt-4o-mini-transcribe` / `whisper-1`, idioma/contexto/temperatura,
+  salida texto/SRT/VTT/JSON con tiempos y traducción al inglés. Arrastra un audio y se carga solo.
+- **ElevenLabs** (2º proveedor, `~/.elevenlabs_key`): voces de tu cuenta incl. clonadas, modelos v2/v3/Turbo/Flash,
+  ajustes completos, cuota visible, clonación (IVC) y **efectos de sonido** (texto → SFX).
+- **Música** (vía fal): **Lyria 2** (instrumental 30s WAV 48k) y **MiniMax Music** (canciones con voz/letra).
 
-```bash
-python3 server.py
-```
+## 🎬 Video (vía fal.ai, una sola clave `~/.fal_key`)
 
-Abre http://localhost:7860 y pulsa **API** para conectar tu clave. Listo.
+- **Seedance 2.0** (Estándar/Fast): t2v, i2v con frame final, y referencia multimodal (hasta 9 img + 3 video + 3 audio),
+  480p–1080p, 4–15s, 7 aspectos, audio nativo, seed.
+- **Kling 3.0** (Pro/Standard): prompt único o **multi-toma**, imagen inicial y final, 3–15s, audio es/en, CFG, negativo.
+- **OmniHuman** (1.5/1.0): avatar que habla desde imagen + audio (de tus voces generadas), turbo, 720p/1080p.
+- **LipSync** (LatentSync): sincroniza labios de un video con un audio.
+- Generación asíncrona con estado de cola; el MP4 baja solo al historial y a tu carpeta.
 
-En macOS puedes hacer **doble clic** en `Estudio.command` (arranca el server y abre el navegador).
-Mejor aún: doble clic en **`Instalar autoarranque.command`** una sola vez — instala el Studio como
-servicio de macOS que arranca solo al iniciar sesión y se reinicia si se cae.
+## Backup y portabilidad
 
-## Notas
+- **Sincronización con iCloud** y **descarga .zip** del estudio (historial, proyectos, estilos, config; las claves no se incluyen).
 
-- **Nada se borra al apagar**: historial, proyectos, estilos y configuración viven en `~/image-studio/` y sobreviven reinicios. Los JSON se escriben de forma atómica con respaldo `.bak` y se auto-recuperan si se corrompen. El estilo de cada proyecto se guarda además como archivo real `estilo.md` en `~/image-studio/proyectos/<nombre>/` (puedes editarlo a mano; la app lo lee). El proyecto seleccionado se recuerda entre sesiones.
-- La clave vive solo en tu equipo (`~/.openai_key`), nunca en el repo.
-- **Seguridad**: el server solo escucha en `127.0.0.1` y además valida el header `Host` (anti DNS-rebinding) y el `Origin` de todo POST (anti-CSRF: una web maliciosa no puede disparar generaciones ni borrados contra tu app local). La página se sirve con CSP estricta, `X-Frame-Options: DENY`, `nosniff` y `Referrer-Policy: no-referrer`. Claves con permisos 600, escrituras JSON atómicas con lock y respaldo, límite de 256MB por petición y nombres de archivo saneados en todo lo que sube a las APIs.
-- Las imágenes generadas se guardan en `~/image-studio/historial/` y, si lo activas, una copia en la carpeta que elijas (Escritorio por defecto; se configura en Ajustes avanzados y se persiste en `~/image-studio/config.json`).
-- `historial/`, `proyectos/` y los `.json` son datos locales y están en `.gitignore`.
+## Claves (cada una local en su archivo)
 
-## Estructura
+- OpenAI → `~/.openai_key` (imagen, voz, transcripción) · ElevenLabs → `~/.elevenlabs_key` · fal.ai → `~/.fal_key` (video, música, upscale).
 
-| Archivo | Qué es |
-|---|---|
-| `server.py` | La app completa (backend + UI embebida) |
-| `Estudio.command` | Lanzador de doble clic (macOS) |
-| `PRODUCT.md` | Contexto de producto (registro, usuarios, principios) |
-| `DESIGN.md` | Sistema visual (tokens, tipografía, componentes) |
+---
 
-## Límites de gpt-image-2 (referencia)
-
-- Ancho y alto múltiplos de 16 · lado más largo ≤ 3840 · mínimo ~0.8 MP.
-- Referencias de edición ≤ 50 MB c/u (PNG/JPG/WebP).
-- Fondo transparente solo en `gpt-image-1`.
-- Moderación: `auto` o `low` (OpenAI siempre modera; no hay modo sin filtro).
-
-## Sincronizar entre Macs (git)
-
-Los datos viven en `~/image-studio/` (carpeta local, fuera de iCloud para evitar
-restricciones de permisos de macOS) y se versionan en un repo privado de GitHub.
-En la app: **Backup → Sincronizar ahora** sube tus cambios y baja los del otro equipo.
-En un Mac nuevo: doble clic en **`Sincronizar datos.command`** (descarga todo) o
-`git clone https://github.com/giopark4444-commits/studio-datos.git ~/image-studio`.
-Respaldo puntual: **Backup → Descargar .zip**.
-
-## Arranque automático (macOS)
-
-`Studio Server.app` (en `~/Applications`, sin icono en el Dock) mantiene el server
-vivo: arranca al iniciar sesión y se reinicia si se cae. Se instala como Elemento
-de Inicio de Sesión.
+*App de un solo archivo, sin dependencias. Esta tanda se verificó con `jsc` (sintaxis JS) + una auditoría multi-agente.*
