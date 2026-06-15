@@ -687,6 +687,10 @@ html,body{overflow-x:hidden}
     <div class="field">
       <label>Presets · relación de aspecto</label>
       <div class="presets" id="presets">
+        <span class="pgroup">Nativas · gpt-image-2 (sin reescalado)</span>
+        <span class="chip" data-w="1024" data-h="1024">1024² · 1:1</span>
+        <span class="chip" data-w="1536" data-h="1024">1536×1024 · 3:2</span>
+        <span class="chip" data-w="1024" data-h="1536">1024×1536 · 2:3</span>
         <span class="pgroup">Social</span>
         <span class="chip" data-w="1024" data-h="1024">1:1</span>
         <span class="chip" data-w="1024" data-h="1280">4:5</span>
@@ -706,11 +710,11 @@ html,body{overflow-x:hidden}
         <span class="chip" data-w="2544" data-h="1088">21:9</span>
         <span class="chip" data-w="2400" data-h="1000">2.4:1</span>
         <span class="chip" data-w="3072" data-h="1024">Pano 3:1</span>
-        <span class="pgroup">Resolución · escala el ratio actual</span>
-        <span class="chip rchip" data-long="1920">1080</span>
-        <span class="chip rchip" data-long="2560">2K</span>
-        <span class="chip rchip" data-long="3072">3K</span>
-        <span class="chip rchip" data-long="3840">4K</span>
+        <span class="pgroup">Resolución · escala el ratio actual (área en píxeles)</span>
+        <span class="chip rchip" data-px="2073600">1080p</span>
+        <span class="chip rchip" data-px="3686400">2K</span>
+        <span class="chip rchip" data-px="5308416">3K</span>
+        <span class="chip rchip" data-px="8294400">4K</span>
       </div>
     </div>
 
@@ -755,7 +759,7 @@ html,body{overflow-x:hidden}
     <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">~$0.00</span></div>
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
     <p class="hint" id="saveWhere"></p>
-    <p class="hint">Lado 512–3840 · múltiplos de 16 · ≥0.8 MP. El estimado es aproximado; el costo real aparece al terminar. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
+    <p class="hint">Lado 512–3840 · múltiplos de 16 · 0.65–8.29 MP · ratio ≤3:1. El estimado es aproximado; el costo real aparece al terminar. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
    </div>
 
    <div id="audioPanel" class="hide">
@@ -1240,8 +1244,12 @@ function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return
 function snap(v){return Math.round(v/16)*16}
 function estTokens(){const W=+$('w').value,H=+$('h').value,MP=W*H/1e6,q=$('quality').value;
  let t;if(q==='low'||q==='auto')t=129+64*MP;else if(q==='medium')t=1150+577*MP;else t=4600+2308*MP;return Math.max(80,Math.round(t))}
-function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=W*H;let ok=true,msg='válido';
- if(long>3840){ok=false;msg='lado > 3840'}else if(mp<800000){ok=false;msg='muy pequeña'}
+function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=W*H,rls=long/Math.min(W,H);let ok=true,msg='válido';
+ // límites de gpt-image-2: lado ≤3840, 0.65–8.29 MP, ratio largo:corto ≤3:1
+ if(long>3840){ok=false;msg='lado > 3840'}
+ else if(mp>8294400){ok=false;msg='> 8.29 MP (máx)'}
+ else if(mp<655360){ok=false;msg='< 0.65 MP (mín)'}
+ else if(rls>3.0001){ok=false;msg='ratio > 3:1'}
  $('valid').textContent=msg;$('valid').className='valid '+(ok?'ok':'bad');$('ratio').textContent=fr(W,H);
  const n=+$('n').value;let est=estTokens()*n*30/1e6;
  // referencias = tokens de imagen de entrada (~$8/1M). Aproximado; el costo real al terminar es exacto.
@@ -1253,9 +1261,12 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
 function applyRes(){if(!selRes)return;
- let W=+$('w').value,H=+$('h').value;const r=W/H;
- if(W>=H){W=selRes;H=W/r}else{H=selRes;W=H*r}
+ // selRes = área objetivo en píxeles; conserva el ratio actual: W·H≈selRes, W/H=r
+ const r=(+$('w').value)/(+$('h').value);
+ let H=Math.sqrt(selRes/r),W=H*r;
  W=Math.max(512,Math.min(3840,snap(W)));H=Math.max(512,Math.min(3840,snap(H)));
+ // el redondeo a 16 puede empujar el ratio sobre 3:1; baja el lado largo para mantenerlo ≤3:1
+ if(Math.max(W,H)/Math.min(W,H)>3){if(W>H)W=Math.floor(H*3/16)*16;else H=Math.floor(W*3/16)*16;}
  $('w').value=W;$('h').value=H;$('wv').value=W;$('hv').value=H;ratio=W/H;validate()}
 $('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').value=$('h').value}$('wv').value=$('w').value;clearRes();validate()};
 $('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').value=$('w').value}$('hv').value=$('h').value;clearRes();validate()};
@@ -1272,10 +1283,10 @@ $('hv').addEventListener('change',()=>commitNum('hv','h'));
 ['wv','hv'].forEach(n=>$(n).addEventListener('keydown',e=>{
  if(e.key==='Enter'){e.preventDefault();$(n).blur()}}));
 $('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;
- if(c.dataset.long){const was=c.classList.contains('on');
+ if(c.dataset.px){const was=c.classList.contains('on');
   document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'));
   if(was){selRes=0;return}
-  selRes=+c.dataset.long;c.classList.add('on');applyRes();return}
+  selRes=+c.dataset.px;c.classList.add('on');applyRes();return}
  document.querySelectorAll('.chip[data-w]').forEach(x=>x.classList.remove('on'));c.classList.add('on');
  $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').value=c.dataset.w;$('hv').value=c.dataset.h;ratio=c.dataset.w/c.dataset.h;
  if(selRes)applyRes();else validate()};
