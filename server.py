@@ -854,6 +854,7 @@ html,body{overflow-x:hidden}
           <label>Carpeta de guardado</label>
           <div style="display:flex;gap:7px">
             <input type="text" id="saveDir" placeholder="~/Desktop" spellcheck="false">
+            <button class="ghost" id="dirPick" style="flex:none" title="Elegir carpeta…"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Examinar</button>
             <button class="ghost" id="dirApply" style="flex:none">Aplicar</button>
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
@@ -1442,6 +1443,11 @@ $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
  if(r.error){toast(r.error,'bad');return}
  cfgEffective=r.effective;renderSaveWhere();toast('Las copias irán a '+r.effective)};
+$('dirPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
+ try{const r=await(await fetch('/pickfolder')).json();
+  if(r.path){$('saveDir').value=r.path;$('dirApply').click();}
+  else if(r.error)toast(r.error,'bad');
+ }catch(e){toast(String(e),'bad')}};
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
@@ -2724,6 +2730,18 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/shelf":
             return self._json({"items": load_json(SHELF_JSON, []),
                                "dir": str(shelf_dir()).replace(str(HOME), "~")})
+        if self.path == "/pickfolder":
+            # diálogo nativo de macOS para elegir carpeta (la app corre local)
+            try:
+                osa = ('tell application "System Events" to activate\n'
+                       'POSIX path of (choose folder with prompt "Elige dónde guardar las imágenes")')
+                r = subprocess.run(["osascript", "-e", osa], capture_output=True, text=True, timeout=180)
+                path = r.stdout.strip()
+                if path:
+                    return self._json({"path": path.replace(str(HOME), "~")})
+                return self._json({"canceled": True})   # el usuario canceló
+            except Exception as e:
+                return self._json({"error": f"No pude abrir el selector: {e}"})
         if self.path.startswith("/shelffile?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
             fp = SHELF_DIR / os.path.basename(name)
