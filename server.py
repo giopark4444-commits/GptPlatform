@@ -755,7 +755,7 @@ html,body{overflow-x:hidden}
     <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">~$0.00</span></div>
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
     <p class="hint" id="saveWhere"></p>
-    <p class="hint">Lado 512–3840 · múltiplos de 16 · ≥0.8 MP. El estimado es aproximado; el costo real aparece al terminar. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+    <p class="hint">Lado 512–3840 · múltiplos de 16 · ≥0.8 MP. El estimado es aproximado; el costo real aparece al terminar. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
    </div>
 
    <div id="audioPanel" class="hide">
@@ -855,7 +855,7 @@ html,body{overflow-x:hidden}
 
       <div class="estbar"><span>Costo estimado</span><span class="num" id="ttsEst">~$0.0000</span></div>
       <button class="primary" id="ttsGo"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><span id="ttsGoTxt">Generar voz</span></button>
-      <p class="hint">OpenAI: máx 4096 caracteres; instrucciones de tono solo con <span class="mono">gpt-4o-mini-tts</span>. ElevenLabs cobra en créditos de tu plan. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+      <p class="hint">OpenAI: máx 4096 caracteres; instrucciones de tono solo con <span class="mono">gpt-4o-mini-tts</span>. ElevenLabs cobra en créditos de tu plan. Se guarda en historial y tu carpeta. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
     </div>
 
     <div id="sttBox" class="hide">
@@ -1036,7 +1036,7 @@ html,body{overflow-x:hidden}
 
       <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">~$—</span></div>
       <button class="primary" id="vidGo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vidGoTxt">Generar video</span></button>
-      <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>⌘</kbd><kbd>↵</kbd> genera.</p>
+      <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
     </div>
    </div>
   </div>
@@ -1163,7 +1163,13 @@ html,body{overflow-x:hidden}
 <script>
 const $=id=>document.getElementById(id);
 let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1.5,projects={};
-const REF_IMG_TOKENS=500; // tokens aprox. por imagen de referencia (entrada); estimado, el real lo da la API
+const REF_IMG_TOKENS=500; // respaldo si aún no conocemos las dimensiones; el real lo da la API
+// tokens de imagen de entrada ≈ parches de 32px (esquema de gpt-image), tope 1536
+function refTokens(w,h){if(!w||!h)return REF_IMG_TOKENS;return Math.min(1536,Math.ceil(w/32)*Math.ceil(h/32));}
+// rellena r.tok midiendo cada referencia que aún no se haya medido; revalida al terminar
+function ensureRefTokens(){refs.filter(r=>r.tok===undefined).forEach(r=>{r.tok=null;
+ const im=new Image();im.onload=()=>{r.tok=refTokens(im.naturalWidth,im.naturalHeight);validate();};
+ im.onerror=()=>{r.tok=REF_IMG_TOKENS;validate();};im.src='data:image/png;base64,'+r.b64;});}
 let results=[],active=0,lastResult=null;
 let hist=[],shown=30,cmpA=null;
 function openCmp(fa,fb){
@@ -1239,9 +1245,10 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
  $('valid').textContent=msg;$('valid').className='valid '+(ok?'ok':'bad');$('ratio').textContent=fr(W,H);
  const n=+$('n').value;let est=estTokens()*n*30/1e6;
  // referencias = tokens de imagen de entrada (~$8/1M). Aproximado; el costo real al terminar es exacto.
- if(mode==='editar'){let nref=refs.length;const pd=projects[$('projSel').value];
-  if($('useVis').checked&&pd&&pd.refs)nref+=pd.refs.length;
-  est+=nref*REF_IMG_TOKENS*8/1e6;}
+ if(mode==='editar'){ensureRefTokens();let toks=0;refs.forEach(r=>toks+=(r.tok||REF_IMG_TOKENS));
+  const pd=projects[$('projSel').value];
+  if($('useVis').checked&&pd&&pd.refs)toks+=pd.refs.length*REF_IMG_TOKENS;
+  est+=toks*8/1e6;}
  $('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok}
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
@@ -1665,7 +1672,12 @@ async function run(){
    renderStrip();showResult(0);
    $('resbar').classList.remove('hide');
    bumpSess(d.cost||0,results.length);
-   $('cost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b> · '+(d.output_tokens||0)+' tok'
+   let ctxt='<b>$'+(d.cost||0).toFixed(4)+'</b>';
+   // desglose salida (imagen) vs entrada (texto + referencias) cuando hubo imágenes de entrada
+   if((d.in_img_tokens||0)>0)ctxt+=' <span style="color:var(--mut)">(salida $'+(d.out_cost||0).toFixed(4)
+     +' + entrada $'+(d.in_cost||0).toFixed(4)+')</span>';
+   ctxt+=' · '+(d.output_tokens||0)+' tok salida'+((d.in_img_tokens||0)>0?' · '+d.in_img_tokens+' tok ref':'');
+   $('cost').innerHTML=ctxt
     +(results.length>1?' · '+results.length+' imágenes':'')
     +(d.via_visual?' · memoria visual':'')+(d.model_used==='gpt-image-1'?' · transparente':'');
    loadGal()}
@@ -2623,7 +2635,8 @@ class H(BaseHTTPRequestHandler):
         img_t = det.get("image_tokens")
         cached_t = det.get("cached_tokens", 0) or 0
         if txt_t is None and img_t is None:
-            in_cost = in_t * PRICE_IN / 1e6  # sin desglose: asumimos todo texto
+            txt_t, img_t = in_t, 0  # sin desglose: asumimos todo texto
+            in_cost = in_t * PRICE_IN / 1e6
         else:
             txt_t = txt_t or 0
             img_t = img_t or 0
@@ -2632,7 +2645,8 @@ class H(BaseHTTPRequestHandler):
             in_cost = (txt_t * PRICE_IN
                        + img_fresh * PRICE_IN_IMG
                        + img_cached * PRICE_IN_IMG_CACHED) / 1e6
-        total = round(out_t * PRICE_OUT / 1e6 + in_cost, 5)
+        out_cost = out_t * PRICE_OUT / 1e6
+        total = round(out_cost + in_cost, 5)
         items = data.get("data", [])
         per = round(total / max(1, len(items)), 5)
         images = []
@@ -2658,6 +2672,8 @@ class H(BaseHTTPRequestHandler):
             images.append({"image": f"data:{mime};base64," + b64, "file": name, "cost": per})
         first = images[0]["image"] if images else ""
         return {"images": images, "image": first, "cost": total, "output_tokens": out_t,
+                "out_cost": round(out_cost, 5), "in_cost": round(in_cost, 5),
+                "in_text_tokens": txt_t, "in_img_tokens": img_t,
                 "via_visual": via_visual, "model_used": model_used}
 
     def h_generate(self):
