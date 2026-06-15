@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Estudio v4 — gpt-image-2 / gpt-image-1 (OpenAI) · app independiente
+Estudio v4 — gpt-image-2 (OpenAI) · app independiente
 UI premium minimalista. Crear + Editar, referencias en ambos, memoria visual por
 proyecto, historial con filtro y borrado, estimador de precio, moderación,
-transparente (gpt-image-1), presets completos incl. anamórficos, editor de
-máscara integrado, pegado desde portapapeles, atajos de teclado, resultados
-múltiples. Sin dependencias: solo Python 3.
+presets completos incl. anamórficos, editor de máscara integrado, pegado desde
+portapapeles, atajos de teclado, resultados múltiples. Sin dependencias: solo Python 3.
 """
 import io, json, base64, os, re, shutil, struct, subprocess, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -211,14 +210,6 @@ def backup_status():
             "git": (real / ".git").exists(),
             "path": str(real).replace(str(HOME), "~")}
 
-
-def g1_size(size):
-    try:
-        w, h = map(int, size.split("x"))
-    except Exception:
-        return "1024x1024"
-    r = w / h
-    return "1536x1024" if r > 1.2 else "1024x1536" if r < 0.83 else "1024x1024"
 
 
 HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
@@ -774,7 +765,7 @@ html,body{overflow-x:hidden}
       <div class="advbody">
         <div class="grid2" style="margin-bottom:12px">
           <div><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
-          <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option><option value="transparent">Transparente · gpt-image-1</option></select></div>
+          <div><label>Fondo</label><select id="bg"><option value="auto">Auto</option><option value="opaque">Sólido</option></select></div>
         </div>
         <div class="grid2">
           <div><label>Moderación</label><select id="mod"><option value="auto">Auto</option><option value="low">Low</option></select></div>
@@ -790,8 +781,7 @@ html,body{overflow-x:hidden}
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
         </div>
-        <p class="hint">Transparente usa <span class="mono">gpt-image-1</span> (tamaño fijo). Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
-        <p class="hint warn hide" id="bgWarn">⚠ <b>Transparencia = gpt-image-1</b> (modelo anterior, calidad menor): gpt-image-2 no soporta fondo transparente. Para recortes limpios describe un sujeto aislado sobre fondo simple. La app fuerza PNG y sube la calidad a Media automáticamente.</p>
+        <p class="hint">Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
       </div>
     </details>
 
@@ -1752,7 +1742,7 @@ async function run(){
    ctxt+=' · '+(d.output_tokens||0)+' tok salida'+((d.in_img_tokens||0)>0?' · '+d.in_img_tokens+' tok ref':'');
    $('cost').innerHTML=ctxt
     +(results.length>1?' · '+results.length+' imágenes':'')
-    +(d.via_visual?' · memoria visual':'')+(d.model_used==='gpt-image-1'?' · transparente':'');
+    +(d.via_visual?' · memoria visual':'');
    loadGal()}
  }catch(e){err(e)}
  $('goTxt').textContent=prevTxt;validate();
@@ -2469,10 +2459,7 @@ function markValidChips(){
  // los chips de resolución ajustan el área a un tamaño válido, así que siempre funcionan
  document.querySelectorAll('.rchip').forEach(c=>c.classList.add('gok'));
 }
-// aviso de transparencia (usa gpt-image-1)
-function syncBgWarn(){$('bgWarn').classList.toggle('hide',$('bg').value!=='transparent');}
-$('bg').addEventListener('change',syncBgWarn);
-buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();syncBgWarn();
+buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();
 </script></body></html>"""
 
 
@@ -2877,15 +2864,12 @@ class H(BaseHTTPRequestHandler):
         if not key():
             return self._json({"error": "Conecta tu API (botón API)."})
         bg = b.get("background", "auto")
-        transparent = bg == "transparent"
-        model = "gpt-image-1" if transparent else "gpt-image-2"
-        size = g1_size(b.get("size", "1024x1024")) if transparent else b.get("size", "1536x1024")
+        if bg not in ("auto", "opaque"):
+            bg = "auto"
+        model = "gpt-image-2"
+        size = b.get("size", "1536x1024")
         fmt = b.get("output_format", "png")
-        if transparent and fmt == "jpeg":
-            fmt = "png"
         quality = b.get("quality", "auto")
-        if transparent and quality in ("auto", "low"):
-            quality = "medium"   # gpt-image-1 con alfa en auto/low da recortes sucios
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
         payload = {"model": model, "prompt": prompt, "size": size, "quality": quality,
                    "n": b.get("n", 1), "output_format": fmt, "background": bg, "moderation": b.get("moderation", "auto")}
@@ -2909,15 +2893,12 @@ class H(BaseHTTPRequestHandler):
         if not key():
             return self._json({"error": "Conecta tu API (botón API)."})
         bg = b.get("background", "auto")
-        transparent = bg == "transparent"
-        model = "gpt-image-1" if transparent else "gpt-image-2"
-        size = g1_size(b.get("size", "1024x1024")) if transparent else b.get("size", "1024x1024")
+        if bg not in ("auto", "opaque"):
+            bg = "auto"
+        model = "gpt-image-2"
+        size = b.get("size", "1024x1024")
         fmt = b.get("output_format", "png")
-        if transparent and fmt == "jpeg":
-            fmt = "png"
         quality = b.get("quality", "auto")
-        if transparent and quality in ("auto", "low"):
-            quality = "medium"   # gpt-image-1 con alfa en auto/low da recortes sucios
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
         boundary = "----studio" + uuid.uuid4().hex
         parts = []
@@ -2935,7 +2916,7 @@ class H(BaseHTTPRequestHandler):
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
         field("moderation", b.get("moderation", "auto"))
-        if bg in ("opaque", "transparent"):
+        if bg == "opaque":
             field("background", bg)
         if b.get("output_compression") is not None and fmt != "png":
             field("output_compression", str(b["output_compression"]))
