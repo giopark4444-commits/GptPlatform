@@ -43,7 +43,9 @@ HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
 
 PRICE_OUT = 30.0
-PRICE_IN = 5.0
+PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
+PRICE_IN_IMG = 8.0      # USD por 1M de tokens de imagen de entrada (referencias)
+PRICE_IN_IMG_CACHED = 2.0  # USD por 1M de tokens de imagen de entrada cacheados
 DISTILL_MODEL = "gpt-4o-mini"
 API_GEN = "https://api.openai.com/v1/images/generations"
 API_EDIT = "https://api.openai.com/v1/images/edits"
@@ -1161,6 +1163,7 @@ html,body{overflow-x:hidden}
 <script>
 const $=id=>document.getElementById(id);
 let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1.5,projects={};
+const REF_IMG_TOKENS=500; // tokens aprox. por imagen de referencia (entrada); estimado, el real lo da la API
 let results=[],active=0,lastResult=null;
 let hist=[],shown=30,cmpA=null;
 function openCmp(fa,fb){
@@ -1234,7 +1237,12 @@ function estTokens(){const W=+$('w').value,H=+$('h').value,MP=W*H/1e6,q=$('quali
 function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=W*H;let ok=true,msg='válido';
  if(long>3840){ok=false;msg='lado > 3840'}else if(mp<800000){ok=false;msg='muy pequeña'}
  $('valid').textContent=msg;$('valid').className='valid '+(ok?'ok':'bad');$('ratio').textContent=fr(W,H);
- const n=+$('n').value,est=estTokens()*n*30/1e6;$('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok}
+ const n=+$('n').value;let est=estTokens()*n*30/1e6;
+ // referencias = tokens de imagen de entrada (~$8/1M). Aproximado; el costo real al terminar es exacto.
+ if(mode==='editar'){let nref=refs.length;const pd=projects[$('projSel').value];
+  if($('useVis').checked&&pd&&pd.refs)nref+=pd.refs.length;
+  est+=nref*REF_IMG_TOKENS*8/1e6;}
+ $('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok}
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
 function applyRes(){if(!selRes)return;
@@ -2608,7 +2616,23 @@ class H(BaseHTTPRequestHandler):
         u = data.get("usage", {})
         out_t = u.get("output_tokens", 0) or 0
         in_t = u.get("input_tokens", 0) or 0
-        total = round(out_t * PRICE_OUT / 1e6 + in_t * PRICE_IN / 1e6, 5)
+        # OpenAI cobra distinto cada tipo de entrada: texto $5, imagen $8, imagen
+        # cacheada $2 (por 1M). El desglose viene en input_tokens_details.
+        det = u.get("input_tokens_details", {}) or {}
+        txt_t = det.get("text_tokens")
+        img_t = det.get("image_tokens")
+        cached_t = det.get("cached_tokens", 0) or 0
+        if txt_t is None and img_t is None:
+            in_cost = in_t * PRICE_IN / 1e6  # sin desglose: asumimos todo texto
+        else:
+            txt_t = txt_t or 0
+            img_t = img_t or 0
+            img_cached = min(cached_t, img_t)
+            img_fresh = img_t - img_cached
+            in_cost = (txt_t * PRICE_IN
+                       + img_fresh * PRICE_IN_IMG
+                       + img_cached * PRICE_IN_IMG_CACHED) / 1e6
+        total = round(out_t * PRICE_OUT / 1e6 + in_cost, 5)
         items = data.get("data", [])
         per = round(total / max(1, len(items)), 5)
         images = []
