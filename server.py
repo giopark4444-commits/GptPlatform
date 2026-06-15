@@ -39,8 +39,11 @@ PROJ_JSON = ROOT / "proyectos.json"
 CONF_JSON = ROOT / "config.json"
 JOBS_JSON = ROOT / "jobs.json"
 PROJ_DIR = ROOT / "proyectos"
+SHELF_DIR = ROOT / "estante"          # estante de imágenes propias (no van a OpenAI)
+SHELF_JSON = ROOT / "estante.json"
 HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
+SHELF_DIR.mkdir(parents=True, exist_ok=True)
 
 PRICE_OUT = 30.0
 PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
@@ -179,6 +182,12 @@ def validate_key(k):
 def save_dir():
     raw = load_json(CONF_JSON, {}).get("save_dir") or ""
     return Path(os.path.expanduser(raw)) if raw else HOME / "Desktop"
+
+
+def shelf_dir():
+    # carpeta donde el usuario quiere las imágenes del estante; por defecto, la interna
+    raw = load_json(CONF_JSON, {}).get("shelf_dir") or ""
+    return Path(os.path.expanduser(raw)) if raw else SHELF_DIR
 
 
 def icloud_dir():
@@ -364,6 +373,32 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  border-radius:9px;padding:8px 16px;font-size:12.5px;cursor:pointer;transition:.15s}
 .retry:hover{border-color:var(--mut)}
 .spin{width:34px;height:34px;border:2.5px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+/* estante de imágenes propias (local) */
+.shelf{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.shelfhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.shelftitle{font-size:12.5px;color:var(--txt);font-weight:500;display:flex;align-items:center;gap:7px}
+.shelftitle svg{width:15px;height:15px;stroke:var(--mut);fill:none;stroke-width:1.7}
+.shelfsub{color:var(--faint);font-weight:400}
+.ghost.sm{padding:5px 11px;font-size:12px}
+.shelffolder{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--mut);margin-bottom:11px;flex-wrap:wrap}
+.shelffolder b{color:var(--txt);font-weight:500}
+.linklike{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11.5px;padding:0;text-decoration:underline}
+#shelfDirRow{display:flex;gap:6px;align-items:center}
+#shelfDirIn{font-size:12px;padding:5px 8px;min-width:210px}
+.shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:9px;max-height:320px;overflow-y:auto}
+.shelfgrid:empty{display:none}
+.scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
+.scard img{width:100%;height:100%;object-fit:cover;display:block}
+.sov{position:absolute;inset:0;display:flex;align-items:flex-start;gap:4px;padding:5px;opacity:0;
+ background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 48%);transition:.15s}
+.scard:hover .sov{opacity:1}
+.sbtn{width:24px;height:24px;border-radius:7px;border:0;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);
+ display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
+.sbtn svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2}
+.sbtn:hover{background:rgba(0,0,0,.85)}
+.sbtn.use{margin-right:auto}
+.shelfempty{font-size:12px;color:var(--faint);text-align:center;padding:18px;border:1px dashed var(--line2);border-radius:10px}
+.shelf.drop{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
 .strip{display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap}
 .strip .sth{width:62px;height:62px;border-radius:9px;overflow:hidden;border:1px solid var(--line2);cursor:pointer;
  padding:0;background:none;transition:.15s}
@@ -1064,6 +1099,20 @@ html,body{overflow-x:hidden}
       <span class="costtag" id="cost"></span>
       <div class="acts"><a id="dl" download="imagen.png"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
       <button id="again"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Otra</button></div>
+    </div>
+    <div class="shelf" id="shelf">
+      <div class="shelfhead">
+        <span class="shelftitle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Mis imágenes <span class="shelfsub">· siempre a la mano, en tu equipo</span></span>
+        <button class="ghost sm" id="shelfAddBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Cargar</button>
+      </div>
+      <div class="shelffolder">
+        <span>Carpeta: <b class="mono" id="shelfDirLbl">…</b></span>
+        <button class="linklike" id="shelfDirEdit">cambiar</button>
+        <span id="shelfDirRow" class="hide"><input type="text" id="shelfDirIn" placeholder="~/Pictures/MiEstante" spellcheck="false"><button class="ghost sm" id="shelfDirSave">Guardar</button></span>
+      </div>
+      <input type="file" id="shelfFile" accept="image/*" multiple hidden>
+      <div class="shelfgrid" id="shelfGrid"></div>
+      <div class="shelfempty" id="shelfEmpty">Arrastra, pega o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, descargarla o quitarla.</div>
     </div>
    </div>
 
@@ -2354,7 +2403,48 @@ document.addEventListener('keydown',e=>{
 function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{const W=+c.dataset.w,H=+c.dataset.h,m=14;
  let bw,bh;if(W>=H){bw=m;bh=Math.max(3,Math.round(m*H/W))}else{bh=m;bw=Math.max(3,Math.round(m*W/H))}
  const s=document.createElement('span');s.className='mini';s.style.width=bw+'px';s.style.height=bh+'px';c.insertBefore(s,c.firstChild)})}
-buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);
+// ===== Estante de imágenes propias (local, en tu equipo · no en OpenAI) =====
+let shelfItems=[];
+async function loadShelf(){try{const r=await(await fetch('/shelf')).json();
+ shelfItems=r.items||[];if(r.dir)$('shelfDirLbl').textContent=r.dir;renderShelf();}catch(e){}}
+function renderShelf(){
+ $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
+ $('shelfGrid').innerHTML=shelfItems.map(it=>{const u='/shelffile?name='+encodeURIComponent(it.file);
+  return `<div class="scard" title="${esc(it.name||'')}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy">
+  <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}).join('');}
+async function shelfAddFiles(files){const imgs=[];
+ for(const f of files){if(!f.type.startsWith('image/'))continue;imgs.push({name:f.name,b64:await fileToB64(f)});}
+ if(!imgs.length){toast('Arrastra imágenes (PNG/JPG/WebP)','bad');return;}
+ const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs})})).json();
+ if(r.error){toast(r.error,'bad');return;}
+ shelfItems=r.items||shelfItems;renderShelf();toast(imgs.length+(imgs.length>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
+$('shelfAddBtn').onclick=()=>$('shelfFile').click();
+$('shelfFile').onchange=e=>{shelfAddFiles([...e.target.files]);e.target.value='';};
+$('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del');
+ if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;
+  const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file))).blob();
+  refs.push({name:it.name||it.file,b64:await blobToB64(b)});renderThumbs();
+  if(mode!=='editar')setMode('editar');validate();toast('Añadida como referencia');return;}
+ if(del){const f=del.dataset.file;
+  await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});
+  shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}};
+// arrastrar imágenes sobre el estante
+const shEl=$('shelf');
+shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('drop');});
+shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('drop');});
+shEl.addEventListener('drop',e=>{e.preventDefault();shEl.classList.remove('drop');
+ if(e.dataTransfer.files.length)shelfAddFiles([...e.dataTransfer.files]);});
+// carpeta de guardado configurable
+$('shelfDirEdit').onclick=()=>{const r=$('shelfDirRow');r.classList.toggle('hide');if(!r.classList.contains('hide'))$('shelfDirIn').focus();};
+$('shelfDirSave').onclick=async()=>{
+ const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:$('shelfDirIn').value})})).json();
+ if(r.error){toast(r.error,'bad');return;}
+ if(r.shelf_effective)$('shelfDirLbl').textContent=r.shelf_effective;
+ $('shelfDirRow').classList.add('hide');toast('El estante se guardará en '+(r.shelf_effective||'tu carpeta'));};
+$('shelfDirIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shelfDirSave').click();}});
+buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();
 </script></body></html>"""
 
 
@@ -2487,6 +2577,14 @@ class H(BaseHTTPRequestHandler):
             fp = PROJ_DIR / safe(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
+        if self.path == "/shelf":
+            return self._json({"items": load_json(SHELF_JSON, []),
+                               "dir": str(shelf_dir()).replace(str(HOME), "~")})
+        if self.path.startswith("/shelffile?"):
+            name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
+            fp = SHELF_DIR / os.path.basename(name)
+            ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
+            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         return self._send(404, "not found", "text/plain")
 
     def do_POST(self):
@@ -2504,7 +2602,8 @@ class H(BaseHTTPRequestHandler):
                  "/falkey": self.h_falkey, "/video": self.h_video,
                  "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
-                 "/music": self.h_music, "/lipsync": self.h_lipsync}.get(self.path)
+                 "/music": self.h_music, "/lipsync": self.h_lipsync,
+                 "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -2609,10 +2708,23 @@ class H(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
             conf["save_dir"] = raw
+        if "shelf_dir" in b:
+            raw = (b.get("shelf_dir") or "").strip()
+            if raw:
+                p = Path(os.path.expanduser(raw))
+                try:
+                    p.mkdir(parents=True, exist_ok=True)
+                    t = p / ".studio_test"
+                    t.write_text("")
+                    t.unlink()
+                except Exception as e:
+                    return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
+            conf["shelf_dir"] = raw
         if "voice_styles" in b and isinstance(b["voice_styles"], list):
             conf["voice_styles"] = b["voice_styles"][:50]
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~")})
+        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~"),
+                           "shelf_effective": str(shelf_dir()).replace(str(HOME), "~")})
 
     def h_historydel(self):
         f = os.path.basename(self._body().get("file", ""))
@@ -2623,6 +2735,51 @@ class H(BaseHTTPRequestHandler):
             save_json(HIST_JSON, [x for x in h if x.get("file") != f])
         try:
             (HIST_DIR / f).unlink()
+        except Exception:
+            pass
+        return self._json({"ok": True})
+
+    def h_shelf_add(self):
+        imgs = self._body().get("images", [])
+        if not imgs:
+            return self._json({"error": "Sin imágenes"})
+        ext_dir = shelf_dir()
+        mirror = ext_dir.resolve() != SHELF_DIR.resolve()
+        with LOCK:
+            items = load_json(SHELF_JSON, [])
+            for im in imgs[:50]:
+                try:
+                    raw = base64.b64decode(im.get("b64", ""))
+                except Exception:
+                    continue
+                if not raw:
+                    continue
+                nm = im.get("name", "") or ""
+                ext = nm.rsplit(".", 1)[-1].lower() if "." in nm else "png"
+                if ext not in ("png", "jpg", "jpeg", "webp", "gif"):
+                    ext = "png"
+                fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
+                (SHELF_DIR / fn).write_bytes(raw)   # copia interna: el estante siempre funciona
+                if mirror:
+                    try:
+                        ext_dir.mkdir(parents=True, exist_ok=True)
+                        (ext_dir / fn).write_bytes(raw)
+                    except Exception:
+                        pass
+                items.insert(0, {"file": fn, "name": nm or fn, "ts": time.strftime("%Y-%m-%d %H:%M")})
+            save_json(SHELF_JSON, items)
+        return self._json({"ok": True, "items": items,
+                           "dir": str(shelf_dir()).replace(str(HOME), "~")})
+
+    def h_shelf_del(self):
+        f = os.path.basename(self._body().get("file", ""))
+        if not f:
+            return self._json({"error": "Falta el archivo"})
+        with LOCK:
+            items = load_json(SHELF_JSON, [])
+            save_json(SHELF_JSON, [x for x in items if x.get("file") != f])
+        try:
+            (SHELF_DIR / f).unlink()   # solo la copia interna; las copias en tu carpeta se conservan
         except Exception:
             pass
         return self._json({"ok": True})
