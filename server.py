@@ -1282,11 +1282,10 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:auto;text-transform:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="galrow">
         <select id="galFilter"><option value="*">Todos los proyectos</option></select>
-        <button class="chip" id="galFavBtn" title="Solo favoritas">★</button>
       </div>
       <div class="gal" id="gal"></div>
       <button class="more hide" id="galMore"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 9l6 6 6-6"/></svg>Ver más</button>
@@ -1739,7 +1738,17 @@ function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim(
  return imgs}
 $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
-$('galAll').onclick=()=>window.open('/galeria','_blank','noopener');
+$('galAll').onclick=()=>window.open('/galeria'+($('galFavBtn').classList.contains('on')?'?fav=1':''),'_blank','noopener');
+// recibir acciones desde las ventanas "Ver todo" (galería) — misma sesión, otro tab/ventana
+async function addRefFromServer(src,file){try{
+ const url=(src==='shelf'?'/shelffile?name=':'/file?name=')+encodeURIComponent(file);
+ const b=await(await fetch(url)).blob();
+ refs.push({name:file,b64:await blobToB64(b)});renderThumbs();
+ if(mode!=='editar')setMode('editar');validate();toast('Añadida como referencia');
+}catch(e){toast('No pude añadir la referencia','bad')}}
+try{const _sbc=new BroadcastChannel('studio');_sbc.onmessage=ev=>{const m=ev.data||{};
+ if(m.type==='studioRef')addRefFromServer(m.src,m.file);
+ else if(m.type==='studioFav')loadGal();};}catch(e){}
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
@@ -2660,50 +2669,97 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:baseline;gap:14p
  background:rgba(244,239,227,.86);backdrop-filter:blur(12px);border-bottom:1px solid #e3dccb}
 h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .count{font-size:13px;color:#8a8170}
+.hint{margin-left:auto;font-size:12px;color:#8a8170}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
-.tile{position:relative;display:block;aspect-ratio:1;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;
- background:#fffdf6;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
+.tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
+ box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
 .tile:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.13);border-color:#cfc4ac}
-.tile img{width:100%;height:100%;object-fit:cover;display:block}
-.cap{position:absolute;inset:auto 0 0 0;padding:20px 11px 9px;font-size:11px;line-height:1.32;color:#fff;
- background:linear-gradient(to top,rgba(0,0,0,.66),transparent);opacity:0;transition:opacity .18s;
+.tile>img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.acts{position:absolute;top:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap;max-width:108px;justify-content:flex-end;opacity:0;transition:opacity .15s}
+.tile:hover .acts{opacity:1}
+.gb{width:30px;height:30px;border-radius:8px;background:rgba(12,12,14,.86);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18);
+ color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
+.gb:hover{background:rgba(12,12,14,.96);border-color:rgba(255,255,255,.45)}
+.gb svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gb.star.on svg{stroke:#e6b35c;fill:#e6b35c}
+.cap{position:absolute;inset:auto 0 0 0;padding:22px 11px 9px;font-size:11px;line-height:1.32;color:#fff;
+ background:linear-gradient(to top,rgba(0,0,0,.7),transparent);opacity:0;transition:opacity .18s;pointer-events:none;
  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tile:hover .cap{opacity:1}
 .empty{padding:64px 26px;color:#8a8170;font-size:14px}
+.gtoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);background:#2a2620;color:#fff;
+ padding:10px 18px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.gtoast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media(prefers-color-scheme:dark){
  body{background:#14110c;color:#ece6d8}
  header{background:rgba(20,17,12,.86);border-color:#2a2418}
- .count,.empty{color:#9a8f78}
+ .count,.empty,.hint{color:#9a8f78}
  .tile{background:#1c1812;border-color:#2a2418}
  .tile:hover{border-color:#3a3322}
+ .gtoast{background:#ece6d8;color:#1c1812}
 }
 """
 
-def gallery_html(src):
-    import html as _h
+def gallery_html(src, fav=False):
+    import html as _h, json as _json
     from urllib.parse import quote as _q
-    if src == "shelf":
-        items = load_json(SHELF_JSON, [])
-        title, base, capkey = "Mis imágenes", "/shelffile?name=", "name"
+    is_shelf = (src == "shelf")
+    if is_shelf:
+        items, title, base = load_json(SHELF_JSON, []), "Mis imágenes", "/shelffile?name="
     else:
-        items = load_json(HIST_JSON, [])
-        title, base, capkey = "Historial", "/file?name=", "prompt"
+        items, title, base = load_json(HIST_JSON, []), "Historial", "/file?name="
+        if fav:
+            items = [it for it in items if it.get("fav")]
+            title = "Historial · favoritas"
+    GPL = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+    GCP = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+    GST = '<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>'
+    GDL = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>'
+    GOP = '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>'
     tiles = []
     for it in items:
         f = it.get("file", "")
         if not f:
             continue
         u = base + _q(f)
-        c = _h.escape(str(it.get(capkey, "") or ""))
-        cap = ('<span class="cap">' + c + '</span>') if c else ""
-        tiles.append('<a class="tile" href="' + u + '" target="_blank" rel="noopener" title="' + c + '">'
-                     '<img src="' + u + '" loading="lazy" alt="">' + cap + '</a>')
+        fa = _h.escape(f)
+        prompt = "" if is_shelf else str(it.get("prompt", "") or "")
+        pa = _h.escape(prompt)
+        favon = (not is_shelf) and bool(it.get("fav"))
+        btns = ['<button class="gb" data-act="ref" title="Usar como referencia (subir al prompt)">' + GPL + '</button>']
+        if not is_shelf and prompt:
+            btns.append('<button class="gb" data-act="prompt" title="Copiar prompt">' + GCP + '</button>')
+        if not is_shelf:
+            btns.append('<button class="gb star' + (' on' if favon else '') + '" data-act="fav" title="Favorita">' + GST + '</button>')
+        btns.append('<a class="gb" href="' + u + '" download="' + fa + '" title="Descargar">' + GDL + '</a>')
+        btns.append('<a class="gb" href="' + u + '" target="_blank" rel="noopener" title="Abrir en grande">' + GOP + '</a>')
+        capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
+        cap = ('<span class="cap">' + capt + '</span>') if capt else ""
+        tiles.append('<figure class="tile" data-file="' + fa + '" data-fav="' + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
+                     '<img src="' + u + '" loading="lazy" alt="">'
+                     '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
     grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
+    js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
+          "let bc;try{bc=new BroadcastChannel('studio')}catch(e){}"
+          "const tEl=document.getElementById('gtoast');"
+          "function gt(m){tEl.textContent=m;tEl.classList.add('show');clearTimeout(tEl._t);tEl._t=setTimeout(function(){tEl.classList.remove('show')},1800);}"
+          "var g=document.querySelector('.grid');"
+          "if(g)g.addEventListener('click',async function(e){"
+          "var b=e.target.closest('[data-act]');if(!b)return;e.preventDefault();"
+          "var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
+          "if(act==='ref'){if(bc){bc.postMessage({type:'studioRef',src:SRC,file:file});gt('Añadida como referencia en el estudio');}else{gt('Abre el estudio para recibirla');}}"
+          "else if(act==='prompt'){try{await navigator.clipboard.writeText(tile.dataset.prompt||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
+          "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
+          "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on})});}catch(x){}"
+          "if(bc)bc.postMessage({type:'studioFav'});gt(on?'Marcada como favorita':'Quitada de favoritas');}"
+          "});")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
-            '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span></header>'
-            '<main class="grid">' + grid + '</main></body></html>')
+            '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
+            '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span></header>'
+            '<main class="grid">' + grid + '</main><div class="gtoast" id="gtoast"></div>'
+            '<script>' + js + '</script></body></html>')
 
 
 class H(BaseHTTPRequestHandler):
@@ -2850,8 +2906,10 @@ class H(BaseHTTPRequestHandler):
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if urlparse(self.path).path == "/galeria":
-            src = parse_qs(urlparse(self.path).query).get("src", ["history"])[0]
-            return self._send(200, gallery_html(src), "text/html; charset=utf-8",
+            q = parse_qs(urlparse(self.path).query)
+            src = q.get("src", ["history"])[0]
+            fav = q.get("fav", ["0"])[0] == "1"
+            return self._send(200, gallery_html(src, fav), "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         return self._send(404, "not found", "text/plain")
 
