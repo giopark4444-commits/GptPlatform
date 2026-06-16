@@ -452,7 +452,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .sbtn:hover{background:rgba(0,0,0,.85)}
 .sbtn.use{margin-right:auto}
 .shelfempty{font-size:12px;color:var(--faint);text-align:center;padding:18px;border:1px dashed var(--line2);border-radius:10px}
-.shelf.drop{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
+.shelf.dragover{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
 .strip{display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap}
 .strip .sth{width:62px;height:62px;border-radius:9px;overflow:hidden;border:1px solid var(--line2);cursor:pointer;
  padding:0;background:none;transition:.15s}
@@ -2583,9 +2583,9 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
-shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('drop');});
-shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('drop');});
-shEl.addEventListener('drop',async e=>{e.preventDefault();shEl.classList.remove('drop');
+shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
+shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('dragover');});
+shEl.addEventListener('drop',async e=>{e.preventDefault();shEl.classList.remove('dragover');
  if(e.dataTransfer.files.length){shelfAddFiles([...e.dataTransfer.files]);return;}
  if(e.dataTransfer.getData('text/x-studio-shelf'))return; // ya está en el estante
  const imgs=await imagesFromDT(e.dataTransfer);   // historial o resultado → estante
