@@ -307,10 +307,10 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .kdot.on{background:var(--ok);box-shadow:0 0 6px rgba(123,217,154,.5)}
 
 .wrap{display:grid;grid-template-columns:362px 1fr 312px;gap:1px;background:var(--line);
- min-height:calc(100vh - 59px)}
+ height:calc(100vh - 59px)}
 .wrap>*{background:var(--bg)}
-@media(max-width:1180px){.wrap{grid-template-columns:1fr}}
-.col{padding:22px;overflow:auto}
+@media(max-width:1180px){.wrap{grid-template-columns:1fr;height:auto}.wrap .col{overflow:visible}}
+.col{padding:22px;overflow:auto;min-height:0}
 .col.mid{padding:22px;display:flex;flex-direction:column}
 .an{opacity:0;transform:translateY(8px);animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards}
 .col:nth-child(1){animation-delay:.02s}.col:nth-child(2){animation-delay:.09s}.col:nth-child(3){animation-delay:.16s}
@@ -439,7 +439,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .linklike{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11.5px;padding:0;text-decoration:underline}
 #shelfDirRow{display:flex;gap:6px;align-items:center}
 #shelfDirIn{font-size:12px;padding:5px 8px;min-width:210px}
-.shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:9px;max-height:760px;overflow-y:auto}
+.shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:9px}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
@@ -476,7 +476,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .btnrow button.arm{color:var(--bad);border-color:var(--bad);background:rgba(229,115,115,.1)}
 #style{min-height:74px;font-size:12px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
-.gal{display:grid;grid-template-columns:1fr;gap:8px;max-height:74vh;overflow-y:auto;padding-right:4px}
+.gal{display:grid;grid-template-columns:1fr;gap:8px}
 .gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s}
 .gcard:hover{border-color:var(--line2)}
 .gcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
@@ -666,7 +666,7 @@ html,body{overflow-x:hidden}
  *{transition-duration:.01ms!important}
  .spin{animation-duration:1.6s!important}
 }
-</style></head><body>
+</style></head><body><script>(function(){try{var t=localStorage.getItem('studio_theme'),done=localStorage.getItem('studio_theme_default_v2');if(!done&&(!t||t==='carbon'))t='crema';if(!t)t='crema';if(t!=='carbon')document.body.dataset.theme=t;}catch(e){document.body.dataset.theme='crema';}})();</script>
 
 <div class="toasts" id="toasts"></div>
 
@@ -1180,7 +1180,7 @@ html,body{overflow-x:hidden}
 
   <!-- CENTRO -->
   <div class="col mid an">
-   <div id="imgStage" style="display:flex;flex-direction:column;flex:1;min-height:0">
+   <div id="imgStage" style="display:flex;flex-direction:column;flex:none">
     <div class="canvas" id="canvas">
       <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd> Imagen <kbd>2</kbd> Audio <kbd>3</kbd> Video · <kbd>⌘</kbd><kbd>V</kbd> pegar</div></div>
       <div class="spin hide" id="spinner"></div>
@@ -2592,9 +2592,9 @@ function markValidChips(){
 }
 // ===== Temas e idioma =====
 const THEMES=['carbon','medianoche','neon','dia','bruma','crema'];
-function applyTheme(t){if(!THEMES.includes(t))t='carbon';
+function applyTheme(t,save){if(!THEMES.includes(t))t='crema';
  if(t==='carbon')document.body.removeAttribute('data-theme');else document.body.dataset.theme=t;
- localStorage.setItem('studio_theme',t);
+ if(save)localStorage.setItem('studio_theme',t);
  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('on',s.dataset.theme===t));}
 let LANG=localStorage.getItem('studio_lang')||'es';
 let _i18nTxt=[],_i18nAttr=[],_i18nHtml=[];
@@ -2616,10 +2616,14 @@ function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);docu
  _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
  document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
 $('setBtn').onclick=()=>$('setModal').classList.remove('hide');
-$('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme);};
+$('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme,true);};
 $('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
 buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();
-applyTheme(localStorage.getItem('studio_theme')||'carbon');i18nSnapshot();applyLang(LANG);
+(function(){let saved=localStorage.getItem('studio_theme');
+ if(!localStorage.getItem('studio_theme_default_v2')){localStorage.setItem('studio_theme_default_v2','1');
+  if(!saved||saved==='carbon'){localStorage.removeItem('studio_theme');saved=null;}}
+ applyTheme(saved||'crema',false);})();
+i18nSnapshot();applyLang(LANG);
 </script></body></html>"""
 
 
