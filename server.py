@@ -339,6 +339,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
 input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
 .check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);width:14px;height:14px}
+.lockbtn{display:flex;align-items:center;gap:8px;margin-top:10px;width:100%;background:var(--surface);border:1px solid var(--line);
+ color:var(--mut);border-radius:9px;padding:8px 11px;font-size:12px;cursor:pointer;transition:.16s;font-family:var(--ui)}
+.lockbtn:hover{color:var(--txt);border-color:var(--line2)}
+.lockbtn svg{width:15px;height:15px;stroke:currentColor;flex:none}
+.lockbtn .lk-closed{display:none}
+.lockbtn.on{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.lockbtn.on .lk-open{display:none}.lockbtn.on .lk-closed{display:block}
 
 .presets{display:flex;flex-wrap:wrap;gap:6px}
 .pgroup{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);width:100%;margin:8px 0 2px}
@@ -432,7 +439,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .linklike{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11.5px;padding:0;text-decoration:underline}
 #shelfDirRow{display:flex;gap:6px;align-items:center}
 #shelfDirIn{font-size:12px;padding:5px 8px;min-width:210px}
-.shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:9px;max-height:320px;overflow-y:auto}
+.shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:9px;max-height:760px;overflow-y:auto}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
@@ -469,18 +476,18 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .btnrow button.arm{color:var(--bad);border-color:var(--bad);background:rgba(229,115,115,.1)}
 #style{min-height:74px;font-size:12px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
-.gal{display:grid;grid-template-columns:1fr;gap:8px}
+.gal{display:grid;grid-template-columns:1fr;gap:8px;max-height:74vh;overflow-y:auto;padding-right:4px}
 .gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s}
 .gcard:hover{border-color:var(--line2)}
 .gcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
 .gcard .c{font-family:var(--mono);font-size:9.5px;color:var(--faint);padding:5px 6px;display:flex;justify-content:space-between}
 .gfloat{position:absolute;top:5px;right:5px;display:flex;gap:3px;flex-wrap:wrap;max-width:84px;justify-content:flex-end;opacity:0;transform:translateY(-3px);transition:.15s}
 .gcard:hover .gfloat{opacity:1;transform:none}
-.gfbtn{width:25px;height:25px;border-radius:7px;background:rgba(12,12,14,.86);backdrop-filter:blur(6px);border:1px solid var(--line2);
- color:var(--txt);display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;transition:.15s}
-.gfbtn:hover{background:var(--elev);border-color:var(--mut)}.gfbtn svg{width:12px;height:12px;stroke-width:1.8}
-.gfbtn.arm{border-color:var(--bad);color:var(--bad);background:rgba(229,115,115,.12)}
-.gfbtn.fav{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.gfbtn{width:25px;height:25px;border-radius:7px;background:rgba(12,12,14,.86);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18);
+ color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;transition:.15s}
+.gfbtn:hover{background:rgba(12,12,14,.96);border-color:rgba(255,255,255,.4)}.gfbtn svg{width:12px;height:12px;stroke:#fff;stroke-width:1.8}
+.gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
+.gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
 .magic:hover{color:var(--accent)}
@@ -805,7 +812,11 @@ html,body{overflow-x:hidden}
       <input type="range" id="w" min="512" max="3840" step="16" value="1536">
       <div class="slabel" style="margin-top:6px"><label>Alto</label><input class="vnum" id="hv" type="number" min="512" max="3840" step="16" value="1024"></div>
       <input type="range" id="h" min="512" max="3840" step="16" value="1024">
-      <label class="check" style="margin-top:10px"><input type="checkbox" id="lock"> Mantener proporción</label>
+      <button type="button" id="lockBtn" class="lockbtn" aria-pressed="false" title="Bloquear proporción: al mover un lado, el otro se ajusta">
+        <svg class="lk-open" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>
+        <svg class="lk-closed" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>Mantener proporción</span></button>
+      <input type="checkbox" id="lock" class="hide">
     </div>
 
     <div class="field">
@@ -835,10 +846,11 @@ html,body{overflow-x:hidden}
         <span class="chip" data-w="2384" data-h="992">2.4:1</span>
         <span class="chip" data-w="3072" data-h="1024">Pano 3:1</span>
         <span class="pgroup">Resolución · escala el ratio actual (área en píxeles)</span>
-        <span class="chip rchip" data-px="921600">720p · HD</span>
-        <span class="chip rchip" data-px="2073600">1080p · FHD</span>
-        <span class="chip rchip" data-px="3686400">1440p · QHD</span>
-        <span class="chip rchip" data-px="8294400">4K · UHD</span>
+        <span class="chip rchip" data-px="921600">720p</span>
+        <span class="chip rchip" data-px="2073600">1080p</span>
+        <span class="chip rchip" data-px="3686400">2K</span>
+        <span class="chip rchip" data-px="5760000">3K</span>
+        <span class="chip rchip" data-px="8294400">4K</span>
         <div class="preslegend"><span class="dotnat"></span> nativo gpt-image-2 (sin reescalado) · <span class="dotok"></span> tamaño válido (lados ÷16) · DCI 4K (4096px) no cabe en el límite de 3840</div>
       </div>
     </div>
@@ -1412,6 +1424,8 @@ function applyRes(){if(!selRes)return;
 $('w').oninput=()=>{if($('lock').checked){$('h').value=snap(Math.min(3840,Math.max(512,$('w').value/ratio)));$('hv').value=$('h').value}$('wv').value=$('w').value;clearRes();validate()};
 $('h').oninput=()=>{if($('lock').checked){$('w').value=snap(Math.min(3840,Math.max(512,$('h').value*ratio)));$('wv').value=$('w').value}$('hv').value=$('h').value;clearRes();validate()};
 $('lock').onchange=()=>ratio=$('w').value/$('h').value;
+$('lockBtn').onclick=()=>{const on=!$('lock').checked;$('lock').checked=on;$('lockBtn').classList.toggle('on',on);
+ $('lockBtn').setAttribute('aria-pressed',on);if(on)ratio=$('w').value/$('h').value};
 function commitNum(numId,sliderId){
  let v=Math.max(512,Math.min(3840,snap(+$(numId).value||512)));
  $(numId).value=v;$(sliderId).value=v;
@@ -1717,7 +1731,7 @@ function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim(
 $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
 function renderGal(){const items=galFiltered();
- $('gal').innerHTML=items.slice(0,shown).map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
+ $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
@@ -1729,7 +1743,7 @@ function renderGal(){const items=galFiltered();
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}).join('')
   ||'<div class="hint">Aún no hay imágenes'+($('galFilter').value!=='*'?' en este proyecto':'')+'</div>';
- $('galMore').classList.toggle('hide',items.length<=shown);
+ $('galMore').classList.add('hide');
  $('galCount').textContent=items.length||''}
 async function loadGal(){hist=await(await fetch('/history')).json();
  const f=$('galFilter'),cur=f.value;
