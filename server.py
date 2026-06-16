@@ -1184,7 +1184,7 @@ html,body{overflow-x:hidden}
     <div class="canvas" id="canvas">
       <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd> Imagen <kbd>2</kbd> Audio <kbd>3</kbd> Video · <kbd>⌘</kbd><kbd>V</kbd> pegar</div></div>
       <div class="spin hide" id="spinner"></div>
-      <img class="result hide" id="resultImg" alt="Resultado">
+      <img class="result hide" id="resultImg" alt="Resultado" draggable="true">
       <div class="floaters hide" id="floaters">
         <button class="fbtn" id="fCopy" title="Copiar prompt + referencias usadas"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button class="fbtn" id="fAdd" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -1201,7 +1201,10 @@ html,body{overflow-x:hidden}
     <div class="shelf" id="shelf">
       <div class="shelfhead">
         <span class="shelftitle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Mis imágenes <span class="shelfsub">· siempre a la mano, en tu equipo</span></span>
+        <div style="display:flex;gap:7px;flex:none">
+        <button class="ghost sm" id="shelfAll" title="Ver todas en una ventana"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button>
         <button class="ghost sm" id="shelfAddBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Cargar</button>
+        </div>
       </div>
       <div class="shelffolder">
         <span>Carpeta: <b class="mono" id="shelfDirLbl">…</b></span>
@@ -1279,7 +1282,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="margin-left:auto;font-weight:400"></span></h3>
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:auto;text-transform:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="galrow">
         <select id="galFilter"><option value="*">Todos los proyectos</option></select>
@@ -1694,6 +1697,14 @@ $('distill').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige un
  if(r.error){toast(r.error,'bad');return}$('style').value=r.style;toast('Estilo destilado · revisa y guarda')};
 async function postRef(project,name,b64){
  await fetch('/projectref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,image:{name,b64}})})}
+// resuelve un drop a [{name,b64}] desde cualquier fuente: resultado, historial, estante o archivos del SO
+async function imagesFromDT(dt){const out=[];
+ const uri=dt.getData('text/x-studio-b64'),hist=dt.getData('text/x-studio-file'),shelf=dt.getData('text/x-studio-shelf');
+ if(uri){const c=uri.indexOf(',');out.push({name:'generada.png',b64:c>=0?uri.slice(c+1):uri});}
+ else if(hist){const b=await(await fetch('/file?name='+encodeURIComponent(hist))).blob();out.push({name:hist,b64:await blobToB64(b)});}
+ else if(shelf){const b=await(await fetch('/shelffile?name='+encodeURIComponent(shelf))).blob();out.push({name:shelf,b64:await blobToB64(b)});}
+ else for(const f of dt.files){if(f.type&&f.type.startsWith('image/'))out.push({name:f.name,b64:await fileToB64(f)});}
+ return out;}
 $('dropPref').onclick=()=>{if(!$('projSel').value){toast('Elige o crea un proyecto primero','bad');return}$('prefFile').click()};
 $('prefFile').onchange=async e=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
  let added=0;for(const f of e.target.files){await postRef(n,f.name,await fileToB64(f));added++}
@@ -1703,12 +1714,10 @@ $('prefFile').onchange=async e=>{const n=$('projSel').value;if(!n){toast('Elige 
 $('dropPref').addEventListener('dragleave',e=>{e.preventDefault();$('dropPref').classList.remove('hot')});
 $('dropPref').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.remove('hot');$('drop').classList.remove('hot');
  const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
- let added=0;
- const sf=e.dataTransfer.getData('text/x-studio-file');
- if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();await postRef(n,sf,await blobToB64(b));added++}
- else for(const f of e.dataTransfer.files){if(!f.type.startsWith('image/'))continue;await postRef(n,f.name,await fileToB64(f));added++}
+ const imgs=await imagesFromDT(e.dataTransfer);
+ for(const im of imgs)await postRef(n,im.name,im.b64);
  await loadProjects();
- if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')});
+ if(imgs.length)toast(imgs.length+(imgs.length>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')});
 $('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');if(!b)return;const n=$('projSel').value;
  await fetch('/projectrefdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,file:b.dataset.f})});await loadProjects()};
 
@@ -1730,6 +1739,7 @@ function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim(
  return imgs}
 $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
+$('galAll').onclick=()=>window.open('/galeria','_blank','noopener');
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
@@ -1801,6 +1811,8 @@ function openLb(src,p,file){$('lbImg').src=src;$('lbPrompt').textContent=p||'';
 $('lightbox').onclick=()=>$('lightbox').classList.add('hide');
 $('lbBar').onclick=e=>e.stopPropagation();
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
+$('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
+ e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';});
 
 // ===== resultado(s) =====
 function showState(s){$('emptyState').classList.toggle('hide',s!=='empty');$('spinner').classList.toggle('hide',s!=='spin');
@@ -2532,22 +2544,24 @@ async function loadShelf(){try{const r=await(await fetch('/shelf')).json();
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').innerHTML=shelfItems.map(it=>{const u='/shelffile?name='+encodeURIComponent(it.file);
-  return `<div class="scard" title="${esc(it.name||'')}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy">
+  return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="false">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}).join('');}
-async function shelfAddFiles(files){const imgs=[];let bad=0;
- for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
- if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
- if(!imgs.length)return;
+async function shelfAddImages(imgs){if(!imgs.length)return;
  const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
  shelfItems=r.items||shelfItems;renderShelf();
  const n=imgs.length-(r.skipped?r.skipped.length:0);
  if(n>0)toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
+async function shelfAddFiles(files){const imgs=[];let bad=0;
+ for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
+ if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
+ await shelfAddImages(imgs);}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
+$('shelfAll').onclick=()=>window.open('/galeria?src=shelf','_blank','noopener');
 $('shelfFile').onchange=e=>{shelfAddFiles([...e.target.files]);e.target.value='';};
 $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;
@@ -2564,12 +2578,18 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
  if(del){const f=del.dataset.file;
   await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});
   shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}};
+// arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
+$('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('drop');});
 shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('drop');});
-shEl.addEventListener('drop',e=>{e.preventDefault();shEl.classList.remove('drop');
- if(e.dataTransfer.files.length)shelfAddFiles([...e.dataTransfer.files]);});
+shEl.addEventListener('drop',async e=>{e.preventDefault();shEl.classList.remove('drop');
+ if(e.dataTransfer.files.length){shelfAddFiles([...e.dataTransfer.files]);return;}
+ if(e.dataTransfer.getData('text/x-studio-shelf'))return; // ya está en el estante
+ const imgs=await imagesFromDT(e.dataTransfer);   // historial o resultado → estante
+ if(imgs.length)await shelfAddImages(imgs);});
 // carpeta de guardado configurable
 $('shelfDirEdit').onclick=()=>{const r=$('shelfDirRow');r.classList.toggle('hide');if(!r.classList.contains('hide'))$('shelfDirIn').focus();};
 $('shelfDirSave').onclick=async()=>{
@@ -2632,6 +2652,58 @@ CSP = ("default-src 'self'; script-src 'unsafe-inline'; "
        "style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
        "img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self'; "
        "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+GALERIA_CSS = """
+*{box-sizing:border-box;margin:0}
+body{background:#f4efe3;color:#2a2620;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 0 64px;-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:baseline;gap:14px;padding:18px 26px;
+ background:rgba(244,239,227,.86);backdrop-filter:blur(12px);border-bottom:1px solid #e3dccb}
+h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.count{font-size:13px;color:#8a8170}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
+.tile{position:relative;display:block;aspect-ratio:1;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;
+ background:#fffdf6;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.13);border-color:#cfc4ac}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.cap{position:absolute;inset:auto 0 0 0;padding:20px 11px 9px;font-size:11px;line-height:1.32;color:#fff;
+ background:linear-gradient(to top,rgba(0,0,0,.66),transparent);opacity:0;transition:opacity .18s;
+ display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tile:hover .cap{opacity:1}
+.empty{padding:64px 26px;color:#8a8170;font-size:14px}
+@media(prefers-color-scheme:dark){
+ body{background:#14110c;color:#ece6d8}
+ header{background:rgba(20,17,12,.86);border-color:#2a2418}
+ .count,.empty{color:#9a8f78}
+ .tile{background:#1c1812;border-color:#2a2418}
+ .tile:hover{border-color:#3a3322}
+}
+"""
+
+def gallery_html(src):
+    import html as _h
+    from urllib.parse import quote as _q
+    if src == "shelf":
+        items = load_json(SHELF_JSON, [])
+        title, base, capkey = "Mis imágenes", "/shelffile?name=", "name"
+    else:
+        items = load_json(HIST_JSON, [])
+        title, base, capkey = "Historial", "/file?name=", "prompt"
+    tiles = []
+    for it in items:
+        f = it.get("file", "")
+        if not f:
+            continue
+        u = base + _q(f)
+        c = _h.escape(str(it.get(capkey, "") or ""))
+        cap = ('<span class="cap">' + c + '</span>') if c else ""
+        tiles.append('<a class="tile" href="' + u + '" target="_blank" rel="noopener" title="' + c + '">'
+                     '<img src="' + u + '" loading="lazy" alt="">' + cap + '</a>')
+    grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
+    return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>' + _h.escape(title) + ' · Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
+            '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span></header>'
+            '<main class="grid">' + grid + '</main></body></html>')
 
 
 class H(BaseHTTPRequestHandler):
@@ -2777,6 +2849,10 @@ class H(BaseHTTPRequestHandler):
             fp = SHELF_DIR / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
+        if urlparse(self.path).path == "/galeria":
+            src = parse_qs(urlparse(self.path).query).get("src", ["history"])[0]
+            return self._send(200, gallery_html(src), "text/html; charset=utf-8",
+                              {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         return self._send(404, "not found", "text/plain")
 
     def do_POST(self):
