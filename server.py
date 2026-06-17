@@ -396,7 +396,8 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .projnewrow>svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
 .projnewrow input{flex:1;margin:0}
-.projnewrow .primary{flex:none;white-space:nowrap}
+.projnewrow .primary{flex:none;width:auto;padding:10px 18px;font-size:13.5px;border-radius:10px;white-space:nowrap}
+.projnewrow .primary svg{width:15px;height:15px}
 .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),color-mix(in srgb,var(--accent) 65%,#000));
  display:flex;align-items:center;justify-content:center;color:#1a1206}
 .brand .dot svg{width:13px;height:13px;stroke-width:2}
