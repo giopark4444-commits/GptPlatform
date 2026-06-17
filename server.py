@@ -577,6 +577,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .setfolder{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .setfolder:first-of-type{border-top:0;padding-top:2px}
 .setpath{font-size:12.5px;color:var(--txt);word-break:break-all;margin-top:3px}
+.fsrow{display:flex;align-items:center;gap:12px;margin:12px 0}
+.fsrow>span:first-child{font-size:13.5px;color:var(--txt);min-width:140px}
+.fsrow input[type=range]{flex:1}
+.fsrow .fsv{font-family:var(--mono);font-size:13px;color:var(--mut);min-width:46px;text-align:right}
 .langseg{display:flex;gap:6px}
 .langseg button{flex:1;padding:9px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);color:var(--mut);cursor:pointer;font-size:13px;font-family:var(--ui);transition:.15s}
 .langseg button:hover{color:var(--txt);border-color:var(--line2)}
@@ -767,6 +771,12 @@ html,body{overflow-x:hidden}
       <button class="swatch" data-theme="bruma" style="--s-bg:#eef1f6;--s-ac:#4654c7"><span></span>Bruma</button>
       <button class="swatch" data-theme="crema" style="--s-bg:#f4efe3;--s-ac:#1f6b54"><span></span>Crema</button>
     </div>
+  </div>
+  <div class="setsec">
+    <div class="setlabel">Tamaño del texto</div>
+    <div class="fsrow"><span>General</span><input type="range" id="fsGen" min="12" max="20" step="1" value="14"><span class="fsv" id="fsGenV">14px</span></div>
+    <div class="fsrow"><span>Etiquetas y ayudas</span><input type="range" id="fsSmall" min="9" max="16" step="1" value="11"><span class="fsv" id="fsSmallV">11px</span></div>
+    <button class="ghost" id="fsReset" style="margin-top:2px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Restablecer</button>
   </div>
   <div class="setsec">
     <div class="setlabel">Carpetas</div>
@@ -2730,6 +2740,21 @@ function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);docu
  _i18nTxt.forEach(o=>{const k=o.orig.trim();o.node.nodeValue=lang==='es'?o.orig:o.orig.replace(k,()=>trVal(k,lang));});
  _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
  document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
+// === tamaño de texto ajustable (reescala las tipografías del estudio) ===
+const FS_GEN=[['body',14],['textarea,select,input[type=text],input[type=password]',14],['.btnrow button',11.5],['.resbar a,.resbar .acts button',12.5],['.lbprompt',12.5]];
+const FS_SMALL=[['label',10],['.hint',11],['.eyebrow',10],['.chip',11],['.pgroup',9],['.preslegend',10]];
+function applyFs(){
+ const g=+($('fsGen').value||14),s=+($('fsSmall').value||11),sg=g/14,ss=s/11;
+ let css='';
+ FS_GEN.forEach(x=>css+=x[0]+'{font-size:'+(Math.round(x[1]*sg*10)/10)+'px}');
+ FS_SMALL.forEach(x=>css+=x[0]+'{font-size:'+(Math.round(x[1]*ss*10)/10)+'px}');
+ let el=$('fsCustom');if(!el){el=document.createElement('style');el.id='fsCustom';document.head.appendChild(el);}
+ el.textContent=css;
+ $('fsGenV').textContent=g+'px';$('fsSmallV').textContent=s+'px';
+ localStorage.setItem('studio_fs_g',g);localStorage.setItem('studio_fs_s',s);}
+$('fsGen').oninput=applyFs;$('fsSmall').oninput=applyFs;
+$('fsReset').onclick=()=>{$('fsGen').value=14;$('fsSmall').value=11;applyFs();toast('Tamaño de texto restablecido');};
+$('fsGen').value=localStorage.getItem('studio_fs_g')||14;$('fsSmall').value=localStorage.getItem('studio_fs_s')||11;applyFs();
 async function refreshSetFolders(){
  try{$('setGenPath').textContent=cfgEffective||'(por defecto)';}catch(e){}
  try{const s=await(await fetch('/shelf')).json();$('setShelfPath').textContent=s.dir||'(por defecto)';}catch(e){}}
