@@ -1050,6 +1050,8 @@ html,body{overflow-x:hidden}
       <div class="advbody">
         <div style="margin-bottom:12px"><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
         <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
+        <div style="margin-top:12px"><label>Fidelidad de entrada · al editar / usar referencias</label><select id="inpFid"><option value="high" selected>Alta — conserva el original (caras, logos, detalle)</option><option value="low">Baja — más libertad creativa</option></select>
+        <p class="hint" style="margin-top:6px">Solo aplica cuando hay imágenes de referencia o editas. Alta = fiel al original (cuesta algo más); Baja = el modelo cambia más.</p></div>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="saveDesk" checked> Guardar copia en una carpeta</label>
         <div id="dirBox" style="margin-top:10px">
@@ -1061,7 +1063,7 @@ html,body{overflow-x:hidden}
           </div>
           <p class="hint" id="dirMsg" style="margin-top:6px"></p>
         </div>
-        <p class="hint">Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura". La fidelidad de las referencias es siempre <b>alta</b> en gpt-image-2 (no se puede cambiar).</p>
+        <p class="hint">Moderación <b>low</b> es el mínimo de OpenAI; no es "sin censura".</p>
       </div>
     </details>
 
@@ -2104,7 +2106,7 @@ async function run(){
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
  $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
-  output_format:$('fmt').value,moderation:$('mod').value,project:proj,
+  output_format:$('fmt').value,moderation:$('mod').value,input_fidelity:$('inpFid').value,project:proj,
   save_desktop:$('saveDesk').checked};
  if($('fmt').value!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
@@ -3672,6 +3674,7 @@ class H(BaseHTTPRequestHandler):
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
         field("moderation", b.get("moderation", "low"))
+        field("input_fidelity", "low" if b.get("input_fidelity") == "low" else "high")
         if b.get("output_compression") is not None and fmt != "png":
             field("output_compression", str(b["output_compression"]))
         nimg = 0
