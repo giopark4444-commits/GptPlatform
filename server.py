@@ -431,7 +431,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .kdot{width:7px;height:7px;border-radius:50%;background:var(--faint);transition:.2s}
 .kdot.on{background:var(--ok);box-shadow:0 0 6px rgba(123,217,154,.5)}
 
-.wrap{display:grid;grid-template-columns:362px 1fr 312px;gap:1px;background:var(--line);
+.wrap{display:grid;grid-template-columns:362px 1fr 328px;gap:1px;background:var(--line);
  height:calc(100vh - 59px)}
 .wrap>*{background:var(--bg)}
 @media(max-width:1180px){.wrap{grid-template-columns:1fr;height:auto}.wrap .col{overflow:visible}}
@@ -1468,7 +1468,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="gal" id="gal"></div>
       <button class="more hide" id="galMore"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 9l6 6 6-6"/></svg>Ver más</button>
