@@ -238,6 +238,8 @@ def load_projects():
     raw = load_json(PROJ_JSON, {})
     out = {}
     for k, v in raw.items():
+        if is_general(k):
+            continue  # el espacio General se inyecta aparte bajo la clave ""
         d = {"style": v, "refs": []} if isinstance(v, str) else {"style": v.get("style", ""), "refs": v.get("refs", [])}
         # estilo.md en la carpeta del proyecto manda: editable a mano y a prueba de JSON corrupto
         f = PROJ_DIR / safe(k) / "estilo.md"
@@ -254,11 +256,29 @@ def load_projects():
             except Exception:
                 pass
         out[k] = d
+    # El espacio General ("") es un proyecto de primera clase: memoria visual, estilo y destilado
+    gv = raw.get("general", {})
+    if isinstance(gv, str):
+        gv = {"style": gv}
+    gd = {"style": gv.get("style", ""), "style_video": gv.get("style_video", ""), "refs": list(gv.get("refs", []))}
+    gf = PROJ_DIR / "general"
+    if (gf / "estilo.md").exists():
+        try:
+            gd["style"] = (gf / "estilo.md").read_text()
+        except Exception:
+            pass
+    if (gf / "estilo-video.md").exists():
+        try:
+            gd["style_video"] = (gf / "estilo-video.md").read_text()
+        except Exception:
+            pass
+    out[""] = gd
     return out
 
 
 def proj_folder(name):
-    d = PROJ_DIR / safe(name)
+    # el espacio General usa una carpeta estable ("general"), tal como lo mapean is_general/proj_key
+    d = PROJ_DIR / ("general" if is_general(name) else safe(name))
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -1858,11 +1878,11 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
 
 async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
- s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
+ s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).filter(n=>n).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
 async function setActiveProject(n){try{await fetch('/setproject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})});}catch(e){}}
 async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);await setActiveProject(n);renderProj();await loadGal();await loadShelf();}
 let styleTab='img';
-function stashStyle(){const n=$('projSel').value;if(!n||!projects[n])return;
+function stashStyle(){const n=$('projSel').value;if(!projects[n])return;
  projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
 function renderProj(){const n=$('projSel').value,p=projects[n];
  {const l=$('memProjLbl');if(l)l.textContent=n||genLabel;}
@@ -1944,11 +1964,11 @@ $('projGrid').onclick=async e=>{
   del.classList.remove('arm');await deleteProject(name);openProjModal();return}
  if(e.target.closest('input'))return;
  $('projSel').value=name;await switchProject();$('projModal').classList.add('hide')};
-$('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}
+$('saveProj').onclick=async()=>{const n=$('projSel').value;if(!projects[n])return;
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
  toast('Estilos guardados (imagen y video)')};
-$('distill').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige un proyecto','bad');return}$('distill').textContent='…';
+$('distill').onclick=async()=>{const n=$('projSel').value;$('distill').textContent='…';
  const r=await(await fetch('/distill',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})})).json();$('distill').innerHTML='Destilar';
  if(r.error){toast(r.error,'bad');return}$('style').value=r.style;toast('Estilo destilado · revisa y guarda')};
 async function postRef(project,name,b64){
@@ -1961,19 +1981,19 @@ async function imagesFromDT(dt){const out=[];
  else if(shelf){const b=await(await fetch('/shelffile?name='+encodeURIComponent(shelf))).blob();out.push({name:shelf,b64:await blobToB64(b)});}
  else for(const f of dt.files){if(f.type&&f.type.startsWith('image/'))out.push({name:f.name,b64:await fileToB64(f)});}
  return out;}
-$('dropPref').onclick=()=>{if(!$('projSel').value){toast('Elige o crea un proyecto primero','bad');return}$('prefFile').click()};
-$('prefFile').onchange=async e=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
+$('dropPref').onclick=()=>{$('prefFile').click()};
+$('prefFile').onchange=async e=>{const n=$('projSel').value,lbl=n||genLabel;
  let added=0;for(const f of e.target.files){await postRef(n,f.name,await fileToB64(f));added++}
  e.target.value='';await loadProjects();
- if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')};
+ if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+lbl+'"')};
 ['dragover','dragenter'].forEach(ev=>$('dropPref').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.add('hot')}));
 $('dropPref').addEventListener('dragleave',e=>{e.preventDefault();$('dropPref').classList.remove('hot')});
 $('dropPref').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.remove('hot');$('drop').classList.remove('hot');
- const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto primero','bad');return}
+ const n=$('projSel').value,lbl=n||genLabel;
  const imgs=await imagesFromDT(e.dataTransfer);
  for(const im of imgs)await postRef(n,im.name,im.b64);
  await loadProjects();
- if(imgs.length)toast(imgs.length+(imgs.length>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+n+'"')});
+ if(imgs.length)toast(imgs.length+(imgs.length>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+lbl+'"')});
 $('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');if(!b)return;const n=$('projSel').value;
  await fetch('/projectrefdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,file:b.dataset.f})});await loadProjects()};
 
@@ -2102,7 +2122,7 @@ $('strip').onclick=e=>{const b=e.target.closest('.sth');if(b)showResult(+b.datas
 async function run(){
  const prompt=$('prompt').value.trim();if(!prompt){toast('Escribe el prompt','bad');$('prompt').focus();return}
  const proj=$('projSel').value,pdata=projects[proj];
- const useVisual=$('useVis').checked&&proj&&pdata&&pdata.refs.length>0;
+ const useVisual=$('useVis').checked&&pdata&&pdata.refs.length>0;
  if(mode==='editar'&&refs.length===0&&!useVisual){toast('Sube una imagen (o activa memoria visual)','bad');return}
  if(mask&&refs.length===0&&useVisual)toast('Ojo: la máscara se aplicará a la primera referencia del proyecto');
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
@@ -2514,7 +2534,7 @@ $('vidModelSel').onchange=()=>vidSetTab($('vidModelSel').value);
 $('vidUseMem').checked=localStorage.getItem('studio_vidmem')!=='0';
 $('vidUseMem').onchange=()=>localStorage.setItem('studio_vidmem',$('vidUseMem').checked?'1':'0');
 $('vidInsStyle').onclick=()=>{const n=$('projSel').value,p=projects[n];
- if(!n||!p){toast('Elige un proyecto con estilo guardado','bad');return}
+ if(!p){toast('Elige un proyecto con estilo guardado','bad');return}
  const st=((p.style_video||'').trim()||(p.style||'').trim());
  if(!st){toast('Este proyecto no tiene estilo guardado','bad');return}
  const ta=vidTab==='kl'?$('klPrompt'):$('sdPrompt');
@@ -3253,7 +3273,7 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/projectcards":
             glabel = (load_json(CONF_JSON, {}).get("general_label") or "General")
             cards = []
-            for n in [""] + list(load_projects().keys()):
+            for n in [""] + [k for k in load_projects().keys() if k]:
                 items = load_json(phist_json(n), [])
                 imgs = [it for it in items if it.get("kind") not in ("tts", "stt", "sfx", "vid") and it.get("file")]
                 cards.append({"name": n, "label": (glabel if n == "" else n), "count": len(imgs),
@@ -3324,7 +3344,7 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
-            fp = PROJ_DIR / safe(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
+            fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
         if urlparse(self.path).path == "/shelf":
@@ -3401,11 +3421,17 @@ class H(BaseHTTPRequestHandler):
     def h_project(self):
         b = self._body()
         name = (b.get("name") or "").strip()
-        if not name:
+        is_style_save = ("style" in b) or ("style_video" in b)
+        # crear exige nombre; guardar estilo del espacio General llega con name vacío y es válido
+        if not name and not is_style_save:
             return self._json({"error": "Falta el nombre del proyecto"})
+        key = proj_key(name)  # "general" para el espacio General
         with LOCK:
-            pr = load_projects()
-            cur = pr.get(name, {"style": "", "refs": []})
+            pr = load_json(PROJ_JSON, {})
+            cur = pr.get(key)
+            if not isinstance(cur, dict):
+                cur = {"style": cur if isinstance(cur, str) else "", "refs": []}
+            cur.setdefault("refs", [])
             if "style" in b:  # solo pisa el estilo si la petición lo trae (crear ≠ guardar)
                 cur["style"] = b["style"]
                 try:
@@ -3418,7 +3444,7 @@ class H(BaseHTTPRequestHandler):
                     (proj_folder(name) / "estilo-video.md").write_text(b["style_video"])
                 except Exception:
                     pass
-            pr[name] = cur
+            pr[key] = cur
             save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
 
@@ -3427,9 +3453,10 @@ class H(BaseHTTPRequestHandler):
         if not name:
             return self._json({"error": "Falta el nombre del proyecto"})
         with LOCK:
-            pr = load_projects()
-            if name in pr:
-                del pr[name]
+            pr = load_json(PROJ_JSON, {})
+            key = proj_key(name)
+            if key in pr:
+                del pr[key]
                 save_json(PROJ_JSON, pr)
         if is_general(name):
             # vaciar el espacio General: borra sus imágenes (historial + estante) y resetea sus índices
@@ -3467,7 +3494,7 @@ class H(BaseHTTPRequestHandler):
         if is_general(new):
             return self._json({"error": "Ese nombre está reservado."})
         with LOCK:
-            pr = load_projects()
+            pr = load_json(PROJ_JSON, {})
             if new in pr and new != old:
                 return self._json({"error": "Ya existe un proyecto con ese nombre."})
             oldf, newf = PROJ_DIR / safe(old), PROJ_DIR / safe(new)
@@ -3499,10 +3526,13 @@ class H(BaseHTTPRequestHandler):
             fn += ".png"
         (proj_folder(name) / fn).write_bytes(base64.b64decode(img["b64"]))
         with LOCK:
-            pr = load_projects()
-            cur = pr.get(name, {"style": "", "refs": []})
+            pr = load_json(PROJ_JSON, {})
+            key = proj_key(name)
+            cur = pr.get(key)
+            if not isinstance(cur, dict):
+                cur = {"style": cur if isinstance(cur, str) else "", "refs": []}
             cur.setdefault("refs", []).append(fn)
-            pr[name] = cur
+            pr[key] = cur
             save_json(PROJ_JSON, pr)
         return self._json({"ok": True, "file": fn})
 
@@ -3514,9 +3544,10 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             pass
         with LOCK:
-            pr = load_projects()
-            if b["project"] in pr:
-                pr[b["project"]]["refs"] = [x for x in pr[b["project"]].get("refs", []) if x != f]
+            pr = load_json(PROJ_JSON, {})
+            key = proj_key(b["project"])
+            if key in pr and isinstance(pr[key], dict):
+                pr[key]["refs"] = [x for x in pr[key].get("refs", []) if x != f]
                 save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
 
@@ -3769,9 +3800,10 @@ class H(BaseHTTPRequestHandler):
             filepart("image[]", img.get("name", "ref.png"), raw)
             nimg += 1
         via_visual = False
-        if b.get("use_project_refs") and b.get("project"):
-            for f in load_projects().get(b["project"], {}).get("refs", []):
-                fp = proj_folder(b["project"]) / f
+        if b.get("use_project_refs"):  # "" = espacio General, también válido
+            proj = b.get("project") or ""
+            for f in load_projects().get(proj, {}).get("refs", []):
+                fp = proj_folder(proj) / f
                 if fp.exists():
                     raw = fp.read_bytes()
                     total_bytes += len(raw)
@@ -4164,9 +4196,10 @@ class H(BaseHTTPRequestHandler):
         if model not in VIDEO_MODELS:
             return self._json({"error": "Modelo de video desconocido"})
         prompt = (b.get("prompt") or "").strip()
-        use_mem = bool(b.get("use_memory")) and (b.get("project") or "")
+        use_mem = bool(b.get("use_memory"))  # "" = espacio General, también válido
+        mproj = b.get("project") or ""
         if use_mem and not model.startswith("omnihuman"):
-            p = load_projects().get(b["project"], {})
+            p = load_projects().get(mproj, {})
             st = (p.get("style_video") or "").strip() or (p.get("style") or "").strip()
             if st and not prompt.startswith(st):
                 prompt = st + "\n\n" + prompt
@@ -4199,10 +4232,10 @@ class H(BaseHTTPRequestHandler):
             imgs = list(b.get("images") or [])
             if use_mem:
                 added = 0
-                for f in load_projects().get(b["project"], {}).get("refs", []):
+                for f in load_projects().get(mproj, {}).get("refs", []):
                     if len(imgs) >= 9:
                         break
-                    fp = PROJ_DIR / safe(b["project"]) / f
+                    fp = proj_folder(mproj) / f
                     if fp.is_file():
                         imgs.append({"name": f, "b64": base64.b64encode(fp.read_bytes()).decode()})
                         added += 1
