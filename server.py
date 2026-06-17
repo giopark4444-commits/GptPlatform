@@ -1070,8 +1070,6 @@ html,body{overflow-x:hidden}
       <div class="advbody">
         <div style="margin-bottom:12px"><label>Formato</label><select id="fmt"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
         <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
-        <div style="margin-top:12px"><label>Fidelidad de entrada · al editar / usar referencias</label><select id="inpFid"><option value="high" selected>Alta — conserva el original (caras, logos, detalle)</option><option value="low">Baja — más libertad creativa</option></select>
-        <p class="hint" style="margin-top:6px">Solo aplica cuando hay imágenes de referencia o editas. Alta = fiel al original (cuesta algo más); Baja = el modelo cambia más.</p></div>
         <div style="margin-top:12px"><label>Imágenes parciales · preview en vivo</label><select id="partImg"><option value="0" selected>Ninguna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
         <p class="hint" style="margin-top:6px">Muestra 1–3 vistas previas mientras la imagen se va generando (solo al generar 1 imagen). Cada parcial añade un pequeño costo de tokens.</p></div>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
@@ -2128,7 +2126,7 @@ async function run(){
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
  $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
-  output_format:$('fmt').value,moderation:$('mod').value,input_fidelity:$('inpFid').value,
+  output_format:$('fmt').value,moderation:$('mod').value,
   partial_images:+($('partImg').value||0),project:proj,
   save_desktop:$('saveDesk').checked};
  if($('fmt').value!=='png')body.output_compression=+$('comp').value;
@@ -3787,7 +3785,6 @@ class H(BaseHTTPRequestHandler):
         field("n", str(b.get("n", 1)))
         field("output_format", fmt)
         field("moderation", b.get("moderation", "low"))
-        field("input_fidelity", "low" if b.get("input_fidelity") == "low" else "high")
         if b.get("output_compression") is not None and fmt != "png":
             field("output_compression", str(b["output_compression"]))
         nimg = 0
@@ -4442,7 +4439,7 @@ class H(BaseHTTPRequestHandler):
         return self._json({"prompt": out})
 
     def h_upscale(self):
-        # upscale 2× con gpt-image-2 (edits, alta fidelidad) — usa tu clave de OpenAI, sin fal.ai
+        # upscale 2× con gpt-image-2 (edits) — usa tu clave de OpenAI, sin fal.ai
         b = self._body()
         if not key():
             return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
@@ -4474,7 +4471,6 @@ class H(BaseHTTPRequestHandler):
         field("n", "1")
         field("output_format", "png")
         field("moderation", "low")
-        field("input_fidelity", "high")
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="{safe_fn(f)}"\r\nContent-Type: {ct}\r\n\r\n'.encode() + raw0 + b"\r\n")
         parts.append(f"--{boundary}--\r\n".encode())
         try:
