@@ -83,6 +83,53 @@ def sniff_image(raw):
     return None
 
 
+def img_dims(raw):
+    """(w, h) de PNG/JPEG/WebP sin dependencias, o None si no se puede leer."""
+    try:
+        if raw[:8] == b"\x89PNG\r\n\x1a\n":
+            return tuple(struct.unpack(">II", raw[16:24]))
+        if raw[:3] == b"\xff\xd8\xff":  # JPEG: recorrer marcadores hasta el SOF
+            i, n = 2, len(raw)
+            while i + 9 < n:
+                if raw[i] != 0xFF:
+                    i += 1
+                    continue
+                m = raw[i + 1]
+                if m in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                    h, w = struct.unpack(">HH", raw[i + 5:i + 9])
+                    return (w, h)
+                if m == 0xD8 or m == 0xD9 or 0xD0 <= m <= 0xD7:
+                    i += 2
+                    continue
+                i += 2 + struct.unpack(">H", raw[i + 2:i + 4])[0]
+        if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+            fmt = raw[12:16]
+            if fmt == b"VP8 ":
+                return (struct.unpack("<H", raw[26:28])[0] & 0x3FFF, struct.unpack("<H", raw[28:30])[0] & 0x3FFF)
+            if fmt == b"VP8L":
+                b0, b1, b2, b3 = raw[21], raw[22], raw[23], raw[24]
+                return (1 + (((b1 & 0x3F) << 8) | b0), 1 + (((b3 & 0x0F) << 10) | (b2 << 2) | ((b1 & 0xC0) >> 6)))
+            if fmt == b"VP8X":
+                return (1 + (raw[24] | (raw[25] << 8) | (raw[26] << 16)), 1 + (raw[27] | (raw[28] << 8) | (raw[29] << 16)))
+    except Exception:
+        pass
+    return None
+
+
+def upscale_size(w, h, factor=2.0):
+    """Tamaño objetivo para gpt-image-2 (2× con el mismo aspecto, dentro de límites: ÷16, ≤3840, ≤8.29MP)."""
+    tw, th = w * factor, h * factor
+    m = max(tw, th)
+    if m > 3840:
+        tw, th = tw * 3840 / m, th * 3840 / m
+    snap = lambda v: max(512, int(round(v / 16)) * 16)
+    tw, th = snap(tw), snap(th)
+    if tw * th > 8294400:
+        s = (8294400 / (tw * th)) ** 0.5
+        tw, th = snap(tw * s), snap(th * s)
+    return f"{tw}x{th}"
+
+
 def key():
     return KEY_FILE.read_text().strip() if KEY_FILE.exists() else ""
 
@@ -476,6 +523,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .btnrow button:hover{color:var(--txt);border-color:var(--line2)}
 .btnrow button.arm{color:var(--bad);border-color:var(--bad);background:rgba(229,115,115,.1)}
 #style{min-height:74px;font-size:12px}
+#prompt{min-height:195px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
 .gal{display:grid;grid-template-columns:1fr;gap:8px}
 .gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s}
@@ -1255,7 +1303,7 @@ html,body{overflow-x:hidden}
   <!-- DERECHA -->
   <div class="col an">
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Proyecto · memoria</h3>
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Memoria</h3>
       <select id="projSel"></select>
       <div class="btnrow">
         <button id="newProj"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 5v14M5 12h14"/></svg>Nuevo</button>
@@ -2610,12 +2658,16 @@ shEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();sh
  const imgs=await imagesFromDT(e.dataTransfer);   // historial o resultado → estante
  if(imgs.length)await shelfAddImages(imgs);});
 // carpeta de guardado configurable
-$('shelfDirEdit').onclick=()=>{const r=$('shelfDirRow');r.classList.toggle('hide');if(!r.classList.contains('hide'))$('shelfDirIn').focus();};
-$('shelfDirSave').onclick=async()=>{
- const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:$('shelfDirIn').value})})).json();
+async function saveShelfDir(p){if(!p)return;
+ const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:p})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.shelf_effective)$('shelfDirLbl').textContent=r.shelf_effective;
- $('shelfDirRow').classList.add('hide');toast('El estante se guardará en '+(r.shelf_effective||'tu carpeta'));};
+ $('shelfDirRow').classList.add('hide');toast('El estante se guardará en '+(r.shelf_effective||'tu carpeta'));loadShelf();}
+$('shelfDirEdit').onclick=async()=>{toast('Abriendo selector de carpeta…');
+ try{const r=await(await fetch('/pickfolder')).json();
+  if(r.path)saveShelfDir(r.path);else if(r.error)toast(r.error,'bad');
+ }catch(e){toast(String(e),'bad')}};
+$('shelfDirSave').onclick=()=>saveShelfDir($('shelfDirIn').value);
 $('shelfDirIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shelfDirSave').click();}});
 // ===== marcado de validez de presets para gpt-image-2 =====
 const NATIVE_SIZES=new Set(['1024x1024','1536x1024','1024x1536']);
@@ -2684,6 +2736,10 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:baseline;gap:14p
 h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .count{font-size:13px;color:#8a8170}
 .hint{margin-left:auto;font-size:12px;color:#8a8170}
+.favtog{margin-left:14px;font-size:12.5px;color:#8a8170;text-decoration:none;border:1px solid #e3dccb;border-radius:9px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.favtog:hover{border-color:#cfc4ac;color:#2a2620}
+.favtog.on{color:#e6b35c;border-color:#e6b35c;background:rgba(230,179,92,.1)}
+.favtog svg{width:14px;height:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -2768,6 +2824,12 @@ def gallery_html(src, fav=False):
                      '<img src="' + u + '" loading="lazy" alt="">'
                      '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
     grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
+    if is_shelf:
+        favlink = ""
+    elif fav:
+        favlink = '<a class="favtog on" href="/galeria" title="Ver todas las imágenes">' + GST + 'Todas</a>'
+    else:
+        favlink = '<a class="favtog" href="/galeria?fav=1" title="Ver solo las favoritas">' + GST + 'Solo favoritas</a>'
     js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
           "var BASE=(SRC==='shelf')?'/shelffile?name=':'/file?name=';"
           "const tEl=document.getElementById('gtoast');"
@@ -2800,7 +2862,7 @@ def gallery_html(src, fav=False):
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
             '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
-            '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span></header>'
+            '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink + '</header>'
             '<main class="grid">' + grid + '</main>'
             '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
             '<img id="glbImg" alt="">'
@@ -3908,51 +3970,56 @@ class H(BaseHTTPRequestHandler):
         return self._json({"prompt": out})
 
     def h_upscale(self):
+        # upscale 2× con gpt-image-2 (edits, alta fidelidad) — usa tu clave de OpenAI, sin fal.ai
         b = self._body()
-        if not fal_key():
-            return self._json({"error": "El upscaler usa fal.ai: conecta tu clave en la sección Video."})
+        if not key():
+            return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
         f = os.path.basename(b.get("file", ""))
         fp = HIST_DIR / f
         if not fp.is_file():
             return self._json({"error": "No encuentro esa imagen."})
-        mime = MIME.get(fp.suffix.lstrip(".").lower(), "image/png").split(";")[0]
-        payload = {"image_url": f"data:{mime};base64," + base64.b64encode(fp.read_bytes()).decode(),
-                   "upscale_factor": float(b.get("factor", 2)),
-                   "creativity": float(b.get("creativity", 0.35)),
-                   "resemblance": float(b.get("resemblance", 0.6))}
-        mid = "fal-ai/clarity-upscaler"
-        try:
-            with self._fal_req(f"{FAL_QUEUE}/{mid}", payload, timeout=120) as r:
-                rid = json.loads(r.read()).get("request_id")
-            res = None
-            for _ in range(90):  # hasta ~3 min
-                time.sleep(2)
-                with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}/status") as r:
-                    st = json.loads(r.read()).get("status", "")
-                if st == "COMPLETED":
-                    with self._fal_req(f"{FAL_QUEUE}/{mid}/requests/{rid}") as r:
-                        res = json.loads(r.read())
-                    break
-                if st not in ("IN_QUEUE", "IN_PROGRESS"):
-                    return self._json({"error": f"El upscale terminó con estado {st}"})
-            if not res:
-                return self._json({"error": "El upscale tardó demasiado; inténtalo de nuevo."})
-            img = res.get("image") or {}
-            with urllib.request.urlopen(img.get("url", ""), timeout=300) as vr:
-                raw = vr.read()
-        except urllib.error.HTTPError as e:
-            return self._json({"error": self._fal_err(e)})
-        except urllib.error.URLError as e:
-            return self._json({"error": f"Sin conexión con fal.ai: {e.reason}"})
-        ext = "png" if "png" in (img.get("content_type") or "image/png") else "jpeg"
+        raw0 = fp.read_bytes()
+        if not sniff_image(raw0):
+            return self._json({"error": "La imagen no es PNG/JPEG/WebP."})
+        dims = img_dims(raw0)
+        size = upscale_size(dims[0], dims[1], float(b.get("factor", 2))) if dims else "1536x1024"
         orig = next((x for x in load_json(HIST_JSON, []) if x.get("file") == f), {})
-        size = f"{img.get('width','?')}x{img.get('height','?')}"
-        name = self._save_audio(raw, "img", ext,
-            {"kind": "", "prompt": "[mejorada 2×] " + (orig.get("prompt") or ""), "size": size,
-             "quality": orig.get("quality", ""), "mode": "upscale", "cost": 0, "output_tokens": 0,
-             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": orig.get("project", "")},
-            b.get("save_desktop", True))
-        return self._json({"file": name, "size": size})
+        ct = MIME.get(sniff_image(raw0), "image/png").split(";")[0]
+        prompt = ("Upscale this exact image to a higher resolution. Increase sharpness and recover fine "
+                  "detail and texture, and reduce noise and compression artifacts. Keep the content, "
+                  "composition, colors, framing and style identical — do not add, remove or alter anything.")
+        boundary = "----studio" + uuid.uuid4().hex
+        parts = []
+
+        def field(n, v):
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode())
+
+        field("model", "gpt-image-2")
+        field("prompt", prompt)
+        field("size", size)
+        field("quality", "high")
+        field("n", "1")
+        field("output_format", "png")
+        field("moderation", "low")
+        field("input_fidelity", "high")
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="{safe_fn(f)}"\r\nContent-Type: {ct}\r\n\r\n'.encode() + raw0 + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        try:
+            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts),
+                    headers={"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}), timeout=300) as r:
+                data = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        meta = {"prompt": "[mejorada 2×] " + (orig.get("prompt") or ""), "size": size,
+                "quality": "high", "mode": "upscale", "output_format": "png",
+                "project": orig.get("project", ""), "save_desktop": b.get("save_desktop", True)}
+        res = self._save_results(data, meta, model_used="gpt-image-2")
+        imgs = res.get("images", [])
+        if not imgs:
+            return self._json({"error": "El upscale no devolvió imagen."})
+        return self._json({"file": imgs[0]["file"], "size": size, "cost": res.get("cost", 0)})
 
     def _fal_wait(self, mid, payload, tries=150):
         """Envía a la cola de fal y espera el resultado (para trabajos de 30s-5min)."""
