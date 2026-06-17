@@ -478,7 +478,7 @@ input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
  padding:14px;color:var(--mut);font-size:12.5px;cursor:pointer;background:var(--surface);transition:.16s;text-align:center}
 .drop:hover,.drop.hot{border-color:var(--accent);color:var(--txt);background:var(--surface2)}
 .thumbs{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
-.thumb{position:relative;width:54px;height:54px;border-radius:9px;overflow:hidden;border:1px solid var(--line2)}
+.thumb{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1px solid var(--line2)}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .thumb .x{position:absolute;top:2px;right:2px;width:17px;height:17px;border:0;border-radius:5px;background:rgba(0,0,0,.6);
  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -532,9 +532,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .empty svg{width:30px;height:30px;stroke-width:1.3;opacity:.6}
 .empty .kbdhint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint)}
 .empty .errmsg{color:var(--bad);line-height:1.5;max-width:380px;overflow-wrap:anywhere}
-.retry{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line2);color:var(--txt);
- border-radius:9px;padding:8px 16px;font-size:12.5px;cursor:pointer;transition:.15s}
-.retry:hover{border-color:var(--mut)}
+.retry{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line2);color:var(--txt);
+ border-radius:13px;padding:17px 36px;font-size:17px;font-weight:500;cursor:pointer;transition:.15s;margin-top:6px}
+.retry:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.retry svg{width:19px;height:19px}
 .spin{width:34px;height:34px;border:2.5px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 /* estante de imágenes propias (local) */
 .shelf{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
@@ -2022,7 +2023,7 @@ function showState(s){$('emptyState').classList.toggle('hide',s!=='empty');$('sp
  $('resultImg').classList.toggle('hide',s!=='result');$('floaters').classList.toggle('hide',s!=='result')}
 function err(m){let msg=typeof m==='string'?m:(m&&m.message)||'Error inesperado';
  $('emptyState').innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>'
-  +'<div class="errmsg">'+esc(msg)+'</div><button class="retry" id="retryBtn">Reintentar</button>';
+  +'<div class="errmsg">'+esc(msg)+'</div><button class="retry" id="retryBtn"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reintentar</button>';
  showState('empty');$('retryBtn').onclick=run}
 function fnFor(i){const base=((lastResult&&lastResult.prompt)||'imagen').slice(0,24).replace(/\s+/g,'_')||'imagen';
  return base+(results.length>1?'_'+(i+1):'')+'.'+(lastResult?lastResult.fmt:'png')}
