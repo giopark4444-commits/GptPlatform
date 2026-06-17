@@ -871,7 +871,7 @@ html,body{overflow-x:hidden}
   <div class="kmsg" id="bakState"></div>
   <button class="primary" id="bakSync" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span id="bakSyncTxt">Sincronizar ahora</span></button>
   <button class="ghost" id="bakZip" style="width:100%;justify-content:center;padding:11px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip</button>
-  <p class="hint" style="margin-top:12px">El zip incluye historial, proyectos, estilos y configuración. Las claves API no se incluyen (se conectan una vez por equipo). En otro Mac: clona el repo y usa "Sincronizar iCloud.command" o restaura el zip en <span class="mono">~/image-studio</span>.</p>
+  <p class="hint" style="margin-top:12px">El zip incluye <b>todo</b>: el historial y «Mis imágenes» de General y de <b>cada proyecto</b> (con las imágenes reales), estilos/memoria y configuración. Las claves API no se incluyen (se conectan una vez por equipo). En otro Mac: restaura el zip en <span class="mono">~/image-studio</span> o usa "Sincronizar".</p>
 </div></div>
 
 <div class="overlay hide" id="maskModal"><div class="maskbox">
