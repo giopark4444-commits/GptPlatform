@@ -561,10 +561,13 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .modal h2{margin:0 0 7px;font-size:19px;font-weight:600}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
 .setmodal{max-width:520px}
-.setsec{margin-top:20px}
-.setlabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;font-weight:600}
-.setsublabel{font-size:11px;color:var(--mut);margin:12px 0 8px;font-weight:500}
+.setsec{margin-top:22px}
+.setlabel{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:12px;font-weight:600}
+.setsublabel{font-size:12.5px;color:var(--mut);margin:12px 0 8px;font-weight:500}
 .setsublabel:first-of-type{margin-top:2px}
+.setfolder{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.setfolder:first-of-type{border-top:0;padding-top:2px}
+.setpath{font-size:12.5px;color:var(--txt);word-break:break-all;margin-top:3px}
 .langseg{display:flex;gap:6px}
 .langseg button{flex:1;padding:9px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);color:var(--mut);cursor:pointer;font-size:13px;font-family:var(--ui);transition:.15s}
 .langseg button:hover{color:var(--txt);border-color:var(--line2)}
@@ -755,6 +758,18 @@ html,body{overflow-x:hidden}
       <button class="swatch" data-theme="bruma" style="--s-bg:#eef1f6;--s-ac:#4654c7"><span></span>Bruma</button>
       <button class="swatch" data-theme="crema" style="--s-bg:#f4efe3;--s-ac:#1f6b54"><span></span>Crema</button>
     </div>
+  </div>
+  <div class="setsec">
+    <div class="setlabel">Carpetas</div>
+    <div class="setfolder">
+      <div><div class="setsublabel" style="margin-top:0">Imágenes generadas (copia del historial)</div><div class="mono setpath" id="setGenPath">…</div></div>
+      <button class="ghost" id="setGenPick" style="flex:none"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Cambiar…</button>
+    </div>
+    <div class="setfolder">
+      <div><div class="setsublabel" style="margin-top:0">Mis imágenes (siempre a la mano)</div><div class="mono setpath" id="setShelfPath">…</div></div>
+      <button class="ghost" id="setShelfPick" style="flex:none"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Cambiar…</button>
+    </div>
+    <p class="hint" style="margin-top:10px">El historial siempre se guarda dentro de la app; aquí eliges una carpeta extra donde copiar las imágenes que generes, y dónde viven «Mis imágenes».</p>
   </div>
 </div></div>
 
@@ -2706,7 +2721,23 @@ function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);docu
  _i18nTxt.forEach(o=>{const k=o.orig.trim();o.node.nodeValue=lang==='es'?o.orig:o.orig.replace(k,()=>trVal(k,lang));});
  _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
  document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
-$('setBtn').onclick=()=>$('setModal').classList.remove('hide');
+async function refreshSetFolders(){
+ try{$('setGenPath').textContent=cfgEffective||'(por defecto)';}catch(e){}
+ try{const s=await(await fetch('/shelf')).json();$('setShelfPath').textContent=s.dir||'(por defecto)';}catch(e){}}
+$('setBtn').onclick=()=>{$('setModal').classList.remove('hide');refreshSetFolders();};
+$('setGenPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
+ try{const r=await(await fetch('/pickfolder')).json();
+  if(r.path){const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:r.path})})).json();
+   if(c.error){toast(c.error,'bad');return;}
+   cfgEffective=c.effective||cfgEffective;$('saveDir').value=r.path;if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}renderSaveWhere();$('setGenPath').textContent=cfgEffective;
+   toast('Las imágenes generadas se copiarán en '+cfgEffective);}
+  else if(r.error)toast(r.error,'bad');
+ }catch(e){toast(String(e),'bad')}};
+$('setShelfPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
+ try{const r=await(await fetch('/pickfolder')).json();
+  if(r.path){await saveShelfDir(r.path);$('setShelfPath').textContent=$('shelfDirLbl').textContent;}
+  else if(r.error)toast(r.error,'bad');
+ }catch(e){toast(String(e),'bad')}};
 $('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme,true);};
 $('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
 buildMinis();validate();loadProjects();loadGal();loadConfig();checkKey();setProv(prov);loadShelf();markValidChips();
