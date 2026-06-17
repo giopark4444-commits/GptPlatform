@@ -410,10 +410,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lightbox{position:fixed;inset:0;background:rgba(5,5,6,.93);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:var(--z-lightbox);cursor:zoom-out;padding:30px 30px 90px}
 .lightbox img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
 .lightbox .mclose{position:fixed;top:18px;right:18px;width:36px;height:36px;background:rgba(16,16,18,.85);backdrop-filter:blur(8px)}
-.lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;
- background:rgba(16,16,18,.9);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
- padding:9px 12px;max-width:min(760px,92vw);cursor:default}
-.lbprompt{font-size:12px;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px}
+.lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;
+ background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
+ padding:12px 14px;max-width:min(760px,92vw);cursor:default}
+.lbprompt{font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.85);white-space:pre-wrap;word-break:break-word;max-height:26vh;overflow-y:auto}
+.lbbtns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .lbbar button,.lbbar a{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line2);
  color:var(--txt);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;flex:none}
 .lbbar button:hover,.lbbar a:hover{border-color:var(--mut)}
@@ -641,8 +642,9 @@ html,body{overflow-x:hidden}
  .edbody{flex-direction:column}
  .pinlist{width:100%;max-height:180px}
  .masktools input[type=range]{width:70px}
- .lbprompt{max-width:38vw}
- .lbbar{flex-wrap:wrap;justify-content:center;max-width:94vw}
+ .lbprompt{max-width:none;max-height:30vh}
+ .lbbar{max-width:94vw}
+ .lbbtns{justify-content:center}
  .resbar{flex-wrap:wrap;gap:8px}
  .resbar .acts{margin-left:0}
 }
@@ -1308,9 +1310,11 @@ html,body{overflow-x:hidden}
   <img id="lbImg" src="" alt="Vista completa">
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
+    <div class="lbbtns">
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
     <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
+    </div>
   </div>
 </div>
 <script>
@@ -2697,8 +2701,23 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tile:hover .cap{opacity:1}
 .empty{padding:64px 26px;color:#8a8170;font-size:14px}
+.glb{position:fixed;inset:0;background:rgba(5,5,6,.94);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:80;padding:30px 30px 100px;cursor:zoom-out}
+.glb.show{display:flex}
+.glb>img{max-width:94vw;max-height:84vh;border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
+.glbx{position:fixed;top:18px;right:18px;width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.2);
+ background:rgba(16,16,18,.85);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.glbx svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round}
+.glbbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;cursor:default;
+ background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px 14px;max-width:min(760px,92vw)}
+.glbp{font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.85);white-space:pre-wrap;word-break:break-word;max-height:24vh;overflow-y:auto}
+.glbp:empty{display:none}
+.glbbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.gbtn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;
+ border-radius:8px;padding:8px 12px;font-size:12.5px;cursor:pointer;text-decoration:none}
+.gbtn:hover{background:rgba(255,255,255,.16)}
+.gbtn svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .gtoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);background:#2a2620;color:#fff;
- padding:10px 18px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+ padding:10px 18px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:95;box-shadow:0 8px 30px rgba(0,0,0,.25)}
 .gtoast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media(prefers-color-scheme:dark){
  body{background:#14110c;color:#ece6d8}
@@ -2742,7 +2761,7 @@ def gallery_html(src, fav=False):
         if not is_shelf:
             btns.append('<button class="gb star' + (' on' if favon else '') + '" data-act="fav" title="Favorita">' + GST + '</button>')
         btns.append('<a class="gb" href="' + u + '" download="' + fa + '" title="Descargar">' + GDL + '</a>')
-        btns.append('<a class="gb" href="' + u + '" target="_blank" rel="noopener" title="Abrir en grande">' + GOP + '</a>')
+        btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
         tiles.append('<figure class="tile" data-file="' + fa + '" data-fav="' + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
@@ -2750,24 +2769,47 @@ def gallery_html(src, fav=False):
                      '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
     grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
     js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
+          "var BASE=(SRC==='shelf')?'/shelffile?name=':'/file?name=';"
           "const tEl=document.getElementById('gtoast');"
           "function gt(m){tEl.textContent=m;tEl.classList.add('show');clearTimeout(tEl._t);tEl._t=setTimeout(function(){tEl.classList.remove('show')},1800);}"
+          "async function stageRef(file){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
+          "async function copyP(p){try{await navigator.clipboard.writeText(p||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
+          "var glb=document.getElementById('glb'),glbImg=document.getElementById('glbImg'),glbP=document.getElementById('glbP'),glbDl=document.getElementById('glbDl'),glbCopy=document.getElementById('glbCopy');"
+          "var curFile='',curPrompt='';"
+          "function openLb(file,prompt){curFile=file;curPrompt=prompt||'';var u=BASE+encodeURIComponent(file);"
+          "glbImg.src=u;glbP.textContent=curPrompt;glbDl.href=u;glbDl.setAttribute('download',file);glbCopy.style.display=curPrompt?'':'none';glb.classList.add('show');}"
+          "function closeLb(){glb.classList.remove('show');glbImg.src='';}"
           "var g=document.querySelector('.grid');"
           "if(g)g.addEventListener('click',async function(e){"
-          "var b=e.target.closest('[data-act]');if(!b)return;e.preventDefault();"
-          "var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
-          "if(act==='ref'){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
-          "else if(act==='prompt'){try{await navigator.clipboard.writeText(tile.dataset.prompt||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
+          "var b=e.target.closest('[data-act]');"
+          "if(b){e.preventDefault();var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
+          "if(act==='ref'){stageRef(file);}"
+          "else if(act==='open'){openLb(file,tile.dataset.prompt);}"
+          "else if(act==='prompt'){copyP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on})});}catch(x){}"
-          "gt(on?'Marcada como favorita':'Quitada de favoritas');}"
-          "});")
+          "gt(on?'Marcada como favorita':'Quitada de favoritas');}return;}"
+          "if(e.target.closest('a'))return;"
+          "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt);"
+          "});"
+          "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
+          "document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});"
+          "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
+          "glbCopy.onclick=function(){copyP(curPrompt);};")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
             '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span></header>'
-            '<main class="grid">' + grid + '</main><div class="gtoast" id="gtoast"></div>'
+            '<main class="grid">' + grid + '</main>'
+            '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
+            '<img id="glbImg" alt="">'
+            '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
+            '<button class="gbtn" id="glbRef">' + GPL + 'Usar como referencia</button>'
+            '<button class="gbtn" id="glbCopy">' + GCP + 'Copiar prompt</button>'
+            '<a class="gbtn" id="glbDl" download>' + GDL + 'Descargar</a>'
+            '</div></div></div>'
+            '<div class="gtoast" id="gtoast"></div>'
             '<script>' + js + '</script></body></html>')
 
 
