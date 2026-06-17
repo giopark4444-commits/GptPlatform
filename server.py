@@ -365,9 +365,38 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
  position:sticky;top:0;z-index:var(--z-sticky);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
 .projbar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;z-index:1}
-.projbar svg{flex:none}
-.projbar select{width:auto;min-width:150px;max-width:240px;margin:0;padding:8px 30px 8px 11px;font-size:13px}
-.projbar .ghost{padding:8px 12px;font-size:12.5px;white-space:nowrap;flex:none}
+.projbtn{display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--line);color:var(--txt);
+ border-radius:11px;padding:8px 14px;font-size:13.5px;font-weight:500;cursor:pointer;transition:.16s;font-family:var(--ui);max-width:300px}
+.projbtn:hover{border-color:var(--accent);background:var(--elev)}
+.projbtn svg{width:15px;height:15px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
+.projbtn .chev{width:13px;height:13px;margin-left:2px}
+.projbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* modal de proyectos */
+.projmodal{max-width:780px}
+.modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
+.projgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;max-height:60vh;overflow-y:auto;padding:2px}
+.projcard{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
+ cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
+.projcard:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.22);border-color:var(--mut)}
+.projcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.projcard .cov{position:absolute;inset:0;background-size:cover;background-position:center}
+.projcard .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;
+ color:color-mix(in srgb,var(--accent) 70%,var(--mut));background:linear-gradient(145deg,var(--elev),var(--surface))}
+.projcard .meta{position:absolute;inset:auto 0 0 0;padding:30px 12px 11px;color:#fff;
+ background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.25),transparent)}
+.projcard .pname{font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projcard .pcount{font-size:11px;opacity:.82;margin-top:2px}
+.projcard .badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+ background:var(--accent);color:#1a1206;border-radius:6px;padding:3px 7px}
+.projcard .pdel{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.25);
+ background:rgba(12,12,14,.7);color:#fff;display:none;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px)}
+.projcard:hover .pdel{display:flex}
+.projcard .pdel svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:1.9}
+.projcard .pdel.arm{background:var(--bad);border-color:var(--bad)}
+.projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.projnewrow>svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
+.projnewrow input{flex:1;margin:0}
+.projnewrow .primary{flex:none;white-space:nowrap}
 .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),color-mix(in srgb,var(--accent) 65%,#000));
  display:flex;align-items:center;justify-content:center;color:#1a1206}
 .brand .dot svg{width:13px;height:13px;stroke-width:2}
@@ -884,12 +913,27 @@ html,body{overflow-x:hidden}
   </div>
 </div></div>
 
+<div class="overlay hide" id="projModal"><div class="modal projmodal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <h2>Proyectos</h2>
+  <p class="modsub">Cada proyecto guarda su propia memoria, su historial y sus «Mis imágenes». Elige uno para trabajar en él.</p>
+  <div class="projgrid" id="projGrid"></div>
+  <div class="projnewrow">
+    <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    <input type="text" id="projNewName" placeholder="Nombre del proyecto nuevo…" spellcheck="false" maxlength="60">
+    <button class="primary" id="projCreate"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Crear</button>
+  </div>
+</div></div>
+
 <div class="top">
   <div class="brand"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg></span>Studio</div>
   <div class="projbar">
-    <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--mut)"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-    <select id="projSel" title="Proyecto activo (su propia memoria, historial y Mis imágenes)"></select>
-    <button class="ghost" id="newProj" title="Crear proyecto nuevo"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Nuevo</button>
+    <button class="projbtn" id="projBtn" title="Proyectos — cada uno con su memoria, historial y Mis imágenes">
+      <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span id="projBtnLbl">General</span>
+      <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <select id="projSel" class="hide"></select>
   </div>
   <div class="seg">
     <button id="mImagen" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Imagen<kbd>1</kbd></button>
@@ -1791,6 +1835,7 @@ function stashStyle(){const n=$('projSel').value;if(!n||!projects[n])return;
  projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
 function renderProj(){const n=$('projSel').value,p=projects[n];
  {const l=$('memProjLbl');if(l)l.textContent=n||'General';}
+ {const b=$('projBtnLbl');if(b)b.textContent=n||'General';}
  $('style').value=p?(styleTab==='img'?(p.style||''):(p.style_video||'')):'';
  $('style').placeholder=styleTab==='img'?'Estilo: técnica, paleta, luz, mood…':'Estilo de video: cámara, movimiento, ritmo, grading…';
  $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt=""><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
@@ -1801,18 +1846,43 @@ $('style').addEventListener('input',stashStyle);
 $('projSel').onchange=()=>switchProject();
 $('useVis').checked=localStorage.getItem('studio_usevis')!=='0';
 $('useVis').onchange=()=>localStorage.setItem('studio_usevis',$('useVis').checked?'1':'0');
-$('newProj').onclick=async()=>{const n=(prompt('Nombre del proyecto nuevo:')||'').trim();if(!n)return;
- if(projects[n]){$('projSel').value=n;await switchProject();toast('El proyecto "'+n+'" ya existía · seleccionado');return}
+// crear / borrar proyecto — reutilizable (modal o panel)
+async function createProject(n){n=(n||'').trim();if(!n)return false;
+ if(projects[n]){$('projSel').value=n;await switchProject();toast('El proyecto "'+n+'" ya existía · seleccionado');return true}
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
- await loadProjects();$('projSel').value=n;await switchProject();toast('Proyecto "'+n+'" creado · su historial y Mis imágenes empiezan vacíos')};
-$('delProj').onclick=async()=>{const n=$('projSel').value;
+ await loadProjects();$('projSel').value=n;await switchProject();toast('Proyecto "'+n+'" creado · empieza vacío');return true}
+async function deleteProject(n){if(!n)return;
+ await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
+ if($('projSel').value===n)$('projSel').value='';
+ await loadProjects();await switchProject();toast('Proyecto "'+n+'" borrado por completo')}
+$('delProj').onclick=()=>{const n=$('projSel').value;
  if(!n){toast('No puedes borrar "General"','bad');return}
  if(!$('delProj').classList.contains('arm')){
   $('delProj').classList.add('arm');toast('Clic otra vez para borrar "'+n+'" con TODO su historial y Mis imágenes','bad');
   setTimeout(()=>$('delProj').classList.remove('arm'),2800);return}
- $('delProj').classList.remove('arm');
- await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
- $('projSel').value='';await loadProjects();$('projSel').value='';await switchProject();toast('Proyecto "'+n+'" borrado por completo')};
+ $('delProj').classList.remove('arm');deleteProject(n)};
+// ===== ventana (modal) de proyectos =====
+async function openProjModal(){
+ try{const r=await(await fetch('/projectcards')).json();renderProjCards(r.cards||[]);}
+ catch(e){$('projGrid').innerHTML='<div class="hint">No pude cargar los proyectos</div>';}
+ $('projNewName').value='';$('projModal').classList.remove('hide');setTimeout(()=>$('projNewName').focus(),60);}
+function renderProjCards(cards){const cur=$('projSel').value;
+ $('projGrid').innerHTML=cards.map(c=>{const active=c.name===cur;
+  const cov=c.cover?`<div class="cov" style="background-image:url('/file?name=${encodeURIComponent(c.cover)}&project=${encodeURIComponent(c.name)}')"></div>`
+   :`<div class="ph">${esc((c.label||'?').slice(0,1).toUpperCase())}</div>`;
+  const del=c.name?`<button class="pdel" data-del="${esc(c.name)}" title="Borrar proyecto">${GTR}</button>`:'';
+  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}${active?'<span class="badge">Activo</span>':''}${del}<div class="meta"><div class="pname">${esc(c.label)}</div><div class="pcount">${c.count} ${c.count===1?'imagen':'imágenes'}</div></div></div>`}).join('');}
+$('projBtn').onclick=openProjModal;
+$('projModal').onclick=e=>{if(e.target===$('projModal'))$('projModal').classList.add('hide')};
+$('projCreate').onclick=async()=>{const ok=await createProject($('projNewName').value);if(ok)$('projModal').classList.add('hide')};
+$('projNewName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('projCreate').click()}});
+$('projGrid').onclick=async e=>{const del=e.target.closest('.pdel');
+ if(del){e.stopPropagation();
+  if(!del.classList.contains('arm')){[...$('projGrid').querySelectorAll('.pdel.arm')].forEach(x=>x.classList.remove('arm'));
+   del.classList.add('arm');del.title='Clic otra vez para borrar definitivamente';return}
+  await deleteProject(del.dataset.del);openProjModal();return}
+ const card=e.target.closest('.projcard');if(!card)return;
+ $('projSel').value=card.dataset.name;await switchProject();$('projModal').classList.add('hide')};
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
@@ -2659,6 +2729,7 @@ document.addEventListener('keydown',e=>{
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
   if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
   if(!$('setModal').classList.contains('hide')){$('setModal').classList.add('hide');return}
+  if(!$('projModal').classList.contains('hide')){$('projModal').classList.add('hide');return}
   if(!$('bakModal').classList.contains('hide')){$('bakModal').classList.add('hide');return}}
  const tag=document.activeElement.tagName;
  if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT')return;
@@ -3026,11 +3097,11 @@ class H(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n) or b"{}")
 
     def _proj(self, b=None):
-        # proyecto de la petición: body.project → query ?project= → proyecto activo del estudio
+        # proyecto de la petición: body.project → query ?project= (incl. vacío=General) → proyecto activo
         if b is not None and "project" in b:
             return b.get("project") or ""
-        q = parse_qs(urlparse(self.path).query).get("project")
-        return q[0] if q else ACTIVE_PROJ
+        q = parse_qs(urlparse(self.path).query, keep_blank_values=True).get("project")
+        return q[0] if q is not None else ACTIVE_PROJ
 
     def do_GET(self):
         if not self._guard():
@@ -3050,6 +3121,14 @@ class H(BaseHTTPRequestHandler):
             return self._json(load_json(phist_json(self._proj()), []))
         if self.path == "/projects":
             return self._json(load_projects())
+        if self.path == "/projectcards":
+            cards = []
+            for n in [""] + list(load_projects().keys()):
+                items = load_json(phist_json(n), [])
+                imgs = [it for it in items if it.get("kind") not in ("tts", "stt", "sfx", "vid") and it.get("file")]
+                cards.append({"name": n, "label": n or "General", "count": len(imgs),
+                              "cover": imgs[0]["file"] if imgs else ""})
+            return self._json({"cards": cards})
         if self.path == "/config":
             conf = load_json(CONF_JSON, {})
             return self._json({"save_dir": conf.get("save_dir", ""),
