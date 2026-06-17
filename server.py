@@ -271,15 +271,28 @@ def validate_key(k):
         return False
 
 
-def save_dir():
-    raw = load_json(CONF_JSON, {}).get("save_dir") or ""
+def proj_key(proj):
+    return (proj or "").strip() or "general"
+
+
+def save_dir(proj=None):
+    # carpeta EXTERNA de copias del historial — por proyecto (con fallback al global legado)
+    if proj is None:
+        proj = ACTIVE_PROJ
+    conf = load_json(CONF_JSON, {})
+    raw = (conf.get("save_dirs") or {}).get(proj_key(proj), "") or conf.get("save_dir") or ""
     return Path(os.path.expanduser(raw)) if raw else HOME / "Desktop"
 
 
-def shelf_dir():
-    # carpeta donde el usuario quiere las imágenes del estante; por defecto, la interna
-    raw = load_json(CONF_JSON, {}).get("shelf_dir") or ""
-    return Path(os.path.expanduser(raw)) if raw else SHELF_DIR
+def shelf_dir(proj=None):
+    # carpeta EXTERNA de las "Mis imágenes" del proyecto; por defecto, la interna del proyecto
+    if proj is None:
+        proj = ACTIVE_PROJ
+    conf = load_json(CONF_JSON, {})
+    raw = (conf.get("shelf_dirs") or {}).get(proj_key(proj), "")
+    if not raw and is_general(proj):
+        raw = conf.get("shelf_dir") or ""   # global legado (solo General)
+    return Path(os.path.expanduser(raw)) if raw else pshelf_dir(proj)
 
 
 def icloud_dir():
@@ -847,7 +860,7 @@ html,body{overflow-x:hidden}
     <button class="ghost" id="fsReset" style="margin-top:2px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Restablecer</button>
   </div>
   <div class="setsec">
-    <div class="setlabel">Carpetas</div>
+    <div class="setlabel">Carpetas · proyecto «<span id="setFolderProj" style="text-transform:none">General</span>»</div>
     <div class="setfolder">
       <div><div class="setsublabel" style="margin-top:0">Imágenes generadas (copia del historial)</div><div class="mono setpath" id="setGenPath">…</div></div>
       <button class="ghost" id="setGenPick" style="flex:none"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Cambiar…</button>
@@ -856,7 +869,7 @@ html,body{overflow-x:hidden}
       <div><div class="setsublabel" style="margin-top:0">Mis imágenes (siempre a la mano)</div><div class="mono setpath" id="setShelfPath">…</div></div>
       <button class="ghost" id="setShelfPick" style="flex:none"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Cambiar…</button>
     </div>
-    <p class="hint" style="margin-top:10px">El historial siempre se guarda dentro de la app; aquí eliges una carpeta extra donde copiar las imágenes que generes, y dónde viven «Mis imágenes».</p>
+    <p class="hint" style="margin-top:10px">Estas carpetas son <b>de este proyecto</b> (cambia de proyecto en la barra superior para configurar otro). Así cada proyecto guarda sus archivos por separado y no se mezclan. El historial siempre se guarda también dentro de la app.</p>
   </div>
 </div></div>
 
@@ -2844,10 +2857,10 @@ shEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();sh
  if(imgs.length)await shelfAddImages(imgs);});
 // carpeta de guardado configurable
 async function saveShelfDir(p){if(!p)return;
- const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:p})})).json();
+ const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:p,project:curProj()})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.shelf_effective)$('shelfDirLbl').textContent=r.shelf_effective;
- $('shelfDirRow').classList.add('hide');toast('El estante se guardará en '+(r.shelf_effective||'tu carpeta'));loadShelf();}
+ $('shelfDirRow').classList.add('hide');toast('«Mis imágenes» de este proyecto se guardarán en '+(r.shelf_effective||'tu carpeta'));loadShelf();}
 $('shelfDirEdit').onclick=async()=>{toast('Abriendo selector de carpeta…');
  try{const r=await(await fetch('/pickfolder')).json();
   if(r.path)saveShelfDir(r.path);else if(r.error)toast(r.error,'bad');
@@ -2906,16 +2919,18 @@ function applyFs(){
 $('fsGen').oninput=applyFs;$('fsSmall').oninput=applyFs;
 $('fsReset').onclick=()=>{$('fsGen').value=14;$('fsSmall').value=11;applyFs();toast('Tamaño de texto restablecido');};
 $('fsGen').value=localStorage.getItem('studio_fs_g')||14;$('fsSmall').value=localStorage.getItem('studio_fs_s')||11;applyFs();
-async function refreshSetFolders(){
- try{$('setGenPath').textContent=cfgEffective||'(por defecto)';}catch(e){}
- try{const s=await(await fetch('/shelf')).json();$('setShelfPath').textContent=s.dir||'(por defecto)';}catch(e){}}
+async function refreshSetFolders(){try{const c=await(await fetch('/config')).json();
+ $('setGenPath').textContent=c.effective||'(por defecto)';
+ $('setShelfPath').textContent=c.shelf_effective||'(por defecto)';
+ const l=$('setFolderProj');if(l)l.textContent=c.project_label||'General';
+}catch(e){}}
 $('setBtn').onclick=()=>{$('setModal').classList.remove('hide');refreshSetFolders();};
 $('setGenPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
  try{const r=await(await fetch('/pickfolder')).json();
-  if(r.path){const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:r.path})})).json();
+  if(r.path){const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:r.path,project:curProj()})})).json();
    if(c.error){toast(c.error,'bad');return;}
-   cfgEffective=c.effective||cfgEffective;$('saveDir').value=r.path;if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}renderSaveWhere();$('setGenPath').textContent=cfgEffective;
-   toast('Las imágenes generadas se copiarán en '+cfgEffective);}
+   cfgEffective=c.effective||cfgEffective;if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}renderSaveWhere();$('setGenPath').textContent=c.effective;
+   toast('Las imágenes generadas de este proyecto se copiarán en '+c.effective);}
   else if(r.error)toast(r.error,'bad');
  }catch(e){toast(String(e),'bad')}};
 $('setShelfPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
@@ -3174,11 +3189,15 @@ class H(BaseHTTPRequestHandler):
                 cards.append({"name": n, "label": (glabel if n == "" else n), "count": len(imgs),
                               "cover": imgs[0]["file"] if imgs else ""})
             return self._json({"cards": cards})
-        if self.path == "/config":
+        if urlparse(self.path).path == "/config":
             conf = load_json(CONF_JSON, {})
+            pr = self._proj()   # proyecto activo (o ?project=): sus carpetas
+            glabel = conf.get("general_label", "") or "General"
             return self._json({"save_dir": conf.get("save_dir", ""),
-                               "effective": str(save_dir()).replace(str(HOME), "~"),
-                               "general_label": conf.get("general_label", "") or "General",
+                               "effective": str(save_dir(pr)).replace(str(HOME), "~"),
+                               "shelf_effective": str(shelf_dir(pr)).replace(str(HOME), "~"),
+                               "project": pr, "project_label": (glabel if is_general(pr) else pr),
+                               "general_label": glabel,
                                "voice_styles": conf.get("voice_styles", [])})
         if self.path == "/backupstatus":
             return self._json(backup_status())
@@ -3240,7 +3259,7 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
         if urlparse(self.path).path == "/shelf":
             pr = self._proj()
-            shdir = shelf_dir() if is_general(pr) else pshelf_dir(pr)
+            shdir = shelf_dir(pr)
             return self._json({"items": load_json(pshelf_json(pr), []),
                                "dir": str(shdir).replace(str(HOME), "~")})
         if self.path == "/pickfolder":
@@ -3438,35 +3457,39 @@ class H(BaseHTTPRequestHandler):
 
     def _config_locked(self, b):
         conf = load_json(CONF_JSON, {})
+        prn = b.get("project", ACTIVE_PROJ)   # las carpetas son por proyecto
+        pk = proj_key(prn)
+
+        def _checkdir(raw):
+            p = Path(os.path.expanduser(raw))
+            p.mkdir(parents=True, exist_ok=True)
+            t = p / ".studio_test"
+            t.write_text("")
+            t.unlink()
+
         if "save_dir" in b:
             raw = (b.get("save_dir") or "").strip()
             if raw:
-                p = Path(os.path.expanduser(raw))
                 try:
-                    p.mkdir(parents=True, exist_ok=True)
-                    t = p / ".studio_test"
-                    t.write_text("")
-                    t.unlink()
+                    _checkdir(raw)
                 except Exception as e:
                     return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
-            conf["save_dir"] = raw
+            m = conf.setdefault("save_dirs", {})
+            (m.__setitem__(pk, raw) if raw else m.pop(pk, None))
         if "shelf_dir" in b:
             raw = (b.get("shelf_dir") or "").strip()
             if raw:
-                p = Path(os.path.expanduser(raw))
                 try:
-                    p.mkdir(parents=True, exist_ok=True)
-                    t = p / ".studio_test"
-                    t.write_text("")
-                    t.unlink()
+                    _checkdir(raw)
                 except Exception as e:
                     return self._json({"error": f"No puedo escribir en esa carpeta: {e}"})
-            conf["shelf_dir"] = raw
+            m = conf.setdefault("shelf_dirs", {})
+            (m.__setitem__(pk, raw) if raw else m.pop(pk, None))
         if "voice_styles" in b and isinstance(b["voice_styles"], list):
             conf["voice_styles"] = b["voice_styles"][:50]
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir()).replace(str(HOME), "~"),
-                           "shelf_effective": str(shelf_dir()).replace(str(HOME), "~")})
+        return self._json({"ok": True, "effective": str(save_dir(prn)).replace(str(HOME), "~"),
+                           "shelf_effective": str(shelf_dir(prn)).replace(str(HOME), "~")})
 
     def h_historydel(self):
         b = self._body()
@@ -3491,7 +3514,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Sin imágenes"})
         pr = self._proj(b)
         sdir = pshelf_dir(pr)
-        ext_dir = shelf_dir() if is_general(pr) else sdir   # el folder externo configurable solo aplica a General
+        ext_dir = shelf_dir(pr)   # carpeta externa configurable de este proyecto (o la interna)
         mirror = ext_dir.resolve() != sdir.resolve()
         skipped = []
         with LOCK:
@@ -3583,7 +3606,7 @@ class H(BaseHTTPRequestHandler):
             (phist_dir(meta.get("project", "")) / name).write_bytes(raw)
             if meta.get("save_desktop", True):
                 try:
-                    dst = save_dir()
+                    dst = save_dir(meta.get("project", ""))
                     dst.mkdir(parents=True, exist_ok=True)
                     (dst / name).write_bytes(raw)
                 except Exception:
@@ -3725,7 +3748,7 @@ class H(BaseHTTPRequestHandler):
         (phist_dir(b.get("project", "")) / name).write_bytes(raw)
         if b.get("save_desktop", True):
             try:
-                d = save_dir()
+                d = save_dir(b.get("project", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(raw)
             except Exception:
@@ -3788,7 +3811,7 @@ class H(BaseHTTPRequestHandler):
         (phist_dir(b.get("project", "")) / name).write_text(raw)
         if b.get("save_desktop", True):
             try:
-                d = save_dir()
+                d = save_dir(b.get("project", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_text(raw)
             except Exception:
@@ -3813,7 +3836,7 @@ class H(BaseHTTPRequestHandler):
         (phist_dir(hist_item.get("project", "")) / name).write_bytes(raw)
         if save_desktop:
             try:
-                d = save_dir()
+                d = save_dir(hist_item.get("project", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(raw)
             except Exception:
