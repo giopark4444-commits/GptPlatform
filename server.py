@@ -375,29 +375,26 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projmodal{max-width:780px}
 .modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
 .projgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;max-height:60vh;overflow-y:auto;padding:2px}
-.projcard{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
+.projitem{display:flex;flex-direction:column;gap:8px}
+.projitem.active .pname{color:var(--accent)}
+.projitem.active .projcard{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.projcard{aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
  cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
 .projcard:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.18);border-color:var(--mut)}
-.projcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.projcard .cov{aspect-ratio:4/3;background-size:cover;background-position:center;background-color:var(--elev)}
-.projcard .ph{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700;
+.projcard .cov{width:100%;height:100%;background-size:cover;background-position:center;background-color:var(--elev)}
+.projcard .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700;
  color:color-mix(in srgb,var(--accent) 70%,var(--mut));background:linear-gradient(145deg,var(--elev),var(--surface))}
-.projcard .meta{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
-.projcard .mtext{flex:1;min-width:0}
-.projcard .pname{font-size:13.5px;font-weight:600;color:var(--txt);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.projcard.active .pname{color:var(--accent)}
-.projcard .pcount{font-size:11.5px;color:var(--mut);margin-top:2px}
-.projcard .pdel{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
+.projfoot{display:flex;align-items:center;gap:8px;padding:0 3px}
+.projfoot .mtext{flex:1;min-width:0}
+.projfoot .pname{font-size:13.5px;font-weight:600;color:var(--txt);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projfoot .pcount{font-size:11.5px;color:var(--mut);margin-top:1px}
+.projfoot .pedit,.projfoot .pdel{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
  display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}
-.projcard:hover .pdel{opacity:1}
-.projcard .pdel:hover{color:var(--bad);border-color:var(--bad)}
-.projcard .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
-.projcard .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
-.projcard .pedit{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
- display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}
-.projcard:hover .pedit{opacity:1}
-.projcard .pedit:hover{color:var(--accent);border-color:var(--accent)}
-.projcard .pedit svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
+.projitem:hover .pedit,.projitem:hover .pdel{opacity:1}
+.projfoot .pedit:hover{color:var(--accent);border-color:var(--accent)}
+.projfoot .pdel:hover{color:var(--bad);border-color:var(--bad)}
+.projfoot .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
+.projfoot .pedit svg,.projfoot .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
 .prename{width:100%;font-size:13px;padding:5px 8px;margin:0}
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .projnewrow>svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
@@ -1630,6 +1627,7 @@ $('quality').onchange=validate;$('n').onchange=validate;
 $('fmt').onchange=()=>$('compBox').classList.toggle('hide',$('fmt').value==='png');
 $('comp').oninput=()=>$('compv').textContent=$('comp').value+'%';
 let cfgEffective='~/Desktop';
+let genLabel='General';
 function renderSaveWhere(){
  $('saveWhere').innerHTML='Se guarda en <span class="mono">~/image-studio/historial</span>'
   +($('saveDesk').checked?' + copia en <span class="mono">'+esc(cfgEffective)+'</span>':' (sin copia extra)');
@@ -1638,6 +1636,7 @@ function renderSaveWhere(){
 $('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
 $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
 async function loadConfig(){const r=await(await fetch('/config')).json();
+ genLabel=r.general_label||'General';
  $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();
  voiceStyles=r.voice_styles||[];renderVStyles()}
 $('dirApply').onclick=async()=>{
@@ -1842,15 +1841,15 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
 
 async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
- s.innerHTML='<option value="">General</option>'+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
+ s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
 async function setActiveProject(n){try{await fetch('/setproject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})});}catch(e){}}
 async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);await setActiveProject(n);renderProj();await loadGal();await loadShelf();}
 let styleTab='img';
 function stashStyle(){const n=$('projSel').value;if(!n||!projects[n])return;
  projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
 function renderProj(){const n=$('projSel').value,p=projects[n];
- {const l=$('memProjLbl');if(l)l.textContent=n||'General';}
- {const b=$('projBtnLbl');if(b)b.textContent=n||'General';}
+ {const l=$('memProjLbl');if(l)l.textContent=n||genLabel;}
+ {const b=$('projBtnLbl');if(b)b.textContent=n||genLabel;}
  $('style').value=p?(styleTab==='img'?(p.style||''):(p.style_video||'')):'';
  $('style').placeholder=styleTab==='img'?'Estilo: técnica, paleta, luz, mood…':'Estilo de video: cámara, movimiento, ritmo, grading…';
  $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt=""><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
@@ -1866,14 +1865,19 @@ async function createProject(n){n=(n||'').trim();if(!n)return false;
  if(projects[n]){$('projSel').value=n;await switchProject();toast('El proyecto "'+n+'" ya existía · seleccionado');return true}
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
  await loadProjects();$('projSel').value=n;await switchProject();toast('Proyecto "'+n+'" creado · empieza vacío');return true}
-async function deleteProject(n){if(!n)return;
- await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});
- if($('projSel').value===n)$('projSel').value='';
- await loadProjects();await switchProject();toast('Proyecto "'+n+'" borrado por completo')}
+async function deleteProject(n){
+ const r=await(await fetch('/projectdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})})).json();
+ if(r&&r.error){toast(r.error,'bad');return}
+ if(!n){ // General: se vació (no se elimina el espacio)
+  if($('projSel').value==='')  {await loadGal();await loadShelf();}
+  toast('«General» vaciado');return}
+ const wasActive=$('projSel').value===n;
+ await loadProjects();
+ if(wasActive){$('projSel').value='';await switchProject();}
+ toast('Proyecto "'+n+'" borrado por completo')}
 $('delProj').onclick=()=>{const n=$('projSel').value;
- if(!n){toast('No puedes borrar "General"','bad');return}
  if(!$('delProj').classList.contains('arm')){
-  $('delProj').classList.add('arm');toast('Clic otra vez para borrar "'+n+'" con TODO su historial y Mis imágenes','bad');
+  $('delProj').classList.add('arm');toast((n?('Borra "'+n+'" con TODO su historial y Mis imágenes'):('Vacía «'+genLabel+'»: borra su historial y Mis imágenes'))+' · clic otra vez','bad');
   setTimeout(()=>$('delProj').classList.remove('arm'),2800);return}
  $('delProj').classList.remove('arm');deleteProject(n)};
 // ===== ventana (modal) de proyectos =====
@@ -1887,36 +1891,42 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
  $('projGrid').innerHTML=cards.map(c=>{const active=c.name===cur;
   const cov=c.cover?`<div class="cov" style="background-image:url('/file?name=${encodeURIComponent(c.cover)}&project=${encodeURIComponent(c.name)}')"></div>`
    :`<div class="ph">${esc((c.label||'?').slice(0,1).toUpperCase())}</div>`;
-  const acts=c.name?`<button class="pedit" data-edit="${esc(c.name)}" title="Renombrar proyecto">${PEN}</button><button class="pdel" data-del="${esc(c.name)}" title="Borrar proyecto">${GTR}</button>`:'';
+  const acts=`<button class="pedit" data-edit="1" title="Renombrar">${PEN}</button><button class="pdel" data-del="1" title="${c.name?'Borrar proyecto':'Vaciar General'}">${GTR}</button>`;
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
-  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}<div class="meta"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div></div>`}).join('');}
+  return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}">
+   <div class="projcard">${cov}</div>
+   <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div></div>`}).join('');}
 async function renameProject(old,nw){nw=(nw||'').trim();
- if(!nw||nw===old){renderProjCards(lastProjCards);return}
+ if(!nw){renderProjCards(lastProjCards);return}
  const r=await(await fetch('/projectrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old:old,new:nw})})).json();
  if(r.error){toast(r.error,'bad');renderProjCards(lastProjCards);return}
  const wasActive=$('projSel').value===old;
- await loadProjects();
- if(wasActive){$('projSel').value=r.name;await switchProject()}
- toast('Renombrado a "'+r.name+'"');openProjModal()}
+ await loadConfig();await loadProjects();
+ if(wasActive){$('projSel').value=r.name;await switchProject()}else{renderProj()}
+ toast('Renombrado a "'+nw+'"');openProjModal()}
 $('projBtn').onclick=openProjModal;
 $('projModal').onclick=e=>{if(e.target===$('projModal'))$('projModal').classList.add('hide')};
 $('projCreate').onclick=async()=>{const ok=await createProject($('projNewName').value);if(ok)$('projModal').classList.add('hide')};
 $('projNewName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('projCreate').click()}});
 $('projGrid').onclick=async e=>{
+ const item=e.target.closest('.projitem');if(!item)return;
+ const name=item.dataset.name,label=item.dataset.label;
  const ed=e.target.closest('.pedit');
- if(ed){e.stopPropagation();const card=ed.closest('.projcard'),old=ed.dataset.edit,mt=card.querySelector('.mtext');
+ if(ed){e.stopPropagation();const mt=item.querySelector('.mtext');
   mt.innerHTML='<input class="prename" type="text" maxlength="60" title="Enter para guardar · Esc para cancelar">';
-  const inp=mt.querySelector('.prename');inp.value=old;inp.focus();inp.select();
+  const inp=mt.querySelector('.prename');inp.value=label;inp.focus();inp.select();
   inp.addEventListener('click',ev=>ev.stopPropagation());
-  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();renameProject(old,inp.value)}else if(ev.key==='Escape'){ev.preventDefault();renderProjCards(lastProjCards)}});
+  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();renameProject(name,inp.value)}else if(ev.key==='Escape'){ev.preventDefault();renderProjCards(lastProjCards)}});
   return}
  const del=e.target.closest('.pdel');
  if(del){e.stopPropagation();
   if(!del.classList.contains('arm')){[...$('projGrid').querySelectorAll('.pdel.arm')].forEach(x=>x.classList.remove('arm'));
-   del.classList.add('arm');del.title='Clic otra vez para borrar definitivamente';return}
-  await deleteProject(del.dataset.del);openProjModal();return}
- const card=e.target.closest('.projcard');if(!card)return;
- $('projSel').value=card.dataset.name;await switchProject();$('projModal').classList.add('hide')};
+   del.classList.add('arm');
+   toast((name?('Borra "'+label+'" y TODO su contenido'):('Vacía «'+label+'»: borra su historial y Mis imágenes'))+' · clic otra vez','bad');
+   setTimeout(()=>del.classList.remove('arm'),2800);return}
+  del.classList.remove('arm');await deleteProject(name);openProjModal();return}
+ if(e.target.closest('input'))return;
+ $('projSel').value=name;await switchProject();$('projModal').classList.add('hide')};
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!n){toast('Elige o crea un proyecto','bad');return}
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
@@ -2915,9 +2925,9 @@ $('setShelfPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
  }catch(e){toast(String(e),'bad')}};
 $('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s.dataset.theme,true);};
 $('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
-buildMinis();validate();loadConfig();checkKey();setProv(prov);markValidChips();
-// proyecto activo primero, luego historial + Mis imágenes de ese proyecto
-(async()=>{await loadProjects();await setActiveProject($('projSel').value);await loadGal();await loadShelf();})();
+buildMinis();validate();checkKey();setProv(prov);markValidChips();
+// config (etiqueta de General) → proyecto activo → historial + Mis imágenes de ese proyecto
+(async()=>{await loadConfig();await loadProjects();await setActiveProject($('projSel').value);await loadGal();await loadShelf();})();
 (function(){let saved=localStorage.getItem('studio_theme');
  if(!localStorage.getItem('studio_theme_default_v2')){localStorage.setItem('studio_theme_default_v2','1');
   if(!saved||saved==='carbon'){localStorage.removeItem('studio_theme');saved=null;}}
@@ -3156,17 +3166,19 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/projects":
             return self._json(load_projects())
         if self.path == "/projectcards":
+            glabel = (load_json(CONF_JSON, {}).get("general_label") or "General")
             cards = []
             for n in [""] + list(load_projects().keys()):
                 items = load_json(phist_json(n), [])
                 imgs = [it for it in items if it.get("kind") not in ("tts", "stt", "sfx", "vid") and it.get("file")]
-                cards.append({"name": n, "label": n or "General", "count": len(imgs),
+                cards.append({"name": n, "label": (glabel if n == "" else n), "count": len(imgs),
                               "cover": imgs[0]["file"] if imgs else ""})
             return self._json({"cards": cards})
         if self.path == "/config":
             conf = load_json(CONF_JSON, {})
             return self._json({"save_dir": conf.get("save_dir", ""),
                                "effective": str(save_dir()).replace(str(HOME), "~"),
+                               "general_label": conf.get("general_label", "") or "General",
                                "voice_styles": conf.get("voice_styles", [])})
         if self.path == "/backupstatus":
             return self._json(backup_status())
@@ -3330,6 +3342,19 @@ class H(BaseHTTPRequestHandler):
             if name in pr:
                 del pr[name]
                 save_json(PROJ_JSON, pr)
+        if is_general(name):
+            # vaciar el espacio General: borra sus imágenes (historial + estante) y resetea sus índices
+            with LOCK:
+                for d in (HIST_DIR, SHELF_DIR):
+                    for f in d.glob("*"):
+                        if f.is_file():
+                            try:
+                                f.unlink()
+                            except Exception:
+                                pass
+                save_json(HIST_JSON, [])
+                save_json(SHELF_JSON, [])
+            return self._json({"ok": True, "cleared": True})
         try:
             shutil.rmtree(PROJ_DIR / safe(name))
         except Exception:
@@ -3341,10 +3366,15 @@ class H(BaseHTTPRequestHandler):
         b = self._body()
         old = (b.get("old") or "").strip()
         new = (b.get("new") or "").strip()
-        if not old or is_general(old):
-            return self._json({"error": "No puedes renombrar «General»."})
         if not new:
             return self._json({"error": "Falta el nombre nuevo."})
+        if is_general(old):
+            # renombrar «General» = etiqueta personalizada (no mueve datos; su valor sigue siendo "")
+            with LOCK:
+                conf = load_json(CONF_JSON, {})
+                conf["general_label"] = new
+                save_json(CONF_JSON, conf)
+            return self._json({"ok": True, "name": "", "label": new})
         if is_general(new):
             return self._json({"error": "Ese nombre está reservado."})
         with LOCK:
