@@ -375,24 +375,24 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projmodal{max-width:780px}
 .modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
 .projgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;max-height:60vh;overflow-y:auto;padding:2px}
-.projcard{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
+.projcard{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
  cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
-.projcard:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.22);border-color:var(--mut)}
+.projcard:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.18);border-color:var(--mut)}
 .projcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.projcard .cov{position:absolute;inset:0;background-size:cover;background-position:center}
-.projcard .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;
+.projcard .cov{aspect-ratio:4/3;background-size:cover;background-position:center;background-color:var(--elev)}
+.projcard .ph{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700;
  color:color-mix(in srgb,var(--accent) 70%,var(--mut));background:linear-gradient(145deg,var(--elev),var(--surface))}
-.projcard .meta{position:absolute;inset:auto 0 0 0;padding:30px 12px 11px;color:#fff;
- background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.25),transparent)}
-.projcard .pname{font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.projcard .pcount{font-size:11px;opacity:.82;margin-top:2px}
-.projcard .badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
- background:var(--accent);color:#1a1206;border-radius:6px;padding:3px 7px}
-.projcard .pdel{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.25);
- background:rgba(12,12,14,.7);color:#fff;display:none;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px)}
-.projcard:hover .pdel{display:flex}
-.projcard .pdel svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:1.9}
-.projcard .pdel.arm{background:var(--bad);border-color:var(--bad)}
+.projcard .meta{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.projcard .mtext{flex:1;min-width:0}
+.projcard .pname{font-size:13.5px;font-weight:600;color:var(--txt);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projcard.active .pname{color:var(--accent)}
+.projcard .pcount{font-size:11.5px;color:var(--mut);margin-top:2px}
+.projcard .pdel{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
+ display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}
+.projcard:hover .pdel{opacity:1}
+.projcard .pdel:hover{color:var(--bad);border-color:var(--bad)}
+.projcard .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
+.projcard .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .projnewrow>svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
 .projnewrow input{flex:1;margin:0}
@@ -1879,7 +1879,8 @@ function renderProjCards(cards){const cur=$('projSel').value;
   const cov=c.cover?`<div class="cov" style="background-image:url('/file?name=${encodeURIComponent(c.cover)}&project=${encodeURIComponent(c.name)}')"></div>`
    :`<div class="ph">${esc((c.label||'?').slice(0,1).toUpperCase())}</div>`;
   const del=c.name?`<button class="pdel" data-del="${esc(c.name)}" title="Borrar proyecto">${GTR}</button>`:'';
-  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}${active?'<span class="badge">Activo</span>':''}${del}<div class="meta"><div class="pname">${esc(c.label)}</div><div class="pcount">${c.count} ${c.count===1?'imagen':'imágenes'}</div></div></div>`}).join('');}
+  const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
+  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}<div class="meta"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${del}</div></div>`}).join('');}
 $('projBtn').onclick=openProjModal;
 $('projModal').onclick=e=>{if(e.target===$('projModal'))$('projModal').classList.add('hide')};
 $('projCreate').onclick=async()=>{const ok=await createProject($('projNewName').value);if(ok)$('projModal').classList.add('hide')};
