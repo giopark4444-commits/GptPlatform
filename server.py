@@ -1907,6 +1907,7 @@ function openLb(src,p,file){$('lbImg').src=src;$('lbPrompt').textContent=p||'';
  $('lbPrompt').classList.toggle('hide',!p);
  if(file){$('lbDl').href='/file?name='+encodeURIComponent(file);$('lbDl').setAttribute('download',file)}
  else{$('lbDl').href=src;$('lbDl').setAttribute('download','imagen.png')}
+ $('lbUse').style.display=p?'':'none';
  $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
  $('lightbox').classList.remove('hide')}
 $('lightbox').onclick=()=>$('lightbox').classList.add('hide');
@@ -2678,7 +2679,11 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
   desc.classList.remove('busy');return;}
  if(del){const f=del.dataset.file;
   await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});
-  shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}};
+  shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}
+ if(e.target.closest('a,.sbtn'))return;     // descargar u otro botón → su acción nativa
+ const card=e.target.closest('.scard');     // clic en la imagen → ampliar en lightbox flotante
+ if(card){const it=shelfItems.find(x=>x.file===card.dataset.shelf);
+  if(it)openLb('/shelffile?name='+encodeURIComponent(it.file),'','');}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';});
