@@ -561,6 +561,15 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .modal h2{margin:0 0 7px;font-size:19px;font-weight:600}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
 .setmodal{max-width:520px}
+.setmodal h2{font-size:22px}
+.setmodal .setlabel{font-size:12.5px}
+.setmodal .setsublabel{font-size:13.5px}
+.setmodal .langseg button{font-size:14.5px;padding:11px}
+.setmodal .swatch{font-size:14px;padding:11px 13px}
+.setmodal .swatch span{width:20px;height:20px}
+.setmodal .setpath{font-size:13.5px}
+.setmodal .setfolder .ghost{font-size:13px}
+.setmodal .hint{font-size:13px;color:var(--mut);line-height:1.6}
 .setsec{margin-top:22px}
 .setlabel{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:12px;font-weight:600}
 .setsublabel{font-size:12.5px;color:var(--mut);margin:12px 0 8px;font-weight:500}
