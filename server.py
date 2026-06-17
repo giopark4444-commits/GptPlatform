@@ -364,7 +364,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .top{display:flex;align-items:center;gap:18px;padding:15px 26px;border-bottom:1px solid var(--line);
  position:sticky;top:0;z-index:var(--z-sticky);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
-.projbar{display:flex;align-items:center;gap:8px;margin-left:8px}
+.projbar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;z-index:1}
 .projbar svg{flex:none}
 .projbar select{width:auto;min-width:150px;max-width:240px;margin:0;padding:8px 30px 8px 11px;font-size:13px}
 .projbar .ghost{padding:8px 12px;font-size:12.5px;white-space:nowrap;flex:none}
@@ -728,6 +728,8 @@ html,body{overflow-x:hidden}
 .col img,.canvas img,.audcard video{max-width:100%}
 @media(max-width:760px){
  .top{flex-wrap:wrap;gap:8px;padding:10px 12px}
+ .projbar{position:static;transform:none;width:100%;justify-content:center;order:3}
+ .projbar select{flex:1;max-width:none}
  .top .right{margin-left:auto;gap:8px}
  .sess{font-size:11px}
  .seg button kbd{display:none}
