@@ -393,6 +393,12 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projcard .pdel:hover{color:var(--bad);border-color:var(--bad)}
 .projcard .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
 .projcard .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
+.projcard .pedit{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
+ display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}
+.projcard:hover .pedit{opacity:1}
+.projcard .pedit:hover{color:var(--accent);border-color:var(--accent)}
+.projcard .pedit svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
+.prename{width:100%;font-size:13px;padding:5px 8px;margin:0}
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .projnewrow>svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
 .projnewrow input{flex:1;margin:0}
@@ -1875,18 +1881,36 @@ async function openProjModal(){
  try{const r=await(await fetch('/projectcards')).json();renderProjCards(r.cards||[]);}
  catch(e){$('projGrid').innerHTML='<div class="hint">No pude cargar los proyectos</div>';}
  $('projNewName').value='';$('projModal').classList.remove('hide');setTimeout(()=>$('projNewName').focus(),60);}
-function renderProjCards(cards){const cur=$('projSel').value;
+let lastProjCards=[];
+const PEN='<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value;
  $('projGrid').innerHTML=cards.map(c=>{const active=c.name===cur;
   const cov=c.cover?`<div class="cov" style="background-image:url('/file?name=${encodeURIComponent(c.cover)}&project=${encodeURIComponent(c.name)}')"></div>`
    :`<div class="ph">${esc((c.label||'?').slice(0,1).toUpperCase())}</div>`;
-  const del=c.name?`<button class="pdel" data-del="${esc(c.name)}" title="Borrar proyecto">${GTR}</button>`:'';
+  const acts=c.name?`<button class="pedit" data-edit="${esc(c.name)}" title="Renombrar proyecto">${PEN}</button><button class="pdel" data-del="${esc(c.name)}" title="Borrar proyecto">${GTR}</button>`:'';
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
-  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}<div class="meta"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${del}</div></div>`}).join('');}
+  return `<div class="projcard${active?' active':''}" data-name="${esc(c.name)}">${cov}<div class="meta"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div></div>`}).join('');}
+async function renameProject(old,nw){nw=(nw||'').trim();
+ if(!nw||nw===old){renderProjCards(lastProjCards);return}
+ const r=await(await fetch('/projectrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old:old,new:nw})})).json();
+ if(r.error){toast(r.error,'bad');renderProjCards(lastProjCards);return}
+ const wasActive=$('projSel').value===old;
+ await loadProjects();
+ if(wasActive){$('projSel').value=r.name;await switchProject()}
+ toast('Renombrado a "'+r.name+'"');openProjModal()}
 $('projBtn').onclick=openProjModal;
 $('projModal').onclick=e=>{if(e.target===$('projModal'))$('projModal').classList.add('hide')};
 $('projCreate').onclick=async()=>{const ok=await createProject($('projNewName').value);if(ok)$('projModal').classList.add('hide')};
 $('projNewName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('projCreate').click()}});
-$('projGrid').onclick=async e=>{const del=e.target.closest('.pdel');
+$('projGrid').onclick=async e=>{
+ const ed=e.target.closest('.pedit');
+ if(ed){e.stopPropagation();const card=ed.closest('.projcard'),old=ed.dataset.edit,mt=card.querySelector('.mtext');
+  mt.innerHTML='<input class="prename" type="text" maxlength="60" title="Enter para guardar · Esc para cancelar">';
+  const inp=mt.querySelector('.prename');inp.value=old;inp.focus();inp.select();
+  inp.addEventListener('click',ev=>ev.stopPropagation());
+  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();renameProject(old,inp.value)}else if(ev.key==='Escape'){ev.preventDefault();renderProjCards(lastProjCards)}});
+  return}
+ const del=e.target.closest('.pdel');
  if(del){e.stopPropagation();
   if(!del.classList.contains('arm')){[...$('projGrid').querySelectorAll('.pdel.arm')].forEach(x=>x.classList.remove('arm'));
    del.classList.add('arm');del.title='Clic otra vez para borrar definitivamente';return}
@@ -3243,7 +3267,7 @@ class H(BaseHTTPRequestHandler):
             return
         try:
             h = {"/setkey": self.h_setkey, "/generate": self.h_generate, "/edit": self.h_edit,
-                 "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectref": self.h_projectref,
+                 "/project": self.h_project, "/projectdel": self.h_projectdel, "/projectrename": self.h_projectrename, "/projectref": self.h_projectref,
                  "/projectrefdel": self.h_projectrefdel, "/distill": self.h_distill,
                  "/historydel": self.h_historydel, "/config": self.h_config,
                  "/speech": self.h_speech, "/transcribe": self.h_transcribe,
@@ -3311,6 +3335,42 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             pass
         return self._json({"ok": True})
+
+    def h_projectrename(self):
+        global ACTIVE_PROJ
+        b = self._body()
+        old = (b.get("old") or "").strip()
+        new = (b.get("new") or "").strip()
+        if not old or is_general(old):
+            return self._json({"error": "No puedes renombrar «General»."})
+        if not new:
+            return self._json({"error": "Falta el nombre nuevo."})
+        if is_general(new):
+            return self._json({"error": "Ese nombre está reservado."})
+        with LOCK:
+            pr = load_projects()
+            if new in pr and new != old:
+                return self._json({"error": "Ya existe un proyecto con ese nombre."})
+            oldf, newf = PROJ_DIR / safe(old), PROJ_DIR / safe(new)
+            if safe(old) != safe(new):
+                if newf.exists():
+                    return self._json({"error": "Ya existe una carpeta con ese nombre."})
+                if oldf.exists():
+                    oldf.rename(newf)
+            if old in pr:
+                pr[new] = pr.pop(old)
+                save_json(PROJ_JSON, pr)
+            try:  # reetiquetar el historial del proyecto
+                jp = phist_json(new)
+                h = load_json(jp, [])
+                for it in h:
+                    it["project"] = new
+                save_json(jp, h)
+            except Exception:
+                pass
+        if ACTIVE_PROJ == old:
+            ACTIVE_PROJ = new
+        return self._json({"ok": True, "name": new})
 
     def h_projectref(self):
         b = self._body()
