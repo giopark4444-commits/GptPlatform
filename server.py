@@ -1743,16 +1743,18 @@ function galFiltered(){const f=$('galFilter').value,q=$('galSearch').value.trim(
 $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
 $('galAll').onclick=()=>window.open('/galeria'+($('galFavBtn').classList.contains('on')?'?fav=1':''),'_blank','noopener');
-// recibir acciones desde las ventanas "Ver todo" (galería) — misma sesión, otro tab/ventana
+// las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
 async function addRefFromServer(src,file){try{
  const url=(src==='shelf'?'/shelffile?name=':'/file?name=')+encodeURIComponent(file);
  const b=await(await fetch(url)).blob();
  refs.push({name:file,b64:await blobToB64(b)});renderThumbs();
- if(mode!=='editar')setMode('editar');validate();toast('Añadida como referencia');
+ if(mode!=='editar')setMode('editar');validate();toast('Imagen añadida como referencia (desde Ver todo)');
 }catch(e){toast('No pude añadir la referencia','bad')}}
-try{const _sbc=new BroadcastChannel('studio');_sbc.onmessage=ev=>{const m=ev.data||{};
- if(m.type==='studioRef')addRefFromServer(m.src,m.file);
- else if(m.type==='studioFav')loadGal();};}catch(e){}
+async function pollStage(){try{const r=await(await fetch('/stage')).json();
+ if(r.items&&r.items.length)for(const it of r.items)await addRefFromServer(it.src,it.file);}catch(e){}}
+setInterval(pollStage,2500);
+window.addEventListener('focus',()=>{pollStage();loadGal();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollStage();loadGal();}});
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
@@ -2666,6 +2668,10 @@ CSP = ("default-src 'self'; script-src 'unsafe-inline'; "
        "img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self'; "
        "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
+# bandeja en memoria: las ventanas "Ver todo" dejan aquí imágenes para que el estudio las recoja
+STAGE = []
+STAGE_LOCK = threading.Lock()
+
 GALERIA_CSS = """
 *{box-sizing:border-box;margin:0}
 body{background:#f4efe3;color:#2a2620;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 0 64px;-webkit-font-smoothing:antialiased}
@@ -2744,18 +2750,17 @@ def gallery_html(src, fav=False):
                      '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
     grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
     js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
-          "let bc;try{bc=new BroadcastChannel('studio')}catch(e){}"
           "const tEl=document.getElementById('gtoast');"
           "function gt(m){tEl.textContent=m;tEl.classList.add('show');clearTimeout(tEl._t);tEl._t=setTimeout(function(){tEl.classList.remove('show')},1800);}"
           "var g=document.querySelector('.grid');"
           "if(g)g.addEventListener('click',async function(e){"
           "var b=e.target.closest('[data-act]');if(!b)return;e.preventDefault();"
           "var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
-          "if(act==='ref'){if(bc){bc.postMessage({type:'studioRef',src:SRC,file:file});gt('Añadida como referencia en el estudio');}else{gt('Abre el estudio para recibirla');}}"
+          "if(act==='ref'){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
           "else if(act==='prompt'){try{await navigator.clipboard.writeText(tile.dataset.prompt||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on})});}catch(x){}"
-          "if(bc)bc.postMessage({type:'studioFav'});gt(on?'Marcada como favorita':'Quitada de favoritas');}"
+          "gt(on?'Marcada como favorita':'Quitada de favoritas');}"
           "});")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -2909,6 +2914,11 @@ class H(BaseHTTPRequestHandler):
             fp = SHELF_DIR / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
+        if self.path == "/stage":
+            with STAGE_LOCK:
+                items = list(STAGE)
+                STAGE.clear()
+            return self._json({"items": items})
         if urlparse(self.path).path == "/galeria":
             q = parse_qs(urlparse(self.path).query)
             src = q.get("src", ["history"])[0]
@@ -2933,7 +2943,8 @@ class H(BaseHTTPRequestHandler):
                  "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
-                 "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del}.get(self.path)
+                 "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
+                 "/stage": self.h_stage}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -3782,6 +3793,22 @@ class H(BaseHTTPRequestHandler):
                 if it.get("file") == f:
                     it["fav"] = bool(b.get("fav"))
             save_json(HIST_JSON, h)
+        return self._json({"ok": True})
+
+    def h_stage(self):
+        # una ventana "Ver todo" deja una imagen para que el estudio la recoja como referencia
+        b = self._body()
+        src = "shelf" if b.get("src") == "shelf" else "history"
+        f = os.path.basename(str(b.get("file", "")))
+        if not f:
+            return self._json({"error": "sin archivo"}, 400)
+        base = SHELF_DIR if src == "shelf" else HIST_DIR
+        if not (base / f).is_file():
+            return self._json({"error": "la imagen no existe"}, 404)
+        with STAGE_LOCK:
+            STAGE.append({"src": src, "file": f})
+            if len(STAGE) > 50:
+                del STAGE[:-50]
         return self._json({"ok": True})
 
     def _chat(self, messages, max_tokens=400):
