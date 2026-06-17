@@ -1492,12 +1492,16 @@ $('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.data
 window.addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('hot')});
 window.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop').classList.remove('hot')});
 window.addEventListener('drop',async e=>{e.preventDefault();$('drop').classList.remove('hot');
- const audF=e.dataTransfer&&[...e.dataTransfer.files].find(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|wav|webm|ogg|oga|flac|mpga)$/i.test(f.name));
+ const dt=e.dataTransfer;if(!dt)return;
+ const audF=[...dt.files].find(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|wav|webm|ogg|oga|flac|mpga)$/i.test(f.name));
  if(audF){setSttFile(audF);return}
- const sf=e.dataTransfer&&e.dataTransfer.getData('text/x-studio-file');
- if(sf){const b=await(await fetch('/file?name='+encodeURIComponent(sf))).blob();
-  refs.push({name:sf,b64:await blobToB64(b)});renderThumbs();toast('Añadida como referencia');return}
- if(e.dataTransfer&&e.dataTransfer.files.length){const n=await addFiles(e.dataTransfer.files);if(n)toast(n+(n>1?' imágenes añadidas':' imagen añadida')+' como referencia')}});
+ // arrastre interno: imagen generada (resultado), historial o estante → referencia
+ if(dt.getData('text/x-studio-b64')||dt.getData('text/x-studio-file')||dt.getData('text/x-studio-shelf')){
+  const imgs=await imagesFromDT(dt);
+  if(imgs.length){for(const im of imgs)refs.push({name:im.name,b64:im.b64});renderThumbs();
+   toast(imgs.length>1?imgs.length+' imágenes añadidas como referencia':'Añadida como referencia');}
+  return}
+ if(dt.files.length){const n=await addFiles(dt.files);if(n)toast(n+(n>1?' imágenes añadidas':' imagen añadida')+' como referencia')}});
 // pegar desde el portapapeles
 document.addEventListener('paste',async e=>{
  const t=document.activeElement.tagName;if(t==='TEXTAREA'||t==='INPUT')return;
@@ -2594,7 +2598,7 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
 shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('dragover');});
-shEl.addEventListener('drop',async e=>{e.preventDefault();shEl.classList.remove('dragover');
+shEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();shEl.classList.remove('dragover');
  if(e.dataTransfer.files.length){shelfAddFiles([...e.dataTransfer.files]);return;}
  if(e.dataTransfer.getData('text/x-studio-shelf'))return; // ya está en el estante
  const imgs=await imagesFromDT(e.dataTransfer);   // historial o resultado → estante
