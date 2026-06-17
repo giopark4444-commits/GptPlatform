@@ -1019,6 +1019,7 @@ html,body{overflow-x:hidden}
         <span class="chip rchip" data-px="3686400">2K</span>
         <span class="chip rchip" data-px="5760000">3K</span>
         <span class="chip rchip" data-px="8294400">4K</span>
+        <span class="chip rchip" data-uhd="1" title="Lado largo al máximo (3840px), topado a 8.29 MP según el aspecto">Ultra HD</span>
         <div class="preslegend"><span class="dotnat"></span> nativo gpt-image-2 (sin reescalado) · <span class="dotok"></span> tamaño válido (lados ÷16) · DCI 4K (4096px) no cabe en el límite de 3840</div>
       </div>
     </div>
@@ -1581,9 +1582,15 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
 function applyRes(){if(!selRes)return;
- // selRes = área objetivo en píxeles; conserva el ratio actual: W·H≈selRes, W/H=r
- const r=(+$('w').value)/(+$('h').value);
- let H=Math.sqrt(selRes/r),W=H*r;
+ const MAXA=8294400;  // tope de gpt-image-2 (8.29 MP)
+ const r=(+$('w').value)/(+$('h').value);  // ratio actual W/H
+ let W,H;
+ if(selRes==='uhd'){             // Ultra HD: lado largo a 3840, luego topado por área
+  if(r>=1){W=3840;H=W/r;}else{H=3840;W=H*r;}
+ }else{                          // por área: W·H≈selRes conservando el ratio
+  H=Math.sqrt(selRes/r);W=H*r;
+ }
+ if(W*H>MAXA){const s=Math.sqrt(MAXA/(W*H));W*=s;H*=s;}
  W=Math.max(512,Math.min(3840,snap(W)));H=Math.max(512,Math.min(3840,snap(H)));
  // el redondeo a 16 puede empujar el ratio sobre 3:1; baja el lado largo para mantenerlo ≤3:1
  if(Math.max(W,H)/Math.min(W,H)>3){if(W>H)W=Math.floor(H*3/16)*16;else H=Math.floor(W*3/16)*16;}
@@ -1605,10 +1612,10 @@ $('hv').addEventListener('change',()=>commitNum('hv','h'));
 ['wv','hv'].forEach(n=>$(n).addEventListener('keydown',e=>{
  if(e.key==='Enter'){e.preventDefault();$(n).blur()}}));
 $('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;
- if(c.dataset.px){const was=c.classList.contains('on');
+ if(c.dataset.px||c.dataset.uhd){const was=c.classList.contains('on');
   document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'));
   if(was){selRes=0;return}
-  selRes=+c.dataset.px;c.classList.add('on');applyRes();return}
+  selRes=c.dataset.uhd?'uhd':+c.dataset.px;c.classList.add('on');applyRes();return}
  document.querySelectorAll('.chip[data-w]').forEach(x=>x.classList.remove('on'));c.classList.add('on');
  $('w').value=c.dataset.w;$('h').value=c.dataset.h;$('wv').value=c.dataset.w;$('hv').value=c.dataset.h;ratio=c.dataset.w/c.dataset.h;
  if(selRes)applyRes();else validate()};
