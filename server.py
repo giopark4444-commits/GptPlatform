@@ -1052,6 +1052,8 @@ html,body{overflow-x:hidden}
         <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
         <div style="margin-top:12px"><label>Fidelidad de entrada · al editar / usar referencias</label><select id="inpFid"><option value="high" selected>Alta — conserva el original (caras, logos, detalle)</option><option value="low">Baja — más libertad creativa</option></select>
         <p class="hint" style="margin-top:6px">Solo aplica cuando hay imágenes de referencia o editas. Alta = fiel al original (cuesta algo más); Baja = el modelo cambia más.</p></div>
+        <div style="margin-top:12px"><label>Imágenes parciales · preview en vivo</label><select id="partImg"><option value="0" selected>Ninguna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
+        <p class="hint" style="margin-top:6px">Muestra 1–3 vistas previas mientras la imagen se va generando (solo al generar 1 imagen). Cada parcial añade un pequeño costo de tokens.</p></div>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="saveDesk" checked> Guardar copia en una carpeta</label>
         <div id="dirBox" style="margin-top:10px">
@@ -2106,14 +2108,29 @@ async function run(){
  $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
  $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
-  output_format:$('fmt').value,moderation:$('mod').value,input_fidelity:$('inpFid').value,project:proj,
+  output_format:$('fmt').value,moderation:$('mod').value,input_fidelity:$('inpFid').value,
+  partial_images:+($('partImg').value||0),project:proj,
   save_desktop:$('saveDesk').checked};
  if($('fmt').value!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
  const refsUsed=refs.map(r=>({name:r.name,b64:r.b64}));
  if(willEdit){url='/edit';body.images=refs;if(mask)body.mask=mask;body.use_project_refs=useVisual}
+ const willStream=(+($('partImg').value||0))>0 && +$('n').value===1;
  try{
-  const d=await(await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  let d;
+  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(willStream&&resp.body&&(resp.headers.get('content-type')||'').includes('ndjson')){
+   const reader=resp.body.getReader(),dec=new TextDecoder();let buf='';
+   const ext=$('fmt').value==='jpeg'?'jpeg':$('fmt').value;
+   for(;;){const{value,done}=await reader.read();if(done)break;
+    buf+=dec.decode(value,{stream:true});let nl;
+    while((nl=buf.indexOf('\n'))>=0){const ln=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!ln)continue;
+     let ev;try{ev=JSON.parse(ln)}catch(_){continue}
+     if(ev.type==='partial'){showState('result');$('floaters').classList.add('hide');$('resultImg').src='data:image/'+ext+';base64,'+ev.b64;}
+     else if(ev.type==='done')d=ev.result;
+     else if(ev.type==='error')d={error:ev.error};}}
+   if(!d)d={error:'El preview no devolvió resultado.'};
+  }else{d=await resp.json();}
   if(d.error){err(d.error)}
   else{
    results=d.images&&d.images.length?d.images:[{image:d.image}];
@@ -3164,6 +3181,57 @@ class H(BaseHTTPRequestHandler):
         q = parse_qs(urlparse(self.path).query, keep_blank_values=True).get("project")
         return q[0] if q is not None else ACTIVE_PROJ
 
+    # ---- streaming (imágenes parciales / preview en vivo) ----
+    def _stream_open(self):
+        self.send_response(200)
+        for k, v in {"Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store",
+                     "X-Content-Type-Options": "nosniff", "Connection": "close"}.items():
+            self.send_header(k, v)
+        self.end_headers()
+
+    def _emit(self, obj):
+        try:
+            self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
+            self.wfile.flush()
+        except Exception:
+            pass
+
+    def _pump_sse(self, resp, meta, model_used="gpt-image-2"):
+        # lee el SSE de OpenAI: emite cada imagen parcial y, al final, guarda y emite el resultado
+        final_b64, usage = None, {}
+        for raw in resp:
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            chunk = line[5:].strip()
+            if chunk == "[DONE]":
+                break
+            try:
+                ev = json.loads(chunk)
+            except Exception:
+                continue
+            t = ev.get("type", "")
+            if "partial_image" in t:
+                b64 = ev.get("b64_json") or ev.get("b64") or ""
+                if b64:
+                    self._emit({"type": "partial", "b64": b64, "i": ev.get("partial_image_index", 0)})
+            elif "completed" in t:
+                final_b64 = ev.get("b64_json") or final_b64
+                usage = ev.get("usage") or usage
+        if not final_b64:
+            self._emit({"type": "error", "error": "El streaming no devolvió la imagen final."})
+            return
+        res = self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model_used)
+        self._emit({"type": "done", "result": res})
+
+    def _stream_err(self, e):
+        if isinstance(e, urllib.error.HTTPError):
+            self._emit({"type": "error", "error": self._err(e)})
+        elif isinstance(e, urllib.error.URLError):
+            self._emit({"type": "error", "error": f"Sin conexión con OpenAI: {e.reason}"})
+        else:
+            self._emit({"type": "error", "error": str(e)})
+
     def do_GET(self):
         if not self._guard():
             return
@@ -3632,21 +3700,35 @@ class H(BaseHTTPRequestHandler):
         fmt = b.get("output_format", "png")
         quality = b.get("quality", "auto")
         prompt = self._style_prefix(b.get("project")) + b.get("prompt", "")
+        n = int(b.get("n", 1))
+        partial = max(0, min(3, int(b.get("partial_images") or 0)))
         payload = {"model": model, "prompt": prompt, "size": size, "quality": quality,
-                   "n": b.get("n", 1), "output_format": fmt, "moderation": b.get("moderation", "low")}
+                   "n": n, "output_format": fmt, "moderation": b.get("moderation", "low")}
         if b.get("output_compression") is not None and fmt != "png":
             payload["output_compression"] = b["output_compression"]
+        meta = {"prompt": b.get("prompt", ""), "size": size, "quality": quality,
+                "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
+                "save_desktop": b.get("save_desktop", True)}
+        hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
+        if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
+            payload["stream"] = True
+            payload["partial_images"] = partial
+            self._stream_open()
+            try:
+                req = urllib.request.Request(API_GEN, data=json.dumps(payload).encode(), headers={**hdr, "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    self._pump_sse(r, meta, model)
+            except Exception as e:
+                self._stream_err(e)
+            return
         try:
             with urllib.request.urlopen(urllib.request.Request(API_GEN, data=json.dumps(payload).encode(),
-                    headers={"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}), timeout=240) as r:
+                    headers=hdr), timeout=240) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except urllib.error.URLError as e:
             return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
-        meta = {"prompt": b.get("prompt", ""), "size": size, "quality": payload["quality"],
-                "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
-                "save_desktop": b.get("save_desktop", True)}
         return self._json(self._save_results(data, meta, model_used=model))
 
     def h_edit(self):
@@ -3704,18 +3786,32 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": f"Las referencias pesan {total_bytes/1048576:.0f} MB; el máximo de OpenAI es 512 MB por petición."})
         if b.get("mask"):
             filepart("mask", b["mask"].get("name", "mask.png"), base64.b64decode(b["mask"]["b64"]))
+        meta = {"prompt": b.get("prompt", ""), "size": size, "quality": b.get("quality", "auto"),
+                "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
+                "save_desktop": b.get("save_desktop", True)}
+        partial = max(0, min(3, int(b.get("partial_images") or 0)))
+        stream = partial > 0 and int(b.get("n", 1)) == 1
+        if stream:
+            field("stream", "true")
+            field("partial_images", str(partial))
         parts.append(f"--{boundary}--\r\n".encode())
+        hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
+        if stream:   # preview en vivo (imágenes parciales)
+            self._stream_open()
+            try:
+                req = urllib.request.Request(API_EDIT, data=b"".join(parts), headers={**hdr, "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    self._pump_sse(r, meta, model)
+            except Exception as e:
+                self._stream_err(e)
+            return
         try:
-            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts),
-                    headers={"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}), timeout=300) as r:
+            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts), headers=hdr), timeout=300) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except urllib.error.URLError as e:
             return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
-        meta = {"prompt": b.get("prompt", ""), "size": size, "quality": b.get("quality", "auto"),
-                "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
-                "save_desktop": b.get("save_desktop", True)}
         return self._json(self._save_results(data, meta, via_visual, model))
 
     def h_speech(self):
