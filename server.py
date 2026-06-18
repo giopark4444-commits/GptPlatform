@@ -1567,6 +1567,7 @@ html,body{overflow-x:hidden}
     <span class="lbprompt" id="lbPrompt"></span>
     <div class="lbbtns">
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
+    <button id="lbLib"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>A la biblioteca</button>
     <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
     </div>
@@ -2128,6 +2129,7 @@ const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3
 const GUP='<svg viewBox="0 0 24 24"><path d="M21 3h-6m6 0v6m0-6L13 11"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
 const GCM='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/></svg>';
 const GIT='<svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+const GLB='<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M11 7h5"/></svg>';
 function galFiltered(){const q=$('galSearch').value.trim().toLowerCase();
  const fav=$('galFavBtn').classList.contains('on');
  let imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
@@ -2156,6 +2158,8 @@ async function pollPromptStage(){try{const r=await(await fetch('/promptstage')).
    $('prompt').dispatchEvent(new Event('input',{bubbles:true}));$('prompt').focus();
    toast('Prompt recibido de la biblioteca')}}}catch(e){}}
 $('promptLibBtn').onclick=()=>window.open('/biblioteca','_blank','noopener');
+async function sendPromptToLib(prompt){try{const r=await(await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})})).json();
+ toast(r&&r.ok?'Prompt enviado a la biblioteca':((r&&r.error)||'No se pudo enviar'),r&&r.ok?'':'bad')}catch(e){toast('No se pudo enviar','bad')}}
 function pollAll(){pollStage();pollPromptStage();}
 setInterval(pollAll,2500);
 window.addEventListener('focus',()=>{pollAll();loadGal();});
@@ -2169,6 +2173,7 @@ function renderGal(){const items=galFiltered();
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
    <a class="gfbtn" href="/file?name=${fn}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn gcopy" title="Copiar prompt">${GCP}</button>
+   <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}).join('')
@@ -2183,8 +2188,11 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
 $('gal').onclick=async e=>{
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
-  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),
+  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),lib=e.target.closest('.glib'),
   cmp=e.target.closest('.gcmp'),iter=e.target.closest('.giter'),card=e.target.closest('.gcard');
+ if(lib){const p=(hist.find(x=>x.file===card.dataset.file)||{}).prompt||card.dataset.p||'';
+  if(!p.trim()){toast('Esta imagen no tiene prompt','bad');return}
+  sendPromptToLib(p);flash(lib);return}
  if(cmp){if(!cmpA){cmpA=card.dataset.file;cmp.classList.add('fav');toast('A elegida · ahora pulsa comparar en otra imagen')}
   else if(cmpA===card.dataset.file){cmpA=null;cmp.classList.remove('fav');toast('Comparación cancelada')}
   else{openCmp(cmpA,card.dataset.file);cmpA=null;renderGal()}
@@ -2233,6 +2241,8 @@ function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lb
  else{$('lbDl').href=src;$('lbDl').setAttribute('download','imagen.png')}
  $('lbUse').style.display=p?'':'none';
  $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
+ $('lbLib').style.display=p?'':'none';
+ $('lbLib').onclick=ev=>{ev.stopPropagation();sendPromptToLib(p||'')};
  $('lightbox').classList.remove('hide');lbSyncNav()}
 function lbSyncNav(){const pv=$('lbPrev'),nx=$('lbNext');
  if(!lbScope||!lbCurFile){pv.classList.add('off');nx.classList.add('off');return}
@@ -3158,6 +3168,9 @@ STAGE_LOCK = threading.Lock()
 # bandeja para prompts: la ventana "Biblioteca de prompts" envía un prompt compuesto al estudio
 PROMPT_STAGE = []
 PROMPT_STAGE_LOCK = threading.Lock()
+# bandeja inversa: el historial del estudio envía prompts a la biblioteca para apilarlos
+PROMPT_INBOX = []
+PROMPT_INBOX_LOCK = threading.Lock()
 
 
 def load_promptlib():
@@ -3241,6 +3254,7 @@ def gallery_html(src, fav=False, proj=""):
     GST = '<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>'
     GDL = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>'
     GOP = '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>'
+    GLB = '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
     tiles = []
     for it in items:
         f = it.get("file", "")
@@ -3254,6 +3268,7 @@ def gallery_html(src, fav=False, proj=""):
         btns = ['<button class="gb" data-act="ref" title="Usar como referencia (subir al prompt)">' + GPL + '</button>']
         if not is_shelf and prompt:
             btns.append('<button class="gb" data-act="prompt" title="Copiar prompt">' + GCP + '</button>')
+            btns.append('<button class="gb" data-act="lib" title="Enviar prompt a la biblioteca">' + GLB + '</button>')
         if not is_shelf:
             btns.append('<button class="gb star' + (' on' if favon else '') + '" data-act="fav" title="Favorita">' + GST + '</button>')
         btns.append('<a class="gb" href="' + u + '" download="' + fa + '" title="Descargar">' + GDL + '</a>')
@@ -3279,6 +3294,7 @@ def gallery_html(src, fav=False, proj=""):
           "function gt(m){tEl.textContent=m;tEl.classList.add('show');clearTimeout(tEl._t);tEl._t=setTimeout(function(){tEl.classList.remove('show')},1800);}"
           "async function stageRef(file){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file,project:PROJ})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
           "async function copyP(p){try{await navigator.clipboard.writeText(p||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
+          "async function stageP(p){if(!(p||'').trim()){gt('Esta imagen no tiene prompt');return;}try{var r=await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})});var j=await r.json();gt(j&&j.ok?'Prompt enviado a la biblioteca ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
           "var glb=document.getElementById('glb'),glbImg=document.getElementById('glbImg'),glbP=document.getElementById('glbP'),glbDl=document.getElementById('glbDl'),glbCopy=document.getElementById('glbCopy');"
           "var curFile='',curPrompt='';"
           "function openLb(file,prompt){curFile=file;curPrompt=prompt||'';var u=BASE+encodeURIComponent(file)+PQ;"
@@ -3291,6 +3307,7 @@ def gallery_html(src, fav=False, proj=""):
           "if(act==='ref'){stageRef(file);}"
           "else if(act==='open'){openLb(file,tile.dataset.prompt);}"
           "else if(act==='prompt'){copyP(tile.dataset.prompt);}"
+          "else if(act==='lib'){stageP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ})});}catch(x){}"
           "gt(on?'Marcada como favorita':'Quitada de favoritas');}return;}"
@@ -3400,6 +3417,7 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .card .text{font-size:12.5px;line-height:1.5;color:var(--mut);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
 .card .text.full{-webkit-line-clamp:unset}
 .card .catb{font-size:10.5px;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:20px;align-self:flex-start}
+.newb{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--accent);padding:2px 7px;border-radius:20px}
 .cacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .cacts button{border:1px solid var(--line);background:var(--surf2);color:var(--mut);border-radius:7px;padding:6px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
 .cacts button:hover{border-color:var(--line2);color:var(--txt)}
@@ -3498,6 +3516,7 @@ function renderList(){const items=filtered();
   return `<article class="card" data-id="${it.id}">
    <div class="ctop">
     <button class="star${it.fav?' on':''}" data-act="fav" title="Favorito">${it.fav?'★':'☆'}</button>
+    ${it._new?'<span class="newb">nuevo</span>':''}
     ${it.cat?`<span class="catb">${esc(it.cat)}</span>`:''}
     <div class="vbadge">
      <button class="vw${v==='works'?' on':''}" data-act="vworks" title="Sirve">✓</button>
@@ -3563,17 +3582,26 @@ $('#list').addEventListener('click',e=>{
  const card=e.target.closest('.card');if(!card)return;const id=card.dataset.id;const it=lib.items.find(x=>x.id===id);if(!it)return;
  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
  if(act==='expand'){b.classList.toggle('full');return}
- if(act==='fav'){it.fav=!it.fav;save();renderList();renderCats();return}
- if(act==='vworks'){it.verdict=it.verdict==='works'?'':'works';save();renderList();return}
- if(act==='vfails'){it.verdict=it.verdict==='fails'?'':'fails';save();renderList();return}
- if(act==='vnone'){it.verdict='';save();renderList();return}
+ if(act==='fav'){it.fav=!it.fav;it._new=false;save();renderList();renderCats();return}
+ if(act==='vworks'){it.verdict=it.verdict==='works'?'':'works';it._new=false;save();renderList();return}
+ if(act==='vfails'){it.verdict=it.verdict==='fails'?'':'fails';it._new=false;save();renderList();return}
+ if(act==='vnone'){it.verdict='';it._new=false;save();renderList();return}
  if(act==='add'){addToComposer(it.text,false);toast('Añadido al compositor');return}
  if(act==='replace'){addToComposer(it.text,true);toast('Compositor reemplazado');return}
  if(act==='copy'){copyText(it.text);return}
- if(act==='edit'){$('#composer').value=it.text||'';$('#cTitle').value=it.title||'';$('#cCat').value=it.cat||'';setCV(it.verdict||'');editingId=id;$('#editFlag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});$('#composer').focus();return}
+ if(act==='edit'){it._new=false;$('#composer').value=it.text||'';$('#cTitle').value=it.title||'';$('#cCat').value=it.cat||'';setCV(it.verdict||'');editingId=id;$('#editFlag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});$('#composer').focus();return}
  if(act==='del'){if(!b.dataset.arm){b.dataset.arm='1';b.textContent='¿Seguro?';setTimeout(()=>{if(b){b.textContent='Borrar';delete b.dataset.arm}},2200);return}
   lib.items=lib.items.filter(x=>x.id!==id);save();render();toast('Prompt borrado');return}});
-load();
+// === recibir prompts enviados desde el historial y apilarlos ===
+let inboxReady=false;
+async function pollInbox(){if(!inboxReady)return;
+ try{const r=await(await fetch('/promptinbox')).json();
+  if(r.items&&r.items.length){
+   r.items.forEach(x=>{const t=(x.prompt||'').trim();if(t)lib.items.unshift({id:uid(),text:t,title:(x.title||'').trim(),cat:'',verdict:'',fav:false,_new:true,ts:Date.now()})});
+   save();render();toast(r.items.length+(r.items.length>1?' prompts recibidos del historial':' prompt recibido del historial'))}}catch(e){}}
+(async()=>{await load();inboxReady=true;pollInbox();setInterval(pollInbox,2500);})();
+window.addEventListener('focus',pollInbox);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollInbox()});
 </script></body></html>"""
 
 
@@ -3808,6 +3836,11 @@ class H(BaseHTTPRequestHandler):
                 items = list(PROMPT_STAGE)
                 PROMPT_STAGE.clear()
             return self._json({"items": items})
+        if self.path == "/promptinbox":
+            with PROMPT_INBOX_LOCK:
+                items = list(PROMPT_INBOX)
+                PROMPT_INBOX.clear()
+            return self._json({"items": items})
         if self.path == "/promptlib":
             return self._json(load_promptlib())
         if urlparse(self.path).path == "/biblioteca":
@@ -3840,6 +3873,7 @@ class H(BaseHTTPRequestHandler):
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
+                 "/promptinbox": self.h_promptinbox,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
             if h:
                 return h()
@@ -4828,6 +4862,18 @@ class H(BaseHTTPRequestHandler):
             PROMPT_STAGE.append({"prompt": p})
             if len(PROMPT_STAGE) > 20:
                 del PROMPT_STAGE[:-20]
+        return self._json({"ok": True})
+
+    def h_promptinbox(self):
+        # el historial del estudio envía un prompt a la biblioteca (se apilan hasta que la biblioteca los recoge)
+        b = self._body()
+        p = str(b.get("prompt", "") or "").strip()
+        if not p:
+            return self._json({"error": "prompt vacío"}, 400)
+        with PROMPT_INBOX_LOCK:
+            PROMPT_INBOX.append({"prompt": p, "title": str(b.get("title", "") or "")})
+            if len(PROMPT_INBOX) > 200:
+                del PROMPT_INBOX[:-200]
         return self._json({"ok": True})
 
     def h_stage(self):
