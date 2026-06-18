@@ -44,22 +44,6 @@ HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
 SHELF_DIR.mkdir(parents=True, exist_ok=True)
 
-def _which(*names):
-    for n in names:
-        p = shutil.which(n)
-        if p:
-            return p
-    for base in ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"):
-        for n in names:
-            cand = os.path.join(base, n)
-            if os.path.exists(cand):
-                return cand
-    return names[0]  # último recurso: confiar en el PATH
-
-
-FFMPEG = _which("ffmpeg")
-FFPROBE = _which("ffprobe")
-
 PRICE_OUT = 30.0
 PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
 PRICE_IN_IMG = 8.0      # USD por 1M de tokens de imagen de entrada (referencias)
@@ -576,6 +560,21 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lbnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2}
 .lbnav.prev{left:20px}.lbnav.next{right:20px}
 .lbnav.off{opacity:.25;pointer-events:none}
+/* selector de fotogramas de video */
+.vfmodal{width:min(680px,94vw)}
+.vfstage{background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;max-height:46vh}
+.vfstage video{width:100%;max-height:46vh;display:block;object-fit:contain;background:#000}
+.vfseek{width:100%;margin:12px 0 6px;accent-color:var(--accent);cursor:pointer}
+.vfctrls{display:flex;align-items:center;gap:8px}
+.vfctrls .sm{padding:6px 10px;font-size:11px}
+.vfctrls .sm svg{width:14px;height:14px}
+.vfshots{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;max-height:150px;overflow-y:auto}
+.vfshots:empty::after{content:'Aún no has capturado fotogramas';color:var(--faint);font-size:11.5px}
+.vfshot{position:relative;width:90px;height:60px;border-radius:7px;overflow:hidden;border:1px solid var(--line2);flex:none}
+.vfshot img{width:100%;height:100%;object-fit:cover;display:block}
+.vfshot .x{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(10,10,12,.82);border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff}
+.vfshot .x svg{width:10px;height:10px;stroke-width:2.6}
+.vfshot .tt{position:absolute;left:0;bottom:0;right:0;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(10,10,12,.7);padding:1px 4px}
 .lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;
  background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:12px 14px;max-width:min(760px,92vw);cursor:default}
@@ -984,15 +983,24 @@ html,body{overflow-x:hidden}
   </div>
 </div></div>
 
-<div class="overlay hide" id="vfModal"><div class="modal">
+<div class="overlay hide" id="vfModal"><div class="modal vfmodal">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-  <h2>Fotogramas del video</h2>
-  <p class="modsub">gpt-image-2 no acepta video. Extraigo fotogramas repartidos a lo largo del clip y los añado como referencia para que capte el estilo y lo visual. <span id="vfName" class="mono" style="opacity:.8"></span></p>
-  <label style="margin-top:4px">¿Cuántos fotogramas? · cada uno suma costo de entrada al generar</label>
-  <div class="presets" id="vfChips" style="margin-top:8px"></div>
-  <div class="grid2" style="margin-top:16px;gap:8px">
+  <h2>Elegir fotogramas del video</h2>
+  <p class="modsub">Mueve la línea de tiempo hasta el momento que quieras y pulsa <b>Capturar</b>. Toma los que necesites; tú decides cuántos. <span id="vfName" class="mono" style="opacity:.8"></span></p>
+  <div class="vfstage"><video id="vfVideo" playsinline preload="auto"></video></div>
+  <input type="range" id="vfSeek" class="vfseek" min="0" max="1000" value="0" step="1">
+  <div class="vfctrls">
+    <button id="vfPlay" class="ghost sm" title="Reproducir / pausa (espacio)"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+    <button id="vfStepB" class="ghost sm" title="Fotograma anterior">−1f</button>
+    <button id="vfStepF" class="ghost sm" title="Fotograma siguiente">+1f</button>
+    <span id="vfTime" class="mono" style="font-size:11px;color:var(--mut)">0:00 / 0:00</span>
+    <button class="primary" id="vfCap" style="margin-left:auto"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Capturar fotograma</button>
+  </div>
+  <label style="margin-top:12px">Fotogramas capturados · <span id="vfCount" class="mono">0</span></label>
+  <div class="vfshots" id="vfShots"></div>
+  <div class="grid2" style="margin-top:14px;gap:8px">
     <button id="vfCancel" style="justify-content:center">Cancelar</button>
-    <button class="primary" id="vfGo" style="justify-content:center"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Extraer e insertar</button>
+    <button class="primary" id="vfGo" style="justify-content:center" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg><span id="vfGoTxt">Añadir</span></button>
   </div>
 </div></div>
 
@@ -1452,7 +1460,7 @@ html,body{overflow-x:hidden}
         <button class="linklike" id="shelfDirEdit">cambiar</button>
         <span id="shelfDirRow" class="hide"><input type="text" id="shelfDirIn" placeholder="~/Pictures/MiEstante" spellcheck="false"><button class="ghost sm" id="shelfDirSave">Guardar</button></span>
       </div>
-      <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+      <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" multiple hidden>
       <div class="shelfgrid" id="shelfGrid"></div>
       <div class="shelfempty" id="shelfEmpty">Arrastra imágenes aquí o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, describirla, descargarla o quitarla.</div>
     </div>
@@ -1727,34 +1735,57 @@ const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
 // ===== video → fotogramas de referencia (gpt-image-2 no acepta video) =====
 const VIDEO_RE=/\.(mp4|mov|m4v|webm|mkv|avi|qt)$/i;
 function isVideoFile(f){return !!f&&((f.type&&f.type.startsWith('video/'))||VIDEO_RE.test(f.name||''));}
-let vfPending=null,vfCount=4;
-function vfRenderChips(){$('vfChips').innerHTML=[1,2,3,4,5,6,7,8].map(n=>`<span class="chip${n===vfCount?' on':''}" data-n="${n}">${n}</span>`).join('')}
-function openVideoFrames(file,target){vfPending={file,target};vfCount=4;vfRenderChips();
- $('vfName').textContent=file.name||'';$('vfModal').classList.remove('hide')}
-function closeVF(){$('vfModal').classList.add('hide');vfPending=null}
-async function extractVideoFrames(file,count){
- const b64=await fileToB64(file);
- const r=await(await fetch('/videoframes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:file.name,b64,count})})).json();
- if(r.error){toast(r.error,'bad');return null}
- return r.frames||[]}
-$('vfChips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;vfCount=+c.dataset.n;vfRenderChips()};
+// línea de tiempo + captura por canvas (100% en el navegador, frame exacto)
+let vfTarget=null,vfShotsArr=[],vfURL=null,vfBase='video';
+const VF_FPS=30; // paso aproximado de "1 fotograma"
+function vfFmt(t){t=Math.max(0,t||0);const m=Math.floor(t/60),s=Math.floor(t%60);return m+':'+(s<10?'0':'')+s}
+function openVideoFrames(file,target){
+ vfTarget=target;vfShotsArr=[];
+ vfBase=(file.name||'video').replace(/\.[^.]+$/,'').replace(/[^A-Za-z0-9_-]+/g,'_')||'video';
+ if(vfURL)URL.revokeObjectURL(vfURL);
+ vfURL=URL.createObjectURL(file);
+ const v=$('vfVideo');v.src=vfURL;v.currentTime=0;
+ $('vfName').textContent=file.name||'';
+ vfRenderShots();$('vfModal').classList.remove('hide')}
+function closeVF(){$('vfModal').classList.add('hide');const v=$('vfVideo');try{v.pause()}catch(e){}
+ if(vfURL){URL.revokeObjectURL(vfURL);vfURL=null}v.removeAttribute('src');try{v.load()}catch(e){}
+ vfTarget=null;vfShotsArr=[]}
+function vfRenderShots(){
+ $('vfCount').textContent=vfShotsArr.length;
+ $('vfShots').innerHTML=vfShotsArr.map((s,i)=>`<div class="vfshot"><img src="data:image/png;base64,${s.b64}" alt=""><span class="tt">${s.tt}</span><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('');
+ $('vfGo').disabled=vfShotsArr.length===0;
+ $('vfGoTxt').textContent=vfShotsArr.length?('Añadir '+vfShotsArr.length):'Añadir'}
+function vfCapture(){
+ const v=$('vfVideo');if(!v.videoWidth){toast('El video aún no carga','bad');return}
+ const M=1536;let w=v.videoWidth,h=v.videoHeight;
+ if(Math.max(w,h)>M){const k=M/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
+ const c=document.createElement('canvas');c.width=w;c.height=h;
+ c.getContext('2d').drawImage(v,0,0,w,h);
+ let b64;try{b64=c.toDataURL('image/png').split(',')[1]}catch(e){toast('No pude capturar el fotograma','bad');return}
+ const tt=vfFmt(v.currentTime);
+ vfShotsArr.push({name:vfBase+'_'+tt.replace(':','m')+'s.png',b64,tt});
+ vfRenderShots();flash($('vfCap'))}
+$('vfVideo').addEventListener('loadedmetadata',()=>{const v=$('vfVideo');$('vfSeek').max=String(v.duration||0);$('vfSeek').step='0.03';$('vfTime').textContent='0:00 / '+vfFmt(v.duration)});
+$('vfVideo').addEventListener('timeupdate',()=>{const v=$('vfVideo');$('vfSeek').value=String(v.currentTime);$('vfTime').textContent=vfFmt(v.currentTime)+' / '+vfFmt(v.duration)});
+$('vfVideo').addEventListener('play',()=>$('vfPlay').classList.add('on'));
+$('vfVideo').addEventListener('pause',()=>$('vfPlay').classList.remove('on'));
+$('vfSeek').addEventListener('input',()=>{$('vfVideo').currentTime=+$('vfSeek').value});
+$('vfPlay').onclick=()=>{const v=$('vfVideo');if(v.paused)v.play();else v.pause()};
+$('vfStepB').onclick=()=>{const v=$('vfVideo');v.pause();v.currentTime=Math.max(0,v.currentTime-1/VF_FPS)};
+$('vfStepF').onclick=()=>{const v=$('vfVideo');v.pause();v.currentTime=Math.min(v.duration||1e9,v.currentTime+1/VF_FPS)};
+$('vfCap').onclick=vfCapture;
+$('vfShots').onclick=e=>{const b=e.target.closest('.x');if(!b)return;vfShotsArr.splice(+b.dataset.i,1);vfRenderShots()};
 $('vfCancel').onclick=closeVF;
 $('vfModal').querySelector('.mclose').onclick=closeVF;
 $('vfModal').onclick=e=>{if(e.target===$('vfModal'))closeVF()};
-$('vfGo').onclick=async()=>{if(!vfPending)return;const file=vfPending.file,target=vfPending.target,cnt=vfCount;
- $('vfGo').disabled=true;const html0=$('vfGo').innerHTML;$('vfGo').textContent='Extrayendo…';
- const frames=await extractVideoFrames(file,cnt);
- $('vfGo').disabled=false;$('vfGo').innerHTML=html0;
- if(!frames)return;
- closeVF();
- if(!frames.length){toast('No se extrajeron fotogramas','bad');return}
- const plural=frames.length>1;
+$('vfGo').onclick=async()=>{if(!vfShotsArr.length)return;const target=vfTarget,shots=vfShotsArr.slice();const plural=shots.length>1;
  if(target==='pref'){const n=$('projSel').value,lbl=n||genLabel;
-  for(const fr of frames)await postRef(n,fr.name,fr.b64);
-  await loadProjects();
-  toast(frames.length+(plural?' fotogramas del video añadidos':' fotograma del video añadido')+' a la memoria de "'+lbl+'"')}
- else{for(const fr of frames)refs.push({name:fr.name,b64:fr.b64});renderThumbs();
-  toast(frames.length+(plural?' fotogramas del video añadidos':' fotograma del video añadido')+' como referencia')}};
+  for(const s of shots)await postRef(n,s.name,s.b64);await loadProjects();
+  toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' a la memoria de "'+lbl+'"')}
+ else if(target==='shelf'){await shelfAddImages(shots.map(s=>({name:s.name,b64:s.b64})))}
+ else{for(const s of shots)refs.push({name:s.name,b64:s.b64});renderThumbs();
+  toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' como referencia')}
+ closeVF()};
 // reparte una lista de archivos soltados/elegidos: imágenes directas + el primer video al modal de frames
 async function routeRefFiles(list,target){const arr=[...list];const vid=arr.find(isVideoFile);
  const imgs=arr.filter(f=>!isVideoFile(f));
@@ -2957,7 +2988,8 @@ async function shelfAddFiles(files){const imgs=[];let bad=0;
  await shelfAddImages(imgs);}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
 $('shelfAll').onclick=()=>window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj()),'_blank','noopener');
-$('shelfFile').onchange=e=>{shelfAddFiles([...e.target.files]);e.target.value='';};
+$('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
+ if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
 $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;
   const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file))).blob();
@@ -2985,7 +3017,10 @@ const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
 shEl.addEventListener('dragleave',e=>{if(e.target===shEl)shEl.classList.remove('dragover');});
 shEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();shEl.classList.remove('dragover');
- if(e.dataTransfer.files.length){shelfAddFiles([...e.dataTransfer.files]);return;}
+ if(e.dataTransfer.files.length){const arr=[...e.dataTransfer.files];const vid=arr.find(isVideoFile);
+  if(vid){openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);
+   if(arr.filter(isVideoFile).length>1)toast('Solo proceso un video a la vez','bad');return;}
+  shelfAddFiles(arr);return;}
  if(e.dataTransfer.getData('text/x-studio-shelf'))return; // ya está en el estante
  const imgs=await imagesFromDT(e.dataTransfer);   // historial o resultado → estante
  if(imgs.length)await shelfAddImages(imgs);});
@@ -3495,7 +3530,6 @@ class H(BaseHTTPRequestHandler):
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
-                 "/videoframes": self.h_videoframes,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
             if h:
                 return h()
@@ -3646,62 +3680,6 @@ class H(BaseHTTPRequestHandler):
                 pr[key]["refs"] = [x for x in pr[key].get("refs", []) if x != f]
                 save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
-
-    def h_videoframes(self):
-        # Extrae N fotogramas repartidos de un video para usarlos como referencia de gpt-image-2
-        # (gpt-image-2 no acepta video; estos frames le transmiten estilo/visual).
-        b = self._body()
-        try:
-            count = max(1, min(8, int(b.get("count", 4))))
-        except Exception:
-            count = 4
-        raw = base64.b64decode(b.get("b64", "") or "")
-        if not raw:
-            return self._json({"error": "No recibí el video."})
-        name = safe(os.path.splitext(b.get("name", "video"))[0]) or "video"
-        td = ROOT / "tmp"
-        td.mkdir(parents=True, exist_ok=True)
-        src = td / f"vf_{uuid.uuid4().hex}"
-        try:
-            src.write_bytes(raw)
-            # duración (ffprobe); si falla, repartimos sobre una estimación corta
-            dur = 0.0
-            try:
-                r = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration",
-                                    "-of", "default=nw=1:nk=1", str(src)],
-                                   capture_output=True, text=True, timeout=30)
-                dur = float((r.stdout or "").strip() or 0)
-            except Exception:
-                dur = 0.0
-            if not (dur > 0):
-                dur = 0.0  # sin duración fiable: usaremos thumbnails secuenciales
-            frames = []
-            for i in range(count):
-                if dur > 0:
-                    t = dur * (i + 0.5) / count
-                    args = [FFMPEG, "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}",
-                            "-i", str(src), "-frames:v", "1",
-                            "-vf", r"scale=min(1536\,iw):-2", "-c:v", "png", "-f", "image2pipe", "pipe:1"]
-                else:
-                    # sin duración: salta ~i*1.5s desde el inicio
-                    args = [FFMPEG, "-nostdin", "-loglevel", "error", "-ss", f"{i*1.5:.3f}",
-                            "-i", str(src), "-frames:v", "1",
-                            "-vf", r"scale=min(1536\,iw):-2", "-c:v", "png", "-f", "image2pipe", "pipe:1"]
-                try:
-                    out = subprocess.run(args, capture_output=True, timeout=60)
-                    if out.returncode == 0 and out.stdout:
-                        frames.append({"name": f"{name}_frame{i+1}.png",
-                                       "b64": base64.b64encode(out.stdout).decode()})
-                except Exception:
-                    pass
-            if not frames:
-                return self._json({"error": "No pude extraer fotogramas (¿formato de video no soportado?)."})
-            return self._json({"frames": frames})
-        finally:
-            try:
-                src.unlink()
-            except Exception:
-                pass
 
     def h_config(self):
         b = self._body()
