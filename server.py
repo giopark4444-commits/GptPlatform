@@ -575,6 +575,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .vfshot .x{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(10,10,12,.82);border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff}
 .vfshot .x svg{width:10px;height:10px;stroke-width:2.6}
 .vfshot .tt{position:absolute;left:0;bottom:0;right:0;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(10,10,12,.7);padding:1px 4px}
+.vfactions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.vfactions button{justify-content:center}
+.vfactions .vfadd{flex:1;min-width:140px}
+.vfactions .vfadd[disabled]{opacity:.45;pointer-events:none}
 .lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;
  background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:12px 14px;max-width:min(760px,92vw);cursor:default}
@@ -998,9 +1002,11 @@ html,body{overflow-x:hidden}
   </div>
   <label style="margin-top:12px">Fotogramas capturados · <span id="vfCount" class="mono">0</span></label>
   <div class="vfshots" id="vfShots"></div>
-  <div class="grid2" style="margin-top:14px;gap:8px">
-    <button id="vfCancel" style="justify-content:center">Cancelar</button>
-    <button class="primary" id="vfGo" style="justify-content:center" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg><span id="vfGoTxt">Añadir</span></button>
+  <div class="vfactions">
+    <button id="vfCancel">Cancelar</button>
+    <button id="vfAddRefs" class="vfadd" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Añadir a <span id="vfAddRefsTxt">referencias</span></button>
+    <button id="vfAddShelf" class="vfadd" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Añadir a Mis imágenes</button>
+    <button class="primary vfadd" id="vfAddBoth" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg>Añadir a ambos</button>
   </div>
 </div></div>
 
@@ -1742,6 +1748,8 @@ function vfFmt(t){t=Math.max(0,t||0);const m=Math.floor(t/60),s=Math.floor(t%60)
 function openVideoFrames(file,target){
  vfTarget=target;vfShotsArr=[];
  vfBase=(file.name||'video').replace(/\.[^.]+$/,'').replace(/[^A-Za-z0-9_-]+/g,'_')||'video';
+ // si el video vino de "Memoria visual" (proyecto), el botón de refs apunta ahí; si no, a "Referencias"
+ $('vfAddRefsTxt').textContent=(target==='pref')?'memoria visual':'referencias';
  if(vfURL)URL.revokeObjectURL(vfURL);
  vfURL=URL.createObjectURL(file);
  const v=$('vfVideo');v.src=vfURL;v.currentTime=0;
@@ -1753,8 +1761,8 @@ function closeVF(){$('vfModal').classList.add('hide');const v=$('vfVideo');try{v
 function vfRenderShots(){
  $('vfCount').textContent=vfShotsArr.length;
  $('vfShots').innerHTML=vfShotsArr.map((s,i)=>`<div class="vfshot"><img src="data:image/png;base64,${s.b64}" alt=""><span class="tt">${s.tt}</span><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('');
- $('vfGo').disabled=vfShotsArr.length===0;
- $('vfGoTxt').textContent=vfShotsArr.length?('Añadir '+vfShotsArr.length):'Añadir'}
+ const none=vfShotsArr.length===0;
+ $('vfAddRefs').disabled=none;$('vfAddShelf').disabled=none;$('vfAddBoth').disabled=none}
 function vfCapture(){
  const v=$('vfVideo');if(!v.videoWidth){toast('El video aún no carga','bad');return}
  const M=1536;let w=v.videoWidth,h=v.videoHeight;
@@ -1778,14 +1786,19 @@ $('vfShots').onclick=e=>{const b=e.target.closest('.x');if(!b)return;vfShotsArr.
 $('vfCancel').onclick=closeVF;
 $('vfModal').querySelector('.mclose').onclick=closeVF;
 $('vfModal').onclick=e=>{if(e.target===$('vfModal'))closeVF()};
-$('vfGo').onclick=async()=>{if(!vfShotsArr.length)return;const target=vfTarget,shots=vfShotsArr.slice();const plural=shots.length>1;
- if(target==='pref'){const n=$('projSel').value,lbl=n||genLabel;
-  for(const s of shots)await postRef(n,s.name,s.b64);await loadProjects();
-  toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' a la memoria de "'+lbl+'"')}
- else if(target==='shelf'){await shelfAddImages(shots.map(s=>({name:s.name,b64:s.b64})))}
- else{for(const s of shots)refs.push({name:s.name,b64:s.b64});renderThumbs();
-  toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' como referencia')}
- closeVF()};
+async function vfCommit(toRefs,toShelf){
+ if(!vfShotsArr.length)return;const shots=vfShotsArr.slice();const plural=shots.length>1;
+ if(toRefs){
+  if(vfTarget==='pref'){const n=$('projSel').value,lbl=n||genLabel;
+   for(const s of shots)await postRef(n,s.name,s.b64);await loadProjects();
+   toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' a la memoria de "'+lbl+'"')}
+  else{for(const s of shots)refs.push({name:s.name,b64:s.b64});renderThumbs();
+   toast(shots.length+(plural?' fotogramas añadidos':' fotograma añadido')+' a referencias')}}
+ if(toShelf){await shelfAddImages(shots.map(s=>({name:s.name,b64:s.b64})))}  // shelfAddImages ya hace su toast
+ closeVF()}
+$('vfAddRefs').onclick=()=>vfCommit(true,false);
+$('vfAddShelf').onclick=()=>vfCommit(false,true);
+$('vfAddBoth').onclick=()=>vfCommit(true,true);
 // reparte una lista de archivos soltados/elegidos: imágenes directas + el primer video al modal de frames
 async function routeRefFiles(list,target){const arr=[...list];const vid=arr.find(isVideoFile);
  const imgs=arr.filter(f=>!isVideoFile(f));
