@@ -3177,7 +3177,8 @@ def load_promptlib():
     d = load_json(PROMPTS_JSON, {}) or {}
     cats = d.get("categories") if isinstance(d.get("categories"), list) else []
     items = d.get("items") if isinstance(d.get("items"), list) else []
-    return {"categories": [str(c) for c in cats], "items": [x for x in items if isinstance(x, dict)]}
+    # categorías pueden ser strings (formato viejo) u objetos {id,name,parent} (árbol) — se pasan tal cual
+    return {"categories": list(cats), "items": [x for x in items if isinstance(x, dict)]}
 
 GALERIA_CSS = """
 *{box-sizing:border-box;margin:0}
@@ -3363,8 +3364,16 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .cat{display:flex;align-items:center;gap:6px;background:transparent;border:0;color:var(--mut);font-size:13px;padding:7px 10px;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
 .cat:hover{background:var(--surf);color:var(--txt)}
 .cat.on{background:var(--accent-dim);color:var(--accent);font-weight:600}
+.cat{position:relative}
+.cat .tw{flex:none;width:14px;text-align:center;font-size:10px;color:var(--faint);cursor:pointer}
 .cat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat .cn{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cat .sub{opacity:0;border:0;background:transparent;cursor:pointer;color:var(--accent);padding:2px 4px;border-radius:5px;font-size:13px;line-height:1}
+.cat:hover .sub{opacity:.7}.cat .sub:hover{opacity:1;background:var(--accent-dim)}
+.cat[draggable=true]{cursor:grab}
+.cat.dropbefore{box-shadow:inset 0 2px 0 var(--accent)}
+.cat.dropafter{box-shadow:inset 0 -2px 0 var(--accent)}
+.cat.dropinside{background:var(--accent-dim);outline:1px dashed var(--accent);outline-offset:-2px}
 .cat .ed,.cat .del{opacity:0;border:0;background:transparent;cursor:pointer;padding:2px 4px;border-radius:5px;font-size:12px;line-height:1}
 .cat .ed{color:var(--accent)}
 .cat .del{color:var(--bad)}
@@ -3476,32 +3485,58 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 <div class="tt" id="tt"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='', editCat=null;
+let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='', editCat=null, dragCatId=null, collapsed=new Set();
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function uid(){return 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+// === árbol de categorías: {id,name,parent}; el orden en el array define el orden entre hermanas ===
+function catById(id){return lib.categories.find(c=>c.id===id)}
+function catName(id){const c=catById(id);return c?c.name:''}
+function catChildren(pid){return lib.categories.filter(c=>(c.parent||'')===(pid||''))}
+function catPath(id){const parts=[];let c=catById(id),g=0;while(c&&g++<50){parts.unshift(c.name);c=c.parent?catById(c.parent):null}return parts.join(' / ')}
+function isDesc(id,ancestorId){let c=catById(id),g=0;while(c&&c.parent&&g++<50){if(c.parent===ancestorId)return true;c=catById(c.parent)}return false}
+function catDescIds(id){const out=[id];catChildren(id).forEach(ch=>out.push(...catDescIds(ch.id)));return out}
+function uniqueName(base,parent){let k=1,name=base;const sib=()=>catChildren(parent).some(c=>c.name===name);while(sib()){k++;name=base+' '+k}return name}
 function toast(m,bad){const t=$('#tt');t.textContent=m;t.className='tt show'+(bad?' bad':'');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800)}
 let saveT=null;
 function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await fetch('/promptlib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lib)})}catch(e){toast('No se pudo guardar',1)}},250)}
+function migrate(){ // formato viejo: categories = ["Nombre",...] e items.cat = nombre → árbol con ids
+ if(lib.categories.some(c=>typeof c==='string')){
+  const map={};
+  lib.categories=lib.categories.map(c=>{if(typeof c!=='string')return c;const id=uid();map[c]=id;return {id,name:c,parent:''}});
+  lib.items.forEach(it=>{if(it.cat&&map[it.cat])it.cat=map[it.cat];else if(it.cat&&!catById(it.cat))it.cat=''});
+  save();}}
 async function load(){try{lib=await(await fetch('/promptlib')).json()}catch(e){lib={categories:[],items:[]}}
- if(!Array.isArray(lib.categories))lib.categories=[];if(!Array.isArray(lib.items))lib.items=[];render()}
-function filtered(){return lib.items.filter(it=>{
- if(curCat!=null&&(it.cat||'')!==curCat)return false;
+ if(!Array.isArray(lib.categories))lib.categories=[];if(!Array.isArray(lib.items))lib.items=[];migrate();render()}
+function filtered(){const scope=(curCat!=null&&curCat!=='')?new Set(catDescIds(curCat)):null;return lib.items.filter(it=>{
+ if(curCat===''){if(it.cat)return false}
+ else if(scope){if(!scope.has(it.cat||''))return false}
  if(filter==='fav'&&!it.fav)return false;
  if(filter==='works'&&it.verdict!=='works')return false;
  if(filter==='fails'&&it.verdict!=='fails')return false;
- if(q){const s=((it.title||'')+' '+(it.text||'')+' '+(it.cat||'')).toLowerCase();if(!s.includes(q))return false}
+ if(q){const s=((it.title||'')+' '+(it.text||'')+' '+catName(it.cat)).toLowerCase();if(!s.includes(q))return false}
  return true})}
 function fillCatSelect(){const sel=$('#cCat');const cur=sel.value;
- sel.innerHTML='<option value="">Sin categoría</option>'+lib.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+ let opts='<option value="">Sin categoría</option>';
+ (function walk(pid,depth){catChildren(pid).forEach(c=>{opts+=`<option value="${esc(c.id)}">${'  '.repeat(depth)}${depth?'└ ':''}${esc(c.name)}</option>`;walk(c.id,depth+1)})})('',0);
+ sel.innerHTML=opts;
  if([...sel.options].some(o=>o.value===cur))sel.value=cur}
 function renderCats(){const box=$('#cats');
- const cnt=c=>lib.items.filter(it=>(it.cat||'')===c).length;
+ const ownCnt=id=>lib.items.filter(it=>it.cat===id).length;
  const none=lib.items.filter(it=>!it.cat).length;
- let html=`<button class="cat${curCat===''?' on':''}" data-cat=""><span class="nm">Sin categoría</span><span class="cn">${none}</span></button>`;
- html+=lib.categories.map(c=>{
-  if(c===editCat)return `<div class="cat editing"><input class="catedit" data-old="${esc(c)}" value="${esc(c)}" maxlength="40" placeholder="Nombre de la categoría…"></div>`;
-  return `<button class="cat${curCat===c?' on':''}" data-cat="${esc(c)}" title="Doble clic para renombrar"><span class="nm">${esc(c)}</span><span class="cn">${cnt(c)}</span><span class="ed" data-editcat="${esc(c)}" title="Renombrar">✎</span><span class="del" data-delcat="${esc(c)}" title="Borrar categoría">✕</span></button>`}).join('');
- box.innerHTML=html;fillCatSelect();
+ let html=`<button class="cat${curCat===''?' on':''}" data-cat=""><span class="tw"></span><span class="nm">Sin categoría</span><span class="cn">${none}</span></button>`;
+ const rows=[];
+ (function walk(pid,depth){catChildren(pid).forEach(c=>{
+  const kids=catChildren(c.id),isCol=collapsed.has(c.id),pad=8+depth*15;
+  if(c.id===editCat){rows.push(`<div class="cat editing" style="padding-left:${pad}px"><input class="catedit" data-old="${esc(c.id)}" value="${esc(c.name)}" maxlength="40" placeholder="Nombre…"></div>`)}
+  else{rows.push(`<button class="cat${curCat===c.id?' on':''}" data-cat="${esc(c.id)}" draggable="true" style="padding-left:${pad}px" title="Arrastra para mover/ordenar · doble clic para renombrar">`
+   +`<span class="tw" data-tw="${esc(c.id)}">${kids.length?(isCol?'▸':'▾'):''}</span>`
+   +`<span class="nm">${esc(c.name)}</span><span class="cn">${ownCnt(c.id)}</span>`
+   +`<span class="sub" data-subcat="${esc(c.id)}" title="Nueva subcarpeta">＋</span>`
+   +`<span class="ed" data-editcat="${esc(c.id)}" title="Renombrar">✎</span>`
+   +`<span class="del" data-delcat="${esc(c.id)}" title="Borrar">✕</span></button>`)}
+  if(kids.length&&!isCol)walk(c.id,depth+1);
+ })})('',0);
+ box.innerHTML=html+rows.join('');fillCatSelect();
  const ie=box.querySelector('.catedit');
  if(ie){ie.focus();ie.select();
   ie.addEventListener('click',ev=>ev.stopPropagation());
@@ -3517,7 +3552,7 @@ function renderList(){const items=filtered();
    <div class="ctop">
     <button class="star${it.fav?' on':''}" data-act="fav" title="Favorito">${it.fav?'★':'☆'}</button>
     ${it._new?'<span class="newb">nuevo</span>':''}
-    ${it.cat?`<span class="catb">${esc(it.cat)}</span>`:''}
+    ${it.cat&&catById(it.cat)?`<span class="catb">${esc(catPath(it.cat))}</span>`:''}
     <div class="vbadge">
      <button class="vw${v==='works'?' on':''}" data-act="vworks" title="Sirve">✓</button>
      <button class="vf${v==='fails'?' on':''}" data-act="vfails" title="No sirve">✗</button>
@@ -3543,29 +3578,57 @@ async function copyText(t){try{await navigator.clipboard.writeText(t||'');toast(
 // === eventos ===
 $('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();renderList()});
 $$('.f').forEach(b=>b.onclick=()=>{filter=b.dataset.f;curCat=null;render()});
+function addCategory(parent){const name=uniqueName('Nueva categoría',parent||'');const id=uid();
+ lib.categories.push({id,name,parent:parent||''});if(parent)collapsed.delete(parent);
+ editCat=id;save();render();toast('Categoría creada — edita el nombre cuando quieras')}
+function delCategory(id){ // borra la categoría; sus subcarpetas e items suben al padre
+ const c=catById(id);if(!c)return;const par=c.parent||'';
+ catChildren(id).forEach(ch=>ch.parent=par);
+ lib.items.forEach(it=>{if(it.cat===id)it.cat=par});
+ lib.categories=lib.categories.filter(x=>x.id!==id);
+ if(curCat===id)curCat=null;save();render();toast('Categoría borrada')}
+function renameCat(id,nw){if(editCat===null)return;nw=(nw||'').trim();const c=catById(id);
+ if(!c||!nw||nw===c.name){editCat=null;render();return}
+ if(catChildren(c.parent||'').some(x=>x.id!==id&&x.name===nw)){editCat=null;render();toast('Ya existe una categoría con ese nombre aquí',1);return}
+ c.name=nw;editCat=null;save();render();toast('Categoría renombrada')}
+function moveCat(dragId,targetId,mode){ // mode: before|after|inside
+ if(dragId===targetId||isDesc(targetId,dragId))return;
+ const d=catById(dragId);if(!d)return;
+ lib.categories=lib.categories.filter(c=>c.id!==dragId);
+ if(mode==='inside'){d.parent=targetId;collapsed.delete(targetId);const ti=lib.categories.findIndex(c=>c.id===targetId);lib.categories.splice(ti+1,0,d)}
+ else{const t=catById(targetId);d.parent=t?(t.parent||''):'';const ti=lib.categories.findIndex(c=>c.id===targetId);lib.categories.splice(mode==='before'?ti:ti+1,0,d)}
+ save();render()}
 $('#cats').addEventListener('click',e=>{
+ const tw=e.target.closest('[data-tw]');
+ if(tw){e.stopPropagation();const id=tw.dataset.tw;if(collapsed.has(id))collapsed.delete(id);else collapsed.add(id);render();return}
+ const sub=e.target.closest('[data-subcat]');
+ if(sub){e.stopPropagation();addCategory(sub.dataset.subcat);return}
  const ed=e.target.closest('[data-editcat]');
  if(ed){e.stopPropagation();editCat=ed.dataset.editcat;render();return}
  const del=e.target.closest('[data-delcat]');
- if(del){e.stopPropagation();const name=del.dataset.delcat;
+ if(del){e.stopPropagation();const id=del.dataset.delcat;
   if(!del.dataset.arm){$$('#cats .del').forEach(x=>delete x.dataset.arm);del.dataset.arm='1';del.textContent='✓?';setTimeout(()=>{if(del){del.textContent='✕';delete del.dataset.arm}},2200);return}
-  lib.categories=lib.categories.filter(c=>c!==name);lib.items.forEach(it=>{if(it.cat===name)it.cat=''});
-  if(curCat===name)curCat=null;save();render();toast('Categoría borrada');return}
+  delCategory(id);return}
  const cat=e.target.closest('.cat');if(!cat||cat.classList.contains('editing'))return;curCat=cat.dataset.cat;filter='all';render()});
 $('#cats').addEventListener('dblclick',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat)return;editCat=cat.dataset.cat;render()});
-$('#addCat').onclick=()=>{const i=$('#newCat');let n=i.value.trim();
- if(!n){ // sin texto: crea una con nombre por defecto único y la deja lista para renombrar
-  let base='Nueva categoría',k=1,name=base;while(lib.categories.includes(name)){k++;name=base+' '+k}
-  n=name;lib.categories.push(n);i.value='';editCat=n;save();render();toast('Categoría creada — edita el nombre cuando quieras');return}
- if(lib.categories.includes(n)){toast('Esa categoría ya existe',1);return}
- lib.categories.push(n);i.value='';save();render();toast('Categoría creada')};
-function renameCat(old,nw){if(editCat===null)return;nw=(nw||'').trim();
- if(!nw||nw===old){editCat=null;render();return}
- if(lib.categories.includes(nw)){editCat=null;render();toast('Ya existe esa categoría',1);return}
- const idx=lib.categories.indexOf(old);if(idx>=0)lib.categories[idx]=nw;
- lib.items.forEach(it=>{if((it.cat||'')===old)it.cat=nw});
- if(curCat===old)curCat=nw;
- editCat=null;save();render();toast('Categoría renombrada')}
+// arrastrar para mover/ordenar
+$('#cats').addEventListener('dragstart',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat){e.preventDefault();return}dragCatId=cat.dataset.cat;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragCatId)}catch(x){}});
+function clearDrop(){$$('#cats .cat').forEach(c=>c.classList.remove('dropbefore','dropafter','dropinside'))}
+$('#cats').addEventListener('dragover',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat||!dragCatId)return;
+ e.preventDefault();e.dataTransfer.dropEffect='move';clearDrop();
+ const r=cat.getBoundingClientRect(),y=e.clientY-r.top;
+ const mode=y<r.height*0.28?'before':y>r.height*0.72?'after':'inside';
+ cat.classList.add(mode==='before'?'dropbefore':mode==='after'?'dropafter':'dropinside')});
+$('#cats').addEventListener('dragleave',e=>{if(!e.target.closest('#cats'))clearDrop()});
+$('#cats').addEventListener('drop',e=>{const cat=e.target.closest('.cat[data-cat]');clearDrop();
+ if(!cat||!cat.dataset.cat||!dragCatId){dragCatId=null;return}
+ e.preventDefault();const r=cat.getBoundingClientRect(),y=e.clientY-r.top;
+ const mode=y<r.height*0.28?'before':y>r.height*0.72?'after':'inside';
+ moveCat(dragCatId,cat.dataset.cat,mode);dragCatId=null});
+$('#cats').addEventListener('dragend',()=>{clearDrop();dragCatId=null});
+$('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();
+ if(!n){addCategory('');i.value='';return}
+ lib.categories.push({id:uid(),name:n,parent:''});i.value='';save();render();toast('Categoría creada')};
 $('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
 $$('#cVsel button').forEach(b=>b.onclick=()=>setCV(b.dataset.cv));
 $('#cClear').onclick=clearComposer;
@@ -4847,7 +4910,7 @@ class H(BaseHTTPRequestHandler):
         b = self._body()
         cats = b.get("categories") if isinstance(b.get("categories"), list) else []
         items = b.get("items") if isinstance(b.get("items"), list) else []
-        data = {"categories": [str(c) for c in cats], "items": [x for x in items if isinstance(x, dict)]}
+        data = {"categories": list(cats), "items": [x for x in items if isinstance(x, dict)]}
         with LOCK:
             save_json(PROMPTS_JSON, data)
         return self._json({"ok": True})
