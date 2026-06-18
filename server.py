@@ -708,6 +708,19 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .modal p{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.55}.modal a{color:var(--accent)}
 .setmodal{max-width:520px}
 .setmodal h2{font-size:22px}
+.guide{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.guide details{border:1px solid var(--line);border-radius:10px;background:var(--surface2);overflow:hidden}
+.guide details[open]{border-color:var(--line2)}
+.guide summary{cursor:pointer;padding:11px 13px;font-size:13.5px;font-weight:600;color:var(--txt);list-style:none;user-select:none;display:flex;align-items:center;gap:8px}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary::after{content:'＋';margin-left:auto;color:var(--faint);font-weight:400}
+.guide details[open] summary::after{content:'－'}
+.guide summary:hover{color:var(--accent)}
+.guide details>p{margin:0 13px 11px;font-size:12.5px;line-height:1.6;color:var(--mut)}
+.guide details>p:first-of-type{margin-top:2px}
+.guide details b{color:var(--txt);font-weight:600}
+.guide details code{font-family:var(--mono);font-size:11.5px;background:var(--accent-dim);color:var(--accent);padding:1px 5px;border-radius:5px}
+.guide kbd{font-family:var(--mono);font-size:11px;background:var(--elev);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;color:var(--txt)}
 .setmodal .setlabel{font-size:12.5px}
 .setmodal .setsublabel{font-size:13.5px}
 .setmodal .langseg button{font-size:14.5px;padding:11px}
@@ -897,6 +910,50 @@ html,body{overflow-x:hidden}
 <div class="overlay hide" id="setModal"><div class="modal setmodal">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <h2>Ajustes</h2>
+  <div class="setsec">
+    <div class="setlabel">Guía de la app · cómo sacarle todo el jugo</div>
+    <div class="guide">
+      <details open><summary>🚀 Lo básico</summary>
+        <p>Arriba eliges entre <b>Imagen</b>, <b>Audio</b> y <b>Video</b> (también con las teclas <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>). Escribe tu idea en el cuadro de <b>prompt</b> y pulsa <kbd>Enter</kbd> para generar (<kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea). El <b>costo se estima antes</b> de generar y se muestra el <b>costo real</b> después; el gasto de la sesión aparece arriba a la derecha. Toda la app es 100% <b>gpt-image-2</b> de OpenAI para imagen.</p>
+      </details>
+      <details><summary>🖼️ Imagen</summary>
+        <p><b>Crear</b> = texto → imagen. <b>Editar</b> = subes una o varias imágenes de referencia + un prompt (incluso con máscara para cambiar solo una zona).</p>
+        <p><b>Referencias (opcional):</b> arrastra, pega (<kbd>⌘V</kbd>) o elige imágenes; también puedes <b>soltar un video</b> y se abre un selector de <b>fotogramas</b> (mueves la línea de tiempo y capturas los que quieras).</p>
+        <p><b>Máscara / Anotar / Pins:</b> pinta la zona a editar, dibuja flechas/círculos o pon pines numerados con una instrucción por punto.</p>
+        <p><b>Tamaño:</b> sliders de ancho/alto + <b>candado de proporción</b>, presets por proporción (nativos de gpt-image-2 en verde) y chips de resolución 720p→4K.</p>
+        <p><b>Avanzado:</b> formato (PNG/JPEG/WebP), moderación, e <b>imágenes parciales</b> (preview en vivo mientras genera). <b>✨</b> junto al prompt lo mejora con IA. Puedes generar varias a la vez con <b>Cantidad</b>.</p>
+      </details>
+      <details><summary>📁 Proyectos</summary>
+        <p>El botón junto a «Gio Studio» abre tus <b>proyectos</b>. Cada uno tiene su <b>propia memoria, su historial y sus «Mis imágenes»</b>. Puedes crear, renombrar (lápiz) y borrar; la portada es la última imagen. El espacio <b>General</b> se puede renombrar y también funciona como un proyecto completo.</p>
+        <p><b>Memoria visual:</b> guarda imágenes de referencia que se <b>adjuntan solas</b> en cada generación del proyecto (para mantener un estilo/personaje). Además puedes guardar un <b>Estilo</b> de texto que se antepone a tus prompts, y <b>Destilar</b> (la IA resume el estilo a partir de tus prompts del proyecto).</p>
+      </details>
+      <details><summary>🕑 Historial</summary>
+        <p>Cada imagen generada queda aquí. Al pasar el cursor aparecen acciones: <b>★ favorita</b>, <b>Mejorar 2×</b> (upscale con IA), <b>Comparar A/B</b>, <b>Iterar</b> (editar con un cambio), <b>Descargar</b>, <b>Copiar prompt</b>, <b>Enviar prompt a la biblioteca</b> 📖, <b>Usar como referencia</b> y <b>Borrar</b> (doble clic).</p>
+        <p><b>Seleccionar:</b> activa el modo selección para marcar varias y <b>enviarlas a la biblioteca</b> o <b>borrarlas en lote</b>. <b>Buscar</b> filtra por prompt; <b>Ver todo</b> abre una galería en pestaña aparte.</p>
+      </details>
+      <details><summary>🗂️ Mis imágenes</summary>
+        <p>Tu estante <b>local</b> (no se sube a OpenAI), siempre a mano bajo el lienzo. Arrastra imágenes del historial o del resultado para guardarlas ahí; puedes cambiar la carpeta. Soltar un <b>video</b> abre el selector de fotogramas. Clic en una imagen para ampliarla.</p>
+      </details>
+      <details><summary>📖 Prompt Library (biblioteca de prompts)</summary>
+        <p>El botón <b>«Prompt Library»</b> abre tu biblioteca en una <b>pestaña aparte</b>. Guarda prompts con <b>★ favorito</b> y <b>veredicto</b> (✓ sirve / ✗ no sirve / — sin probar), búscalos y fíltralos.</p>
+        <p><b>Categorías en árbol:</b> crea <b>subcarpetas</b> (botón ＋), <b>arrástralas</b> para reordenar (soltar arriba/abajo) o anidar (soltar en el centro), renómbralas (lápiz/doble clic).</p>
+        <p><b>Compositor(es):</b> puedes tener <b>varios a la vez</b> (botón «Nuevo compositor»). Combinas prompts («+ Compositor»), los mejoras con <b>IA</b>, y los <b>envías a la interfaz principal</b> para generar — o los guardas. Las <b>plantillas</b> con <code>{variables}</code> te piden rellenar los huecos al usarlas.</p>
+        <p><b>Mover prompts:</b> arrastra una tarjeta a una categoría, o usa el botón <b>«Mover»</b> (menú con todas). Desde el historial puedes enviar prompts y se <b>apilan</b> aquí (insignia «nuevo»). Atajo <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> en la interfaz principal: busca e inserta un prompt sin abrir la pestaña.</p>
+      </details>
+      <details><summary>🔍 Visor a pantalla completa</summary>
+        <p>Clic en cualquier imagen para verla grande. Navega entre imágenes con las <b>flechas</b> <kbd>←</kbd> <kbd>→</kbd>. Abajo: <b>Usar prompt</b>, <b>A la biblioteca</b>, <b>Describir</b> (visión → prompt) y <b>Descargar</b>. <kbd>Esc</kbd> cierra.</p>
+      </details>
+      <details><summary>🎵 Audio y 🎬 Video</summary>
+        <p><b>Audio:</b> voz (TTS) con tono y voces, <b>Transcripción</b>, <b>Efectos de sonido</b> y <b>Música</b>. <b>Video:</b> Seedance, Kling y OmniHuman vía fal.ai. Estas secciones de video y algunas de audio necesitan conectar su <b>clave</b> (botón API / fal).</p>
+      </details>
+      <details><summary>🎨 Personalización y respaldo</summary>
+        <p><b>6 temas</b> (3 oscuros + 3 claros), <b>idioma</b> Español/English/Français, <b>tamaño del texto</b> ajustable, y <b>carpetas</b> de guardado por proyecto — todo aquí en Ajustes. El botón <b>Backup</b> (arriba) descarga/sincroniza todo tu contenido.</p>
+      </details>
+      <details><summary>⌨️ Atajos de teclado</summary>
+        <p><kbd>Enter</kbd> genera · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> cambia de modo · <kbd>←</kbd>/<kbd>→</kbd> navega en el visor · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> buscador de prompts · <kbd>Esc</kbd> cierra ventanas · doble clic en la papelera borra.</p>
+      </details>
+    </div>
+  </div>
   <div class="setsec">
     <div class="setlabel">Idioma</div>
     <div class="langseg" id="langSeg">
