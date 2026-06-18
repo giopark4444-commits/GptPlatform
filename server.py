@@ -675,6 +675,18 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(5,5,6,.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:var(--z-modal)}
+.cmdk{position:fixed;inset:0;background:rgba(5,5,6,.5);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;z-index:var(--z-lightbox);padding-top:12vh}
+.cmdk.hide{display:none}
+.cmdkbox{background:var(--surface);border:1px solid var(--line2);border-radius:14px;width:min(620px,94vw);box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden;display:flex;flex-direction:column}
+#cmdkq{border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--txt);font-size:15px;padding:16px 18px;outline:none;font-family:inherit}
+.cmdklist{max-height:48vh;overflow-y:auto;padding:6px}
+.cmdkrow{padding:10px 12px;border-radius:9px;cursor:pointer;font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdkrow b{color:var(--txt);font-weight:600}
+.cmdkrow.sel{background:var(--accent-dim);color:var(--txt)}
+.cmdkrow.sel b{color:var(--accent)}
+.cmdkempty{padding:24px;text-align:center;color:var(--faint);font-size:13px}
+.cmdkhint{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--faint);font-family:var(--mono)}
+.cmdkhint a{color:var(--accent);text-decoration:none}
 .modal{background:var(--surface);border:1px solid var(--line2);border-radius:18px;padding:30px;max-width:440px;width:92%;
  box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative}
 .mclose{position:absolute;top:13px;right:13px;width:30px;height:30px;border-radius:8px;background:var(--surface2);
@@ -1009,6 +1021,12 @@ html,body{overflow-x:hidden}
     <button id="vfAddShelf" class="vfadd" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Añadir a Mis imágenes</button>
     <button class="primary vfadd" id="vfAddBoth" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg>Añadir a ambos</button>
   </div>
+</div></div>
+
+<div class="cmdk hide" id="cmdk"><div class="cmdkbox">
+  <input id="cmdkq" placeholder="Buscar un prompt en tu biblioteca…" spellcheck="false" autocomplete="off">
+  <div class="cmdklist" id="cmdkList"></div>
+  <div class="cmdkhint"><span>↑↓ navegar · ↵ insertar · Esc cerrar</span><a href="/biblioteca" target="_blank" rel="noopener">Abrir biblioteca ↗</a></div>
 </div></div>
 
 <div class="top">
@@ -2160,6 +2178,25 @@ async function pollPromptStage(){try{const r=await(await fetch('/promptstage')).
 $('promptLibBtn').onclick=()=>window.open('/biblioteca','_blank','noopener');
 async function sendPromptToLib(prompt){try{const r=await(await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})})).json();
  toast(r&&r.ok?'Prompt enviado a la biblioteca':((r&&r.error)||'No se pudo enviar'),r&&r.ok?'':'bad')}catch(e){toast('No se pudo enviar','bad')}}
+// ===== buscador rápido de prompts de la biblioteca (Cmd/Ctrl+K) =====
+let cmdkAll=[],cmdkItems=[],cmdkIdx=0;
+async function openCmdk(){let d;try{d=await(await fetch('/promptlib')).json()}catch(e){d={items:[]}}
+ cmdkAll=Array.isArray(d.items)?d.items:[];$('cmdk').classList.remove('hide');$('cmdkq').value='';cmdkRender('');$('cmdkq').focus()}
+function closeCmdk(){$('cmdk').classList.add('hide')}
+function cmdkRender(q){q=(q||'').trim().toLowerCase();
+ cmdkItems=cmdkAll.filter(it=>!q||(((it.title||'')+' '+(it.text||'')).toLowerCase().includes(q))).slice(0,60);cmdkIdx=0;
+ $('cmdkList').innerHTML=cmdkItems.length?cmdkItems.map((it,i)=>`<div class="cmdkrow${i===0?' sel':''}" data-i="${i}">${it.title?'<b>'+esc(it.title)+'</b> · ':''}${esc((it.text||'').slice(0,140))}</div>`).join(''):'<div class="cmdkempty">Sin resultados en tu biblioteca</div>'}
+function cmdkSel(){[...document.querySelectorAll('#cmdkList .cmdkrow')].forEach((r,i)=>r.classList.toggle('sel',i===cmdkIdx));const s=document.querySelector('#cmdkList .cmdkrow.sel');if(s)s.scrollIntoView({block:'nearest'})}
+function cmdkInsert(i){const it=cmdkItems[i];if(!it)return;if(typeof setMode==='function')setMode(lastImgMode);$('prompt').value=it.text||'';$('prompt').dispatchEvent(new Event('input',{bubbles:true}));$('prompt').focus();closeCmdk();toast('Prompt insertado de la biblioteca')}
+$('cmdkq').addEventListener('input',e=>cmdkRender(e.target.value));
+$('cmdkq').addEventListener('keydown',e=>{
+ if(e.key==='ArrowDown'){e.preventDefault();cmdkIdx=Math.min(cmdkItems.length-1,cmdkIdx+1);cmdkSel()}
+ else if(e.key==='ArrowUp'){e.preventDefault();cmdkIdx=Math.max(0,cmdkIdx-1);cmdkSel()}
+ else if(e.key==='Enter'){e.preventDefault();cmdkInsert(cmdkIdx)}
+ else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeCmdk()}});
+$('cmdkList').onclick=e=>{const r=e.target.closest('.cmdkrow');if(r)cmdkInsert(+r.dataset.i)};
+$('cmdk').addEventListener('click',e=>{if(e.target===$('cmdk'))closeCmdk()});
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();if($('cmdk').classList.contains('hide'))openCmdk();else closeCmdk()}},true);
 function pollAll(){pollStage();pollPromptStage();}
 setInterval(pollAll,2500);
 window.addEventListener('focus',()=>{pollAll();loadGal();});
