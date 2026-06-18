@@ -3444,6 +3444,18 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .movemenu button{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--txt);font-size:13px;padding:7px 10px;border-radius:7px;cursor:pointer;font-family:inherit;white-space:pre}
 .movemenu button:hover{background:var(--accent-dim);color:var(--accent)}
 .movemenu button.cur{color:var(--accent);font-weight:600}
+.tmplb{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-dim);padding:2px 7px;border-radius:20px}
+.c-magic{display:inline-flex;align-items:center;gap:6px}
+.tmplov{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:70}
+.tmplbox{background:var(--surf);border:1px solid var(--line2);border-radius:14px;padding:18px;width:min(440px,92vw);box-shadow:0 24px 70px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:6px}
+.tmplh{font-size:15px;font-weight:650}
+.tmplsub{font-size:12px;color:var(--mut);margin-bottom:6px}
+.tmpllbl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+.tmplin{background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--txt);font-size:13.5px;font-family:inherit;outline:none}
+.tmplin:focus{border-color:var(--accent)}
+.tmplbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.tmplbtns button{border:1px solid var(--line);background:var(--surf2);color:var(--txt);border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;font-family:inherit}
+.tmplbtns .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .cacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .cacts button{border:1px solid var(--line);background:var(--surf2);color:var(--mut);border-radius:7px;padding:6px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
 .cacts button:hover{border-color:var(--line2);color:var(--txt)}
@@ -3568,6 +3580,7 @@ function renderList(){const items=filtered();
    <div class="ctop">
     <button class="star${it.fav?' on':''}" data-act="fav" title="Favorito">${it.fav?'★':'☆'}</button>
     ${it._new?'<span class="newb">nuevo</span>':''}
+    ${templateVars(it.text).length?'<span class="tmplb" title="Tiene variables {…} que se rellenan al usarla">plantilla</span>':''}
     ${it.cat&&catById(it.cat)?`<span class="catb">${esc(catPath(it.cat))}</span>`:''}
     <div class="vbadge">
      <button class="vw${v==='works'?' on':''}" data-act="vworks" title="Sirve">✓</button>
@@ -3606,6 +3619,22 @@ function openMoveMenu(itemId,anchor){closeMoveMenu();const it=lib.items.find(x=>
  m.style.left=Math.max(8,left)+'px';m.style.top=top+'px';
  m.addEventListener('click',e=>{const b=e.target.closest('button[data-cat]');if(!b)return;moveItemTo(itemId,b.dataset.cat);closeMoveMenu()});
  setTimeout(()=>document.addEventListener('click',moveMenuOutside,true),0)}
+// === plantillas: prompts con {variables} que se rellenan al usarlos ===
+function templateVars(text){const set=[];(String(text||'').match(/\{[^{}]+\}/g)||[]).forEach(m=>{const n=m.slice(1,-1).trim();if(n&&!set.includes(n))set.push(n)});return set}
+function fillTemplate(text,cb){const vars=templateVars(text);if(!vars.length){cb(text);return}
+ const ov=document.createElement('div');ov.className='tmplov';
+ ov.innerHTML='<div class="tmplbox"><div class="tmplh">Rellena la plantilla</div><div class="tmplsub">Completa los huecos del prompt y pulsa Insertar.</div>'
+  +vars.map(v=>`<label class="tmpllbl">${esc(v)}</label><input class="tmplin" data-v="${esc(v)}" placeholder="${esc(v)}…">`).join('')
+  +'<div class="tmplbtns"><button class="tmplcancel">Cancelar</button><button class="primary tmplok">Insertar</button></div></div>';
+ document.body.appendChild(ov);
+ const inputs=[...ov.querySelectorAll('.tmplin')];if(inputs[0])inputs[0].focus();
+ const close=()=>ov.remove();
+ ov.querySelector('.tmplcancel').onclick=close;
+ ov.addEventListener('click',e=>{if(e.target===ov)close()});
+ ov.querySelector('.tmplok').onclick=()=>{const map={};inputs.forEach(i=>map[i.dataset.v]=i.value);
+  const out=String(text).replace(/\{([^{}]+)\}/g,(m,n)=>{const k=n.trim();return (map[k]!==undefined&&map[k]!=='')?map[k]:m});
+  close();cb(out)};
+ inputs.forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ov.querySelector('.tmplok').click()}else if(e.key==='Escape'){e.preventDefault();close()}}))}
 // === compositores (varios a la vez) ===
 const COMP_TPL=`<section class="composer" data-cv="">
  <div class="clbl">Compositor <span class="csub editflag"></span><button class="cdel" title="Quitar este compositor"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -3622,6 +3651,7 @@ const COMP_TPL=`<section class="composer" data-cv="">
  <div class="cbtns">
   <button class="primary c-send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Enviar a la interfaz principal</button>
   <button class="c-save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar en biblioteca</button>
+  <button class="c-magic"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Mejorar con IA</button>
   <button class="c-copy">Copiar</button>
   <button class="c-clear">Limpiar</button>
  </div>
@@ -3638,9 +3668,14 @@ function addComposer(focus){const wrap=document.createElement('div');wrap.innerH
  el.querySelectorAll('.c-vsel button').forEach(b=>b.onclick=()=>compSetCV(el,b.dataset.cv));
  el.querySelector('.c-clear').onclick=()=>compClear(el);
  el.querySelector('.c-copy').onclick=()=>copyText(el.querySelector('.c-text').value);
- el.querySelector('.c-send').onclick=async()=>{const p=el.querySelector('.c-text').value.trim();if(!p){toast('Escribe o compón un prompt',1);return}
-  try{const r=await(await fetch('/promptstage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})})).json();
-   if(r&&r.ok)toast('Enviado a la interfaz principal ✓');else toast((r&&r.error)||'No se pudo enviar',1)}catch(e){toast('No se pudo enviar',1)}};
+ el.querySelector('.c-magic').onclick=async()=>{const ta=el.querySelector('.c-text'),p=ta.value.trim();if(!p){toast('Escribe un prompt primero',1);return}
+  const btn=el.querySelector('.c-magic'),html0=btn.innerHTML;btn.disabled=true;btn.textContent='Mejorando…';
+  try{const r=await(await fetch('/magicprompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p,mode:'imagen'})})).json();
+   if(r.error)toast(r.error,1);else if(r.prompt){ta.value=r.prompt;toast('Prompt mejorado con IA ✨')}}catch(e){toast('No se pudo mejorar',1)}
+  btn.disabled=false;btn.innerHTML=html0};
+ el.querySelector('.c-send').onclick=()=>{const raw=el.querySelector('.c-text').value.trim();if(!raw){toast('Escribe o compón un prompt',1);return}
+  fillTemplate(raw,async(p)=>{try{const r=await(await fetch('/promptstage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})})).json();
+   if(r&&r.ok)toast('Enviado a la interfaz principal ✓');else toast((r&&r.error)||'No se pudo enviar',1)}catch(e){toast('No se pudo enviar',1)}})};
  el.querySelector('.c-save').onclick=()=>{const text=el.querySelector('.c-text').value.trim();if(!text){toast('Escribe un prompt primero',1);return}
   const title=el.querySelector('.c-title').value.trim(),cat=el.querySelector('.c-cat').value,verdict=el.dataset.cv||'';
   if(el._editingId){const it=lib.items.find(x=>x.id===el._editingId);if(it){it.text=text;it.title=title;it.cat=cat;it.verdict=verdict}el._editingId=null;el.classList.remove('editing');el.querySelector('.editflag').textContent='';toast('Prompt actualizado')}
