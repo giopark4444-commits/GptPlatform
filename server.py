@@ -3354,7 +3354,7 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .search:focus{border-color:var(--accent)}
 .hint{color:var(--faint);font-size:11.5px;margin-left:auto}
 .layout{display:flex;gap:0;align-items:stretch;min-height:calc(100vh - 60px)}
-.side{width:236px;flex:none;border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:6px}
+.side{width:300px;flex:none;border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:6px}
 .filters{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
 .f{display:flex;align-items:center;gap:8px;text-align:left;background:transparent;border:0;color:var(--mut);font-size:13px;padding:8px 10px;border-radius:9px;cursor:pointer;font-family:inherit}
 .f:hover{background:var(--surf);color:var(--txt)}
@@ -3391,8 +3391,18 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .composer{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .clbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);display:flex;align-items:center;gap:8px}
 .clbl .csub{color:var(--accent);text-transform:none;letter-spacing:0;font-size:11px}
-#composer{width:100%;min-height:120px;resize:vertical;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--txt);font-size:14px;line-height:1.5;font-family:inherit;outline:none}
-#composer:focus{border-color:var(--accent)}
+.comphead{display:flex;align-items:center;gap:10px}
+.clbl2{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.addcomp{margin-left:auto;display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surf);color:var(--txt);border-radius:9px;padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.addcomp:hover{border-color:var(--accent);color:var(--accent)}
+.addcomp svg{width:14px;height:14px}
+#composers{display:flex;flex-direction:column;gap:12px}
+.composer.editing{border-color:var(--accent)}
+.cdel{margin-left:auto;border:0;background:transparent;color:var(--faint);cursor:pointer;padding:2px 4px;border-radius:6px;display:flex;align-items:center}
+.cdel:hover{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.cdel svg{width:14px;height:14px}
+.c-text{width:100%;min-height:120px;resize:vertical;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--txt);font-size:14px;line-height:1.5;font-family:inherit;outline:none}
+.c-text:focus{border-color:var(--accent)}
 .cmeta{display:flex;gap:8px;flex-wrap:wrap}
 .cmeta input,.cmeta select{background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--txt);font-size:12.5px;font-family:inherit;outline:none}
 .cmeta input{flex:1;min-width:160px}
@@ -3459,25 +3469,11 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
     </div>
   </aside>
   <main class="main">
-    <section class="composer">
-      <div class="clbl">Compositor <span class="csub" id="editFlag"></span></div>
-      <textarea id="composer" placeholder="Escribe aquí tu prompt, o añade prompts guardados con «+ Compositor» para combinarlos…"></textarea>
-      <div class="cmeta">
-        <input id="cTitle" placeholder="Título (opcional)">
-        <select id="cCat"></select>
-        <div class="vsel" id="cVsel">
-          <button class="vw" data-cv="works">✓ Sirve</button>
-          <button class="vf" data-cv="fails">✗ No sirve</button>
-          <button class="vn on" data-cv="">— sin probar</button>
-        </div>
-      </div>
-      <div class="cbtns">
-        <button class="primary" id="cSend"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Enviar a la interfaz principal</button>
-        <button id="cSave"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar en biblioteca</button>
-        <button id="cCopy">Copiar</button>
-        <button id="cClear">Limpiar</button>
-      </div>
-    </section>
+    <div class="comphead">
+      <span class="clbl2">Compositores</span>
+      <button class="addcomp" id="addComp"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nuevo compositor</button>
+    </div>
+    <div id="composers"></div>
     <div class="listhdr"><span id="listTitle">Todos</span> <span class="count" id="count"></span></div>
     <div class="list" id="list"></div>
   </main>
@@ -3485,7 +3481,8 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 <div class="tt" id="tt"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='', editCat=null, dragCatId=null, collapsed=new Set();
+let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editCat=null, dragCatId=null, collapsed=new Set(), activeComposer=null;
+function anyComposerEditing(){return !!document.querySelector('#composers .composer.editing')}
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function uid(){return 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 // === árbol de categorías: {id,name,parent}; el orden en el array define el orden entre hermanas ===
@@ -3507,7 +3504,7 @@ function save(){doSave()}
 function libSnap(){return JSON.stringify({categories:lib.categories,items:lib.items})}
 let lastSnap='';
 // al volver a esta pestaña, recarga lo último del servidor (evita pisar cambios de otra pestaña) salvo si estás editando
-async function reloadIfIdle(){if(editCat||editingId||saving||dirty)return;
+async function reloadIfIdle(){if(editCat||anyComposerEditing()||saving||dirty)return;
  try{const fresh=await(await fetch('/promptlib')).json();
   if(!fresh||!Array.isArray(fresh.categories)||!Array.isArray(fresh.items))return;
   if(JSON.stringify({categories:fresh.categories,items:fresh.items})!==libSnap()){lib=fresh;migrate();render()}}catch(e){}}
@@ -3527,11 +3524,11 @@ function filtered(){const scope=(curCat!=null&&curCat!=='')?new Set(catDescIds(c
  if(filter==='fails'&&it.verdict!=='fails')return false;
  if(q){const s=((it.title||'')+' '+(it.text||'')+' '+catName(it.cat)).toLowerCase();if(!s.includes(q))return false}
  return true})}
-function fillCatSelect(){const sel=$('#cCat');const cur=sel.value;
+function catOptionsHTML(){
  let opts='<option value="">Sin categoría</option>';
  (function walk(pid,depth){catChildren(pid).forEach(c=>{opts+=`<option value="${esc(c.id)}">${'  '.repeat(depth)}${depth?'└ ':''}${esc(c.name)}</option>`;walk(c.id,depth+1)})})('',0);
- sel.innerHTML=opts;
- if([...sel.options].some(o=>o.value===cur))sel.value=cur}
+ return opts}
+function fillCatSelect(){const html=catOptionsHTML();$$('#composers .c-cat').forEach(sel=>{const cur=sel.value;sel.innerHTML=html;if([...sel.options].some(o=>o.value===cur))sel.value=cur})}
 function renderCats(){const box=$('#cats');
  const ownCnt=id=>lib.items.filter(it=>it.cat===id).length;
  const none=lib.items.filter(it=>!it.cat).length;
@@ -3583,10 +3580,51 @@ function renderList(){const items=filtered();
   </article>`}).join('')}
 function render(){renderCats();renderList();
  $$('.f').forEach(b=>b.classList.toggle('on',b.dataset.f===filter&&curCat==null))}
-function setCV(v){cVerdict=v;$$('#cVsel button').forEach(b=>b.classList.toggle('on',b.dataset.cv===v))}
-function clearComposer(){$('#composer').value='';$('#cTitle').value='';setCV('');$('#cCat').value='';editingId=null;$('#editFlag').textContent=''}
-function addToComposer(t,replace){const c=$('#composer');if(replace||!c.value.trim())c.value=t;else c.value=c.value.trim()+'\n\n'+t;c.focus()}
 async function copyText(t){try{await navigator.clipboard.writeText(t||'');toast('Copiado')}catch(e){toast('No se pudo copiar',1)}}
+// === compositores (varios a la vez) ===
+const COMP_TPL=`<section class="composer" data-cv="">
+ <div class="clbl">Compositor <span class="csub editflag"></span><button class="cdel" title="Quitar este compositor"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+ <textarea class="c-text" placeholder="Escribe aquí tu prompt, o añade prompts guardados con «+ Compositor» para combinarlos…"></textarea>
+ <div class="cmeta">
+  <input class="c-title" placeholder="Título (opcional)">
+  <select class="c-cat"></select>
+  <div class="vsel c-vsel">
+   <button class="vw" data-cv="works">✓ Sirve</button>
+   <button class="vf" data-cv="fails">✗ No sirve</button>
+   <button class="vn on" data-cv="">— sin probar</button>
+  </div>
+ </div>
+ <div class="cbtns">
+  <button class="primary c-send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Enviar a la interfaz principal</button>
+  <button class="c-save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar en biblioteca</button>
+  <button class="c-copy">Copiar</button>
+  <button class="c-clear">Limpiar</button>
+ </div>
+</section>`;
+function compSetCV(el,v){el.dataset.cv=v;el.querySelectorAll('.c-vsel button').forEach(b=>b.classList.toggle('on',b.dataset.cv===v))}
+function compClear(el){el.querySelector('.c-text').value='';el.querySelector('.c-title').value='';compSetCV(el,'');el.querySelector('.c-cat').value='';el._editingId=null;el.classList.remove('editing');el.querySelector('.editflag').textContent=''}
+function compAdd(el,t,replace){const c=el.querySelector('.c-text');if(replace||!c.value.trim())c.value=t;else c.value=c.value.trim()+'\n\n'+t;c.focus()}
+function activeComp(){return (activeComposer&&document.body.contains(activeComposer))?activeComposer:(document.querySelector('#composers .composer')||addComposer(false))}
+function updateCdel(){const comps=$$('#composers .composer');comps.forEach(c=>{const d=c.querySelector('.cdel');if(d)d.style.display=comps.length>1?'':'none'})}
+function addComposer(focus){const wrap=document.createElement('div');wrap.innerHTML=COMP_TPL;const el=wrap.firstElementChild;
+ $('#composers').appendChild(el);
+ el.querySelector('.c-cat').innerHTML=catOptionsHTML();
+ el.addEventListener('focusin',()=>{activeComposer=el});
+ el.querySelectorAll('.c-vsel button').forEach(b=>b.onclick=()=>compSetCV(el,b.dataset.cv));
+ el.querySelector('.c-clear').onclick=()=>compClear(el);
+ el.querySelector('.c-copy').onclick=()=>copyText(el.querySelector('.c-text').value);
+ el.querySelector('.c-send').onclick=async()=>{const p=el.querySelector('.c-text').value.trim();if(!p){toast('Escribe o compón un prompt',1);return}
+  try{const r=await(await fetch('/promptstage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})})).json();
+   if(r&&r.ok)toast('Enviado a la interfaz principal ✓');else toast((r&&r.error)||'No se pudo enviar',1)}catch(e){toast('No se pudo enviar',1)}};
+ el.querySelector('.c-save').onclick=()=>{const text=el.querySelector('.c-text').value.trim();if(!text){toast('Escribe un prompt primero',1);return}
+  const title=el.querySelector('.c-title').value.trim(),cat=el.querySelector('.c-cat').value,verdict=el.dataset.cv||'';
+  if(el._editingId){const it=lib.items.find(x=>x.id===el._editingId);if(it){it.text=text;it.title=title;it.cat=cat;it.verdict=verdict}el._editingId=null;el.classList.remove('editing');el.querySelector('.editflag').textContent='';toast('Prompt actualizado')}
+  else{lib.items.unshift({id:uid(),text,title,cat,verdict,fav:false,ts:Date.now()});toast('Guardado en la biblioteca')}
+  save();render()};
+ el.querySelector('.cdel').onclick=()=>{const comps=$$('#composers .composer');if(comps.length<=1){compClear(el);return}const wasActive=activeComposer===el;el.remove();if(wasActive)activeComposer=document.querySelector('#composers .composer');updateCdel()};
+ activeComposer=el;updateCdel();
+ if(focus)el.querySelector('.c-text').focus();
+ return el}
 // === eventos ===
 $('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();renderList()});
 $$('.f').forEach(b=>b.onclick=()=>{filter=b.dataset.f;curCat=null;render()});
@@ -3642,17 +3680,7 @@ $('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();
  if(!n){addCategory('');i.value='';return}
  lib.categories.push({id:uid(),name:n,parent:''});i.value='';save();render();toast('Categoría creada')};
 $('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
-$$('#cVsel button').forEach(b=>b.onclick=()=>setCV(b.dataset.cv));
-$('#cClear').onclick=clearComposer;
-$('#cCopy').onclick=()=>copyText($('#composer').value);
-$('#cSend').onclick=async()=>{const p=$('#composer').value.trim();if(!p){toast('Escribe o compón un prompt',1);return}
- try{const r=await(await fetch('/promptstage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})})).json();
-  if(r&&r.ok)toast('Enviado a la interfaz principal ✓');else toast((r&&r.error)||'No se pudo enviar',1)}catch(e){toast('No se pudo enviar',1)}};
-$('#cSave').onclick=()=>{const text=$('#composer').value.trim();if(!text){toast('Escribe un prompt primero',1);return}
- const title=$('#cTitle').value.trim(),cat=$('#cCat').value,verdict=cVerdict;
- if(editingId){const it=lib.items.find(x=>x.id===editingId);if(it){it.text=text;it.title=title;it.cat=cat;it.verdict=verdict}editingId=null;$('#editFlag').textContent='';toast('Prompt actualizado')}
- else{lib.items.unshift({id:uid(),text,title,cat,verdict,fav:false,ts:Date.now()});toast('Guardado en la biblioteca')}
- save();render()};
+$('#addComp').onclick=()=>addComposer(true);
 $('#list').addEventListener('click',e=>{
  const card=e.target.closest('.card');if(!card)return;const id=card.dataset.id;const it=lib.items.find(x=>x.id===id);if(!it)return;
  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
@@ -3661,10 +3689,10 @@ $('#list').addEventListener('click',e=>{
  if(act==='vworks'){it.verdict=it.verdict==='works'?'':'works';it._new=false;save();renderList();return}
  if(act==='vfails'){it.verdict=it.verdict==='fails'?'':'fails';it._new=false;save();renderList();return}
  if(act==='vnone'){it.verdict='';it._new=false;save();renderList();return}
- if(act==='add'){addToComposer(it.text,false);toast('Añadido al compositor');return}
- if(act==='replace'){addToComposer(it.text,true);toast('Compositor reemplazado');return}
+ if(act==='add'){compAdd(activeComp(),it.text,false);toast('Añadido al compositor');return}
+ if(act==='replace'){compAdd(activeComp(),it.text,true);toast('Compositor reemplazado');return}
  if(act==='copy'){copyText(it.text);return}
- if(act==='edit'){it._new=false;$('#composer').value=it.text||'';$('#cTitle').value=it.title||'';$('#cCat').value=it.cat||'';setCV(it.verdict||'');editingId=id;$('#editFlag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});$('#composer').focus();return}
+ if(act==='edit'){it._new=false;const el=activeComp();el.querySelector('.c-text').value=it.text||'';el.querySelector('.c-title').value=it.title||'';el.querySelector('.c-cat').value=it.cat||'';compSetCV(el,it.verdict||'');el._editingId=id;el.classList.add('editing');el.querySelector('.editflag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});el.querySelector('.c-text').focus();return}
  if(act==='del'){if(!b.dataset.arm){b.dataset.arm='1';b.textContent='¿Seguro?';setTimeout(()=>{if(b){b.textContent='Borrar';delete b.dataset.arm}},2200);return}
   lib.items=lib.items.filter(x=>x.id!==id);save();render();toast('Prompt borrado');return}});
 // === recibir prompts enviados desde el historial y apilarlos ===
@@ -3674,6 +3702,7 @@ async function pollInbox(){if(!inboxReady)return;
   if(r.items&&r.items.length){
    r.items.forEach(x=>{const t=(x.prompt||'').trim();if(t)lib.items.unshift({id:uid(),text:t,title:(x.title||'').trim(),cat:'',verdict:'',fav:false,_new:true,ts:Date.now()})});
    save();render();toast(r.items.length+(r.items.length>1?' prompts recibidos del historial':' prompt recibido del historial'))}}catch(e){}}
+addComposer(false); // empieza con un compositor
 (async()=>{await load();inboxReady=true;pollInbox();setInterval(pollInbox,2500);})();
 async function onReturn(){await reloadIfIdle();pollInbox()}
 window.addEventListener('focus',onReturn);
