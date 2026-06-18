@@ -35,6 +35,7 @@ ROOT = HOME / "image-studio"
 HIST_DIR = ROOT / "historial"
 HIST_JSON = ROOT / "historial.json"
 PROJ_JSON = ROOT / "proyectos.json"
+PROMPTS_JSON = ROOT / "prompts.json"   # biblioteca de prompts (categorías + items)
 CONF_JSON = ROOT / "config.json"
 JOBS_JSON = ROOT / "jobs.json"
 PROJ_DIR = ROOT / "proyectos"
@@ -1019,6 +1020,10 @@ html,body{overflow-x:hidden}
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <select id="projSel" class="hide"></select>
+    <button class="projbtn" id="promptLibBtn" title="Biblioteca de prompts — guarda tus prompts favoritos y los que sirven, por categorías (abre en pestaña aparte)">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>Prompt Library</span>
+    </button>
   </div>
   <div class="seg">
     <button id="mImagen" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Imagen<kbd>1</kbd></button>
@@ -2144,9 +2149,17 @@ async function addRefFromServer(src,file,project){try{
 }catch(e){toast('No pude añadir la referencia','bad')}}
 async function pollStage(){try{const r=await(await fetch('/stage')).json();
  if(r.items&&r.items.length)for(const it of r.items)await addRefFromServer(it.src,it.file,it.project);}catch(e){}}
-setInterval(pollStage,2500);
-window.addEventListener('focus',()=>{pollStage();loadGal();});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollStage();loadGal();}});
+// la ventana "Biblioteca de prompts" envía aquí el prompt compuesto
+async function pollPromptStage(){try{const r=await(await fetch('/promptstage')).json();
+ if(r.items&&r.items.length){const p=r.items[r.items.length-1].prompt||'';
+  if(p){if(typeof setMode==='function')setMode(lastImgMode);$('prompt').value=p;
+   $('prompt').dispatchEvent(new Event('input',{bubbles:true}));$('prompt').focus();
+   toast('Prompt recibido de la biblioteca')}}}catch(e){}}
+$('promptLibBtn').onclick=()=>window.open('/biblioteca','_blank','noopener');
+function pollAll(){pollStage();pollPromptStage();}
+setInterval(pollAll,2500);
+window.addEventListener('focus',()=>{pollAll();loadGal();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();loadGal();}});
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
   return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
@@ -3142,6 +3155,16 @@ CSP = ("default-src 'self'; script-src 'unsafe-inline'; "
 # bandeja en memoria: las ventanas "Ver todo" dejan aquí imágenes para que el estudio las recoja
 STAGE = []
 STAGE_LOCK = threading.Lock()
+# bandeja para prompts: la ventana "Biblioteca de prompts" envía un prompt compuesto al estudio
+PROMPT_STAGE = []
+PROMPT_STAGE_LOCK = threading.Lock()
+
+
+def load_promptlib():
+    d = load_json(PROMPTS_JSON, {}) or {}
+    cats = d.get("categories") if isinstance(d.get("categories"), list) else []
+    items = d.get("items") if isinstance(d.get("items"), list) else []
+    return {"categories": [str(c) for c in cats], "items": [x for x in items if isinstance(x, dict)]}
 
 GALERIA_CSS = """
 *{box-sizing:border-box;margin:0}
@@ -3293,6 +3316,244 @@ def gallery_html(src, fav=False, proj=""):
             '</div></div></div>'
             '<div class="gtoast" id="gtoast"></div>'
             '<script>' + js + '</script></body></html>')
+
+
+PROMPTLIB_PAGE = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Biblioteca de prompts · Gio Studio</title>
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--bg:#f4efe3;--surf:#faf6ec;--surf2:#fffdf6;--line:rgba(0,0,0,.10);--line2:rgba(0,0,0,.18);
+ --txt:#22201b;--mut:#6b665a;--faint:#9c9788;--accent:#1f6b54;--accent-dim:rgba(31,107,84,.12);
+ --ok:#2f7a4a;--bad:#b4452f;--star:#e0a93a}
+@media(prefers-color-scheme:dark){:root{--bg:#0f0d0c;--surf:#1a1715;--surf2:#231f1c;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);
+ --txt:#f1ece7;--mut:#a89f97;--faint:#6f665f;--accent:#e0a571;--accent-dim:rgba(224,165,113,.16);--ok:#7bbf8f;--bad:#e07a6b;--star:#e0a93a}}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+header{display:flex;align-items:center;gap:14px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);z-index:5;flex-wrap:wrap}
+header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
+.search{flex:1;min-width:180px;max-width:420px;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--txt);font-size:13px;outline:none}
+.search:focus{border-color:var(--accent)}
+.hint{color:var(--faint);font-size:11.5px;margin-left:auto}
+.layout{display:flex;gap:0;align-items:stretch;min-height:calc(100vh - 60px)}
+.side{width:236px;flex:none;border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:6px}
+.filters{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.f{display:flex;align-items:center;gap:8px;text-align:left;background:transparent;border:0;color:var(--mut);font-size:13px;padding:8px 10px;border-radius:9px;cursor:pointer;font-family:inherit}
+.f:hover{background:var(--surf);color:var(--txt)}
+.f.on{background:var(--accent-dim);color:var(--accent);font-weight:600}
+.cathdr{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin:10px 0 4px;padding:0 4px}
+.cats{display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.cat{display:flex;align-items:center;gap:6px;background:transparent;border:0;color:var(--mut);font-size:13px;padding:7px 10px;border-radius:9px;cursor:pointer;font-family:inherit;text-align:left;width:100%}
+.cat:hover{background:var(--surf);color:var(--txt)}
+.cat.on{background:var(--accent-dim);color:var(--accent);font-weight:600}
+.cat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat .cn{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cat .del{opacity:0;border:0;background:transparent;color:var(--bad);cursor:pointer;padding:2px;border-radius:5px}
+.cat:hover .del{opacity:.8}
+.cat .del:hover{opacity:1;background:color-mix(in srgb,var(--bad) 16%,transparent)}
+.addcat{display:flex;gap:6px;margin-top:10px}
+.addcat input{flex:1;background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--txt);font-size:12.5px;outline:none}
+.addcat input:focus{border-color:var(--accent)}
+.addcat button{flex:none;width:34px;border:1px solid var(--line);background:var(--surf);color:var(--txt);border-radius:8px;cursor:pointer;font-size:16px}
+.addcat button:hover{border-color:var(--accent);color:var(--accent)}
+.main{flex:1;min-width:0;padding:18px 22px 60px;display:flex;flex-direction:column;gap:16px}
+.composer{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.clbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);display:flex;align-items:center;gap:8px}
+.clbl .csub{color:var(--accent);text-transform:none;letter-spacing:0;font-size:11px}
+#composer{width:100%;min-height:120px;resize:vertical;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--txt);font-size:14px;line-height:1.5;font-family:inherit;outline:none}
+#composer:focus{border-color:var(--accent)}
+.cmeta{display:flex;gap:8px;flex-wrap:wrap}
+.cmeta input,.cmeta select{background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--txt);font-size:12.5px;font-family:inherit;outline:none}
+.cmeta input{flex:1;min-width:160px}
+.cmeta input:focus,.cmeta select:focus{border-color:var(--accent)}
+.vsel{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.vsel button{background:var(--surf2);border:0;border-left:1px solid var(--line);color:var(--mut);font-size:12px;padding:8px 11px;cursor:pointer;font-family:inherit}
+.vsel button:first-child{border-left:0}
+.vsel button.on[data-cv="works"],.vsel .vw.on{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok);font-weight:600}
+.vsel button.on[data-cv="fails"]{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad);font-weight:600}
+.vsel button.on[data-cv=""]{background:var(--accent-dim);color:var(--txt);font-weight:600}
+.cbtns{display:flex;gap:8px;flex-wrap:wrap}
+.cbtns button{border:1px solid var(--line);background:var(--surf2);color:var(--txt);border-radius:9px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px}
+.cbtns button:hover{border-color:var(--line2)}
+.cbtns .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;margin-right:auto}
+.cbtns .primary:hover{filter:brightness(1.06)}
+.listhdr{display:flex;align-items:baseline;gap:10px;font-size:14px;font-weight:600}
+.listhdr .count{color:var(--faint);font-size:12px;font-weight:400}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:9px}
+.card:hover{border-color:var(--line2)}
+.ctop{display:flex;align-items:center;gap:8px}
+.star{border:0;background:transparent;cursor:pointer;color:var(--faint);padding:2px;font-size:17px;line-height:1}
+.star.on{color:var(--star)}
+.vbadge{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+.vbadge button{background:transparent;border:0;border-left:1px solid var(--line);color:var(--mut);font-size:11px;padding:5px 8px;cursor:pointer;font-family:inherit}
+.vbadge button:first-child{border-left:0}
+.vbadge button.on.vw{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.vbadge button.on.vf{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.vbadge button.on.vn{background:var(--accent-dim);color:var(--txt)}
+.card h3{font-size:13.5px;font-weight:650}
+.card .text{font-size:12.5px;line-height:1.5;color:var(--mut);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.card .text.full{-webkit-line-clamp:unset}
+.card .catb{font-size:10.5px;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:20px;align-self:flex-start}
+.cacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.cacts button{border:1px solid var(--line);background:var(--surf2);color:var(--mut);border-radius:7px;padding:6px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
+.cacts button:hover{border-color:var(--line2);color:var(--txt)}
+.cacts .danger:hover{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.cacts .key{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.empty{grid-column:1/-1;color:var(--faint);text-align:center;padding:48px 0;font-size:13px}
+.tt{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--txt);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
+.tt.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.tt.bad{background:var(--bad);color:#fff}
+@media(max-width:760px){.layout{flex-direction:column}.side{width:auto;border-right:0;border-bottom:1px solid var(--line)}.filters{flex-direction:row;flex-wrap:wrap}}
+</style></head><body>
+<header>
+  <h1>Biblioteca de prompts</h1>
+  <input id="q" class="search" placeholder="Buscar en prompts…">
+  <span class="hint">Compón un prompt y envíalo a la interfaz principal ▸</span>
+</header>
+<div class="layout">
+  <aside class="side">
+    <div class="filters">
+      <button class="f on" data-f="all">Todos</button>
+      <button class="f" data-f="fav">★ Favoritos</button>
+      <button class="f" data-f="works">✓ Sirve</button>
+      <button class="f" data-f="fails">✗ No sirve</button>
+    </div>
+    <div class="cathdr">Categorías</div>
+    <div class="cats" id="cats"></div>
+    <div class="addcat">
+      <input id="newCat" placeholder="Nueva categoría…" maxlength="40">
+      <button id="addCat" title="Crear categoría">+</button>
+    </div>
+  </aside>
+  <main class="main">
+    <section class="composer">
+      <div class="clbl">Compositor <span class="csub" id="editFlag"></span></div>
+      <textarea id="composer" placeholder="Escribe aquí tu prompt, o añade prompts guardados con «+ Compositor» para combinarlos…"></textarea>
+      <div class="cmeta">
+        <input id="cTitle" placeholder="Título (opcional)">
+        <select id="cCat"></select>
+        <div class="vsel" id="cVsel">
+          <button class="vw" data-cv="works">✓ Sirve</button>
+          <button class="vf" data-cv="fails">✗ No sirve</button>
+          <button class="vn on" data-cv="">— sin probar</button>
+        </div>
+      </div>
+      <div class="cbtns">
+        <button class="primary" id="cSend"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Enviar a la interfaz principal</button>
+        <button id="cSave"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar en biblioteca</button>
+        <button id="cCopy">Copiar</button>
+        <button id="cClear">Limpiar</button>
+      </div>
+    </section>
+    <div class="listhdr"><span id="listTitle">Todos</span> <span class="count" id="count"></span></div>
+    <div class="list" id="list"></div>
+  </main>
+</div>
+<div class="tt" id="tt"></div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='';
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function uid(){return 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function toast(m,bad){const t=$('#tt');t.textContent=m;t.className='tt show'+(bad?' bad':'');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800)}
+let saveT=null;
+function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await fetch('/promptlib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lib)})}catch(e){toast('No se pudo guardar',1)}},250)}
+async function load(){try{lib=await(await fetch('/promptlib')).json()}catch(e){lib={categories:[],items:[]}}
+ if(!Array.isArray(lib.categories))lib.categories=[];if(!Array.isArray(lib.items))lib.items=[];render()}
+function filtered(){return lib.items.filter(it=>{
+ if(curCat!=null&&(it.cat||'')!==curCat)return false;
+ if(filter==='fav'&&!it.fav)return false;
+ if(filter==='works'&&it.verdict!=='works')return false;
+ if(filter==='fails'&&it.verdict!=='fails')return false;
+ if(q){const s=((it.title||'')+' '+(it.text||'')+' '+(it.cat||'')).toLowerCase();if(!s.includes(q))return false}
+ return true})}
+function fillCatSelect(){const sel=$('#cCat');const cur=sel.value;
+ sel.innerHTML='<option value="">Sin categoría</option>'+lib.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+ if([...sel.options].some(o=>o.value===cur))sel.value=cur}
+function renderCats(){const box=$('#cats');
+ const cnt=c=>lib.items.filter(it=>(it.cat||'')===c).length;
+ const none=lib.items.filter(it=>!it.cat).length;
+ let html=`<button class="cat${curCat===''?' on':''}" data-cat=""><span class="nm">Sin categoría</span><span class="cn">${none}</span></button>`;
+ html+=lib.categories.map(c=>`<button class="cat${curCat===c?' on':''}" data-cat="${esc(c)}"><span class="nm">${esc(c)}</span><span class="cn">${cnt(c)}</span><span class="del" data-delcat="${esc(c)}" title="Borrar categoría">✕</span></button>`).join('');
+ box.innerHTML=html;fillCatSelect()}
+function renderList(){const items=filtered();
+ $('#count').textContent=items.length+(items.length===1?' prompt':' prompts');
+ $('#listTitle').textContent=curCat!=null?(curCat||'Sin categoría'):(filter==='fav'?'★ Favoritos':filter==='works'?'✓ Sirve':filter==='fails'?'✗ No sirve':'Todos');
+ if(!items.length){$('#list').innerHTML='<div class="empty">No hay prompts aquí todavía. Compón uno arriba y pulsa «Guardar en biblioteca».</div>';return}
+ $('#list').innerHTML=items.map(it=>{
+  const v=it.verdict||'';
+  return `<article class="card" data-id="${it.id}">
+   <div class="ctop">
+    <button class="star${it.fav?' on':''}" data-act="fav" title="Favorito">${it.fav?'★':'☆'}</button>
+    ${it.cat?`<span class="catb">${esc(it.cat)}</span>`:''}
+    <div class="vbadge">
+     <button class="vw${v==='works'?' on':''}" data-act="vworks" title="Sirve">✓</button>
+     <button class="vf${v==='fails'?' on':''}" data-act="vfails" title="No sirve">✗</button>
+     <button class="vn${v===''?' on':''}" data-act="vnone" title="Sin probar">—</button>
+    </div>
+   </div>
+   ${it.title?`<h3>${esc(it.title)}</h3>`:''}
+   <p class="text" data-act="expand">${esc(it.text||'')}</p>
+   <div class="cacts">
+    <button class="key" data-act="add">+ Compositor</button>
+    <button data-act="replace">Reemplazar</button>
+    <button data-act="copy">Copiar</button>
+    <button data-act="edit">Editar</button>
+    <button class="danger" data-act="del">Borrar</button>
+   </div>
+  </article>`}).join('')}
+function render(){renderCats();renderList();
+ $$('.f').forEach(b=>b.classList.toggle('on',b.dataset.f===filter&&curCat==null))}
+function setCV(v){cVerdict=v;$$('#cVsel button').forEach(b=>b.classList.toggle('on',b.dataset.cv===v))}
+function clearComposer(){$('#composer').value='';$('#cTitle').value='';setCV('');$('#cCat').value='';editingId=null;$('#editFlag').textContent=''}
+function addToComposer(t,replace){const c=$('#composer');if(replace||!c.value.trim())c.value=t;else c.value=c.value.trim()+'\n\n'+t;c.focus()}
+async function copyText(t){try{await navigator.clipboard.writeText(t||'');toast('Copiado')}catch(e){toast('No se pudo copiar',1)}}
+// === eventos ===
+$('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();renderList()});
+$$('.f').forEach(b=>b.onclick=()=>{filter=b.dataset.f;curCat=null;render()});
+$('#cats').addEventListener('click',e=>{
+ const del=e.target.closest('[data-delcat]');
+ if(del){e.stopPropagation();const name=del.dataset.delcat;
+  if(!del.dataset.arm){$$('#cats .del').forEach(x=>delete x.dataset.arm);del.dataset.arm='1';del.textContent='✓?';setTimeout(()=>{if(del){del.textContent='✕';delete del.dataset.arm}},2200);return}
+  lib.categories=lib.categories.filter(c=>c!==name);lib.items.forEach(it=>{if(it.cat===name)it.cat=''});
+  if(curCat===name)curCat=null;save();render();toast('Categoría borrada');return}
+ const cat=e.target.closest('.cat');if(!cat)return;curCat=cat.dataset.cat;filter='all';render()});
+$('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();if(!n)return;
+ if(lib.categories.includes(n)){toast('Esa categoría ya existe',1);return}
+ lib.categories.push(n);i.value='';save();render();toast('Categoría creada')};
+$('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
+$$('#cVsel button').forEach(b=>b.onclick=()=>setCV(b.dataset.cv));
+$('#cClear').onclick=clearComposer;
+$('#cCopy').onclick=()=>copyText($('#composer').value);
+$('#cSend').onclick=async()=>{const p=$('#composer').value.trim();if(!p){toast('Escribe o compón un prompt',1);return}
+ try{const r=await(await fetch('/promptstage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})})).json();
+  if(r&&r.ok)toast('Enviado a la interfaz principal ✓');else toast((r&&r.error)||'No se pudo enviar',1)}catch(e){toast('No se pudo enviar',1)}};
+$('#cSave').onclick=()=>{const text=$('#composer').value.trim();if(!text){toast('Escribe un prompt primero',1);return}
+ const title=$('#cTitle').value.trim(),cat=$('#cCat').value,verdict=cVerdict;
+ if(editingId){const it=lib.items.find(x=>x.id===editingId);if(it){it.text=text;it.title=title;it.cat=cat;it.verdict=verdict}editingId=null;$('#editFlag').textContent='';toast('Prompt actualizado')}
+ else{lib.items.unshift({id:uid(),text,title,cat,verdict,fav:false,ts:Date.now()});toast('Guardado en la biblioteca')}
+ save();render()};
+$('#list').addEventListener('click',e=>{
+ const card=e.target.closest('.card');if(!card)return;const id=card.dataset.id;const it=lib.items.find(x=>x.id===id);if(!it)return;
+ const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
+ if(act==='expand'){b.classList.toggle('full');return}
+ if(act==='fav'){it.fav=!it.fav;save();renderList();renderCats();return}
+ if(act==='vworks'){it.verdict=it.verdict==='works'?'':'works';save();renderList();return}
+ if(act==='vfails'){it.verdict=it.verdict==='fails'?'':'fails';save();renderList();return}
+ if(act==='vnone'){it.verdict='';save();renderList();return}
+ if(act==='add'){addToComposer(it.text,false);toast('Añadido al compositor');return}
+ if(act==='replace'){addToComposer(it.text,true);toast('Compositor reemplazado');return}
+ if(act==='copy'){copyText(it.text);return}
+ if(act==='edit'){$('#composer').value=it.text||'';$('#cTitle').value=it.title||'';$('#cCat').value=it.cat||'';setCV(it.verdict||'');editingId=id;$('#editFlag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});$('#composer').focus();return}
+ if(act==='del'){if(!b.dataset.arm){b.dataset.arm='1';b.textContent='¿Seguro?';setTimeout(()=>{if(b){b.textContent='Borrar';delete b.dataset.arm}},2200);return}
+  lib.items=lib.items.filter(x=>x.id!==id);save();render();toast('Prompt borrado');return}});
+load();
+</script></body></html>"""
+
+
+def promptlib_html():
+    return PROMPTLIB_PAGE
 
 
 class H(BaseHTTPRequestHandler):
@@ -3517,6 +3778,16 @@ class H(BaseHTTPRequestHandler):
                 items = list(STAGE)
                 STAGE.clear()
             return self._json({"items": items})
+        if self.path == "/promptstage":
+            with PROMPT_STAGE_LOCK:
+                items = list(PROMPT_STAGE)
+                PROMPT_STAGE.clear()
+            return self._json({"items": items})
+        if self.path == "/promptlib":
+            return self._json(load_promptlib())
+        if urlparse(self.path).path == "/biblioteca":
+            return self._send(200, promptlib_html(), "text/html; charset=utf-8",
+                              {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         if urlparse(self.path).path == "/galeria":
             q = parse_qs(urlparse(self.path).query)
             src = q.get("src", ["history"])[0]
@@ -3543,6 +3814,7 @@ class H(BaseHTTPRequestHandler):
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
+                 "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
             if h:
                 return h()
@@ -4510,6 +4782,28 @@ class H(BaseHTTPRequestHandler):
         global ACTIVE_PROJ
         ACTIVE_PROJ = (self._body().get("project") or "").strip()
         return self._json({"ok": True, "project": ACTIVE_PROJ})
+
+    def h_promptlib(self):
+        # guarda la biblioteca completa (la ventana la administra en memoria y persiste el objeto entero)
+        b = self._body()
+        cats = b.get("categories") if isinstance(b.get("categories"), list) else []
+        items = b.get("items") if isinstance(b.get("items"), list) else []
+        data = {"categories": [str(c) for c in cats], "items": [x for x in items if isinstance(x, dict)]}
+        with LOCK:
+            save_json(PROMPTS_JSON, data)
+        return self._json({"ok": True})
+
+    def h_promptstage(self):
+        # la ventana "Biblioteca" envía un prompt compuesto para que el estudio lo cargue
+        b = self._body()
+        p = str(b.get("prompt", "") or "").strip()
+        if not p:
+            return self._json({"error": "prompt vacío"}, 400)
+        with PROMPT_STAGE_LOCK:
+            PROMPT_STAGE.append({"prompt": p})
+            if len(PROMPT_STAGE) > 20:
+                del PROMPT_STAGE[:-20]
+        return self._json({"ok": True})
 
     def h_stage(self):
         # una ventana "Ver todo" deja una imagen para que el estudio la recoja como referencia
