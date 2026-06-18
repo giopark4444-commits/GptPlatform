@@ -3348,9 +3348,14 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .cat.on{background:var(--accent-dim);color:var(--accent);font-weight:600}
 .cat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat .cn{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
-.cat .del{opacity:0;border:0;background:transparent;color:var(--bad);cursor:pointer;padding:2px;border-radius:5px}
-.cat:hover .del{opacity:.8}
+.cat .ed,.cat .del{opacity:0;border:0;background:transparent;cursor:pointer;padding:2px 4px;border-radius:5px;font-size:12px;line-height:1}
+.cat .ed{color:var(--accent)}
+.cat .del{color:var(--bad)}
+.cat:hover .ed,.cat:hover .del{opacity:.75}
+.cat .ed:hover{opacity:1;background:var(--accent-dim)}
 .cat .del:hover{opacity:1;background:color-mix(in srgb,var(--bad) 16%,transparent)}
+.cat.editing{padding:4px 6px}
+.catedit{width:100%;background:var(--surf2);border:1px solid var(--accent);border-radius:8px;padding:6px 9px;color:var(--txt);font-size:13px;outline:none;font-family:inherit}
 .addcat{display:flex;gap:6px;margin-top:10px}
 .addcat input{flex:1;background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--txt);font-size:12.5px;outline:none}
 .addcat input:focus{border-color:var(--accent)}
@@ -3453,7 +3458,7 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 <div class="tt" id="tt"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='';
+let lib={categories:[],items:[]}, filter='all', curCat=null, q='', editingId=null, cVerdict='', editCat=null;
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function uid(){return 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function toast(m,bad){const t=$('#tt');t.textContent=m;t.className='tt show'+(bad?' bad':'');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800)}
@@ -3475,8 +3480,15 @@ function renderCats(){const box=$('#cats');
  const cnt=c=>lib.items.filter(it=>(it.cat||'')===c).length;
  const none=lib.items.filter(it=>!it.cat).length;
  let html=`<button class="cat${curCat===''?' on':''}" data-cat=""><span class="nm">Sin categoría</span><span class="cn">${none}</span></button>`;
- html+=lib.categories.map(c=>`<button class="cat${curCat===c?' on':''}" data-cat="${esc(c)}"><span class="nm">${esc(c)}</span><span class="cn">${cnt(c)}</span><span class="del" data-delcat="${esc(c)}" title="Borrar categoría">✕</span></button>`).join('');
- box.innerHTML=html;fillCatSelect()}
+ html+=lib.categories.map(c=>{
+  if(c===editCat)return `<div class="cat editing"><input class="catedit" data-old="${esc(c)}" value="${esc(c)}" maxlength="40" placeholder="Nombre de la categoría…"></div>`;
+  return `<button class="cat${curCat===c?' on':''}" data-cat="${esc(c)}" title="Doble clic para renombrar"><span class="nm">${esc(c)}</span><span class="cn">${cnt(c)}</span><span class="ed" data-editcat="${esc(c)}" title="Renombrar">✎</span><span class="del" data-delcat="${esc(c)}" title="Borrar categoría">✕</span></button>`}).join('');
+ box.innerHTML=html;fillCatSelect();
+ const ie=box.querySelector('.catedit');
+ if(ie){ie.focus();ie.select();
+  ie.addEventListener('click',ev=>ev.stopPropagation());
+  ie.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();renameCat(ie.dataset.old,ie.value)}else if(ev.key==='Escape'){ev.preventDefault();editCat=null;render()}});
+  ie.addEventListener('blur',()=>renameCat(ie.dataset.old,ie.value))}}
 function renderList(){const items=filtered();
  $('#count').textContent=items.length+(items.length===1?' prompt':' prompts');
  $('#listTitle').textContent=curCat!=null?(curCat||'Sin categoría'):(filter==='fav'?'★ Favoritos':filter==='works'?'✓ Sirve':filter==='fails'?'✗ No sirve':'Todos');
@@ -3513,15 +3525,28 @@ async function copyText(t){try{await navigator.clipboard.writeText(t||'');toast(
 $('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();renderList()});
 $$('.f').forEach(b=>b.onclick=()=>{filter=b.dataset.f;curCat=null;render()});
 $('#cats').addEventListener('click',e=>{
+ const ed=e.target.closest('[data-editcat]');
+ if(ed){e.stopPropagation();editCat=ed.dataset.editcat;render();return}
  const del=e.target.closest('[data-delcat]');
  if(del){e.stopPropagation();const name=del.dataset.delcat;
   if(!del.dataset.arm){$$('#cats .del').forEach(x=>delete x.dataset.arm);del.dataset.arm='1';del.textContent='✓?';setTimeout(()=>{if(del){del.textContent='✕';delete del.dataset.arm}},2200);return}
   lib.categories=lib.categories.filter(c=>c!==name);lib.items.forEach(it=>{if(it.cat===name)it.cat=''});
   if(curCat===name)curCat=null;save();render();toast('Categoría borrada');return}
- const cat=e.target.closest('.cat');if(!cat)return;curCat=cat.dataset.cat;filter='all';render()});
-$('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();if(!n)return;
+ const cat=e.target.closest('.cat');if(!cat||cat.classList.contains('editing'))return;curCat=cat.dataset.cat;filter='all';render()});
+$('#cats').addEventListener('dblclick',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat)return;editCat=cat.dataset.cat;render()});
+$('#addCat').onclick=()=>{const i=$('#newCat');let n=i.value.trim();
+ if(!n){ // sin texto: crea una con nombre por defecto único y la deja lista para renombrar
+  let base='Nueva categoría',k=1,name=base;while(lib.categories.includes(name)){k++;name=base+' '+k}
+  n=name;lib.categories.push(n);i.value='';editCat=n;save();render();toast('Categoría creada — edita el nombre cuando quieras');return}
  if(lib.categories.includes(n)){toast('Esa categoría ya existe',1);return}
  lib.categories.push(n);i.value='';save();render();toast('Categoría creada')};
+function renameCat(old,nw){if(editCat===null)return;nw=(nw||'').trim();
+ if(!nw||nw===old){editCat=null;render();return}
+ if(lib.categories.includes(nw)){editCat=null;render();toast('Ya existe esa categoría',1);return}
+ const idx=lib.categories.indexOf(old);if(idx>=0)lib.categories[idx]=nw;
+ lib.items.forEach(it=>{if((it.cat||'')===old)it.cat=nw});
+ if(curCat===old)curCat=nw;
+ editCat=null;save();render();toast('Categoría renombrada')}
 $('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
 $$('#cVsel button').forEach(b=>b.onclick=()=>setCV(b.dataset.cv));
 $('#cClear').onclick=clearComposer;
