@@ -3437,6 +3437,13 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .card .text.full{-webkit-line-clamp:unset}
 .card .catb{font-size:10.5px;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:20px;align-self:flex-start}
 .newb{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--accent);padding:2px 7px;border-radius:20px}
+.card[draggable=true]{cursor:grab}
+.card.dragging{opacity:.45}
+.movemenu{position:fixed;z-index:60;background:var(--surf2);border:1px solid var(--line2);border-radius:10px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:6px;min-width:200px;max-height:62vh;overflow:auto}
+.movemenu .mh{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding:6px 10px 4px}
+.movemenu button{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--txt);font-size:13px;padding:7px 10px;border-radius:7px;cursor:pointer;font-family:inherit;white-space:pre}
+.movemenu button:hover{background:var(--accent-dim);color:var(--accent)}
+.movemenu button.cur{color:var(--accent);font-weight:600}
 .cacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .cacts button{border:1px solid var(--line);background:var(--surf2);color:var(--mut);border-radius:7px;padding:6px 9px;font-size:11.5px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
 .cacts button:hover{border-color:var(--line2);color:var(--txt)}
@@ -3553,11 +3560,11 @@ function renderCats(){const box=$('#cats');
   ie.addEventListener('blur',()=>renameCat(ie.dataset.old,ie.value))}}
 function renderList(){const items=filtered();
  $('#count').textContent=items.length+(items.length===1?' prompt':' prompts');
- $('#listTitle').textContent=curCat!=null?(curCat||'Sin categoría'):(filter==='fav'?'★ Favoritos':filter==='works'?'✓ Sirve':filter==='fails'?'✗ No sirve':'Todos');
+ $('#listTitle').textContent=curCat!=null?(curCat?catPath(curCat):'Sin categoría'):(filter==='fav'?'★ Favoritos':filter==='works'?'✓ Sirve':filter==='fails'?'✗ No sirve':'Todos');
  if(!items.length){$('#list').innerHTML='<div class="empty">No hay prompts aquí todavía. Compón uno arriba y pulsa «Guardar en biblioteca».</div>';return}
  $('#list').innerHTML=items.map(it=>{
   const v=it.verdict||'';
-  return `<article class="card" data-id="${it.id}">
+  return `<article class="card" data-id="${it.id}" draggable="true" title="Arrástrame a una categoría de la izquierda">
    <div class="ctop">
     <button class="star${it.fav?' on':''}" data-act="fav" title="Favorito">${it.fav?'★':'☆'}</button>
     ${it._new?'<span class="newb">nuevo</span>':''}
@@ -3573,6 +3580,7 @@ function renderList(){const items=filtered();
    <div class="cacts">
     <button class="key" data-act="add">+ Compositor</button>
     <button data-act="replace">Reemplazar</button>
+    <button data-act="move">Mover</button>
     <button data-act="copy">Copiar</button>
     <button data-act="edit">Editar</button>
     <button class="danger" data-act="del">Borrar</button>
@@ -3581,6 +3589,23 @@ function renderList(){const items=filtered();
 function render(){renderCats();renderList();
  $$('.f').forEach(b=>b.classList.toggle('on',b.dataset.f===filter&&curCat==null))}
 async function copyText(t){try{await navigator.clipboard.writeText(t||'');toast('Copiado')}catch(e){toast('No se pudo copiar',1)}}
+// === mover un prompt a una categoría (arrastrando o con el botón "Mover") ===
+let dragItemId=null;
+function moveItemTo(itemId,catId){const it=lib.items.find(x=>x.id===itemId);if(!it)return;it.cat=catId||'';it._new=false;save();render();toast(catId?('Movido a "'+catName(catId)+'"'):'Movido a Sin categoría')}
+function closeMoveMenu(){const m=document.querySelector('.movemenu');if(m)m.remove();document.removeEventListener('click',moveMenuOutside,true)}
+function moveMenuOutside(e){if(!e.target.closest('.movemenu'))closeMoveMenu()}
+function openMoveMenu(itemId,anchor){closeMoveMenu();const it=lib.items.find(x=>x.id===itemId);if(!it)return;
+ const m=document.createElement('div');m.className='movemenu';
+ let html='<div class="mh">Mover a</div>';
+ html+=`<button data-cat="" class="${!it.cat?'cur':''}">Sin categoría</button>`;
+ (function walk(pid,depth){catChildren(pid).forEach(c=>{html+=`<button data-cat="${esc(c.id)}" class="${it.cat===c.id?'cur':''}">${'　'.repeat(depth)}${depth?'└ ':''}${esc(c.name)}</button>`;walk(c.id,depth+1)})})('',0);
+ m.innerHTML=html;document.body.appendChild(m);
+ const r=anchor.getBoundingClientRect();let left=r.left,top=r.bottom+4;
+ if(left+m.offsetWidth>innerWidth-8)left=innerWidth-8-m.offsetWidth;
+ if(top+m.offsetHeight>innerHeight-8)top=Math.max(8,r.top-m.offsetHeight-4);
+ m.style.left=Math.max(8,left)+'px';m.style.top=top+'px';
+ m.addEventListener('click',e=>{const b=e.target.closest('button[data-cat]');if(!b)return;moveItemTo(itemId,b.dataset.cat);closeMoveMenu()});
+ setTimeout(()=>document.addEventListener('click',moveMenuOutside,true),0)}
 // === compositores (varios a la vez) ===
 const COMP_TPL=`<section class="composer" data-cv="">
  <div class="clbl">Compositor <span class="csub editflag"></span><button class="cdel" title="Quitar este compositor"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -3664,13 +3689,16 @@ $('#cats').addEventListener('dblclick',e=>{const cat=e.target.closest('.cat[data
 // arrastrar para mover/ordenar
 $('#cats').addEventListener('dragstart',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat){e.preventDefault();return}dragCatId=cat.dataset.cat;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragCatId)}catch(x){}});
 function clearDrop(){$$('#cats .cat').forEach(c=>c.classList.remove('dropbefore','dropafter','dropinside'))}
-$('#cats').addEventListener('dragover',e=>{const cat=e.target.closest('.cat[data-cat]');if(!cat||!cat.dataset.cat||!dragCatId)return;
+$('#cats').addEventListener('dragover',e=>{const cat=e.target.closest('.cat');if(!cat)return;
+ if(dragItemId){e.preventDefault();e.dataTransfer.dropEffect='move';clearDrop();cat.classList.add('dropinside');return}
+ if(!cat.dataset.cat||!dragCatId)return;
  e.preventDefault();e.dataTransfer.dropEffect='move';clearDrop();
  const r=cat.getBoundingClientRect(),y=e.clientY-r.top;
  const mode=y<r.height*0.28?'before':y>r.height*0.72?'after':'inside';
  cat.classList.add(mode==='before'?'dropbefore':mode==='after'?'dropafter':'dropinside')});
 $('#cats').addEventListener('dragleave',e=>{if(!e.target.closest('#cats'))clearDrop()});
-$('#cats').addEventListener('drop',e=>{const cat=e.target.closest('.cat[data-cat]');clearDrop();
+$('#cats').addEventListener('drop',e=>{const cat=e.target.closest('.cat');clearDrop();
+ if(dragItemId){if(cat){e.preventDefault();moveItemTo(dragItemId,cat.dataset.cat||'')}dragItemId=null;return}
  if(!cat||!cat.dataset.cat||!dragCatId){dragCatId=null;return}
  e.preventDefault();const r=cat.getBoundingClientRect(),y=e.clientY-r.top;
  const mode=y<r.height*0.28?'before':y>r.height*0.72?'after':'inside';
@@ -3681,6 +3709,8 @@ $('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();
  lib.categories.push({id:uid(),name:n,parent:''});i.value='';save();render();toast('Categoría creada')};
 $('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
 $('#addComp').onclick=()=>addComposer(true);
+$('#list').addEventListener('dragstart',e=>{const card=e.target.closest('.card');if(!card){return}dragItemId=card.dataset.id;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',card.dataset.id)}catch(x){}card.classList.add('dragging')});
+$('#list').addEventListener('dragend',e=>{const card=e.target.closest('.card');if(card)card.classList.remove('dragging');dragItemId=null;clearDrop()});
 $('#list').addEventListener('click',e=>{
  const card=e.target.closest('.card');if(!card)return;const id=card.dataset.id;const it=lib.items.find(x=>x.id===id);if(!it)return;
  const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;
@@ -3691,6 +3721,7 @@ $('#list').addEventListener('click',e=>{
  if(act==='vnone'){it.verdict='';it._new=false;save();renderList();return}
  if(act==='add'){compAdd(activeComp(),it.text,false);toast('Añadido al compositor');return}
  if(act==='replace'){compAdd(activeComp(),it.text,true);toast('Compositor reemplazado');return}
+ if(act==='move'){openMoveMenu(id,b);return}
  if(act==='copy'){copyText(it.text);return}
  if(act==='edit'){it._new=false;const el=activeComp();el.querySelector('.c-text').value=it.text||'';el.querySelector('.c-title').value=it.title||'';el.querySelector('.c-cat').value=it.cat||'';compSetCV(el,it.verdict||'');el._editingId=id;el.classList.add('editing');el.querySelector('.editflag').textContent='· editando (Guardar actualiza)';window.scrollTo({top:0,behavior:'smooth'});el.querySelector('.c-text').focus();return}
  if(act==='del'){if(!b.dataset.arm){b.dataset.arm='1';b.textContent='¿Seguro?';setTimeout(()=>{if(b){b.textContent='Borrar';delete b.dataset.arm}},2200);return}
