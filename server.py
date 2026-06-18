@@ -44,6 +44,22 @@ HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
 SHELF_DIR.mkdir(parents=True, exist_ok=True)
 
+def _which(*names):
+    for n in names:
+        p = shutil.which(n)
+        if p:
+            return p
+    for base in ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"):
+        for n in names:
+            cand = os.path.join(base, n)
+            if os.path.exists(cand):
+                return cand
+    return names[0]  # último recurso: confiar en el PATH
+
+
+FFMPEG = _which("ffmpeg")
+FFPROBE = _which("ffprobe")
+
 PRICE_OUT = 30.0
 PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
 PRICE_IN_IMG = 8.0      # USD por 1M de tokens de imagen de entrada (referencias)
@@ -348,7 +364,7 @@ except Exception:
     I18N_JSON = "{}"
 
 HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Gio Studio</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23e0a571'/%3E%3Cpath d='M12 5l1.6 4.7 4.7 1.2-3.8 2.7L15.8 18 12 15.3 8.2 18l1.3-4.4-3.8-2.7 4.7-1.2z' fill='%231a1206'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -358,7 +374,7 @@ HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
  --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);
  --txt:#f1ece7;--mut:#a89f97;--faint:#6f665f;
  --accent:#e0a571;--accent-dim:rgba(224,165,113,.14);--ok:#7bbf8f;--bad:#e07a6b;
- --glow:rgba(224,165,113,.06);
+ --glow:rgba(224,165,113,.06);--on-accent:#1f160d;
  --btn-bg:var(--txt);--btn-fg:#12100d;
  --ui:'Schibsted Grotesk',-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
  --z-sticky:5;--z-modal:30;--z-lightbox:40;--z-toast:60;
@@ -366,19 +382,19 @@ HTML = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 /* ===== temas — 3 oscuros (Carbón = raíz) + 3 claros, via body[data-theme] ===== */
 body[data-theme="medianoche"]{--bg:#070d18;--surface:#0d1626;--surface2:#161f31;--elev:#1b2840;
  --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#eaf1f8;--mut:#9fb1c6;--faint:#647a96;
- --accent:#22d3ee;--accent-dim:rgba(34,211,238,.14);--ok:#34d399;--bad:#f87171;--glow:rgba(34,211,238,.06)}
+ --accent:#22d3ee;--accent-dim:rgba(34,211,238,.14);--ok:#34d399;--bad:#f87171;--glow:rgba(34,211,238,.06);--on-accent:#04141b}
 body[data-theme="neon"]{--bg:#0c0716;--surface:#15102a;--surface2:#1e1838;--elev:#272047;
  --line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.12);--txt:#f2eefb;--mut:#a99fc4;--faint:#6f6690;
- --accent:#ff3ea5;--accent-dim:rgba(255,62,165,.14);--ok:#3ee6a8;--bad:#ff5c72;--glow:rgba(255,62,165,.06)}
+ --accent:#ff3ea5;--accent-dim:rgba(255,62,165,.14);--ok:#3ee6a8;--bad:#ff5c72;--glow:rgba(255,62,165,.06);--on-accent:#ffffff}
 body[data-theme="dia"]{--bg:#faf7f2;--surface:#fdfbf7;--surface2:#ffffff;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#211e1b;--mut:#6b655d;--faint:#9c958b;
- --accent:#b8492a;--accent-dim:rgba(184,73,42,.13);--ok:#3f7d52;--bad:#c0392b;--glow:rgba(184,73,42,.06);--btn-bg:#2a241f;--btn-fg:#faf7f2}
+ --accent:#b8492a;--accent-dim:rgba(184,73,42,.13);--ok:#3f7d52;--bad:#c0392b;--glow:rgba(184,73,42,.06);--btn-bg:#2a241f;--btn-fg:#faf7f2;--on-accent:#faf7f2}
 body[data-theme="bruma"]{--bg:#eef1f6;--surface:#f8fafc;--surface2:#ffffff;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#1d2230;--mut:#5a6478;--faint:#9aa2b4;
- --accent:#4654c7;--accent-dim:rgba(70,84,199,.14);--ok:#1f8a5b;--bad:#c8324b;--glow:rgba(70,84,199,.06);--btn-bg:#1d2230;--btn-fg:#f8fafc}
+ --accent:#4654c7;--accent-dim:rgba(70,84,199,.14);--ok:#1f8a5b;--bad:#c8324b;--glow:rgba(70,84,199,.06);--btn-bg:#1d2230;--btn-fg:#f8fafc;--on-accent:#f8fafc}
 body[data-theme="crema"]{--bg:#f4efe3;--surface:#faf6ec;--surface2:#fffdf6;--elev:#ffffff;
  --line:rgba(0,0,0,.07);--line2:rgba(0,0,0,.15);--txt:#22201b;--mut:#6b665a;--faint:#9c9788;
- --accent:#1f6b54;--accent-dim:rgba(31,107,84,.14);--ok:#2f7a4a;--bad:#b4452f;--glow:rgba(31,107,84,.06);--btn-bg:#23211b;--btn-fg:#faf6ec}
+ --accent:#1f6b54;--accent-dim:rgba(31,107,84,.14);--ok:#2f7a4a;--bad:#b4452f;--glow:rgba(31,107,84,.06);--btn-bg:#23211b;--btn-fg:#faf6ec;--on-accent:#fffdf6}
 *{box-sizing:border-box}
 ::selection{background:var(--accent-dim)}
 body{margin:0;font-family:var(--ui);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45;
@@ -436,7 +452,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projnewrow .primary svg{width:15px;height:15px}
 .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),color-mix(in srgb,var(--accent) 65%,#000));
  display:flex;align-items:center;justify-content:center;color:#1a1206}
-.brand .dot svg{width:13px;height:13px;stroke-width:2}
+.brand .dot svg{width:14px;height:14px;fill:var(--on-accent);stroke:var(--on-accent);stroke-width:.6;stroke-linejoin:round}
 .seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
 .seg button{display:flex;align-items:center;gap:7px;background:transparent;border:0;color:var(--mut);
  padding:7px 15px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:.18s}
@@ -555,6 +571,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lightbox{position:fixed;inset:0;background:rgba(5,5,6,.93);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:var(--z-lightbox);cursor:zoom-out;padding:30px 30px 90px}
 .lightbox img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
 .lightbox .mclose{position:fixed;top:18px;right:18px;width:36px;height:36px;background:rgba(16,16,18,.85);backdrop-filter:blur(8px)}
+.lbnav{position:fixed;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(16,16,18,.7);border:1px solid rgba(255,255,255,.14);color:#fff;cursor:pointer;backdrop-filter:blur(8px);transition:.15s;z-index:1}
+.lbnav:hover{background:rgba(40,40,44,.92);border-color:rgba(255,255,255,.3)}
+.lbnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2}
+.lbnav.prev{left:20px}.lbnav.next{right:20px}
+.lbnav.off{opacity:.25;pointer-events:none}
 .lbbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;
  background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:12px 14px;max-width:min(760px,92vw);cursor:default}
@@ -963,8 +984,20 @@ html,body{overflow-x:hidden}
   </div>
 </div></div>
 
+<div class="overlay hide" id="vfModal"><div class="modal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <h2>Fotogramas del video</h2>
+  <p class="modsub">gpt-image-2 no acepta video. Extraigo fotogramas repartidos a lo largo del clip y los añado como referencia para que capte el estilo y lo visual. <span id="vfName" class="mono" style="opacity:.8"></span></p>
+  <label style="margin-top:4px">¿Cuántos fotogramas? · cada uno suma costo de entrada al generar</label>
+  <div class="presets" id="vfChips" style="margin-top:8px"></div>
+  <div class="grid2" style="margin-top:16px;gap:8px">
+    <button id="vfCancel" style="justify-content:center">Cancelar</button>
+    <button class="primary" id="vfGo" style="justify-content:center"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Extraer e insertar</button>
+  </div>
+</div></div>
+
 <div class="top">
-  <div class="brand"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg></span>Studio</div>
+  <div class="brand"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg></span>Gio Studio</div>
   <div class="projbar">
     <button class="projbtn" id="projBtn" title="Proyectos — cada uno con su memoria, historial y Mis imágenes">
       <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -997,7 +1030,7 @@ html,body{overflow-x:hidden}
     <div class="field" id="editBox">
       <label><span id="refLbl">Referencias · opcional</span></label>
       <div class="drop" id="drop"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>Arrastra, pega (⌘V) o elige</div>
-      <input type="file" id="files" accept="image/png,image/jpeg,image/webp,image/gif" multiple class="hide">
+      <input type="file" id="files" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" multiple class="hide">
       <div class="thumbs" id="thumbs"></div>
       <div class="thumbs" id="maskThumb"></div>
       <div class="grid2" style="margin-top:9px;gap:7px">
@@ -1474,7 +1507,7 @@ html,body{overflow-x:hidden}
       <div class="btnrow"><button id="saveProj"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar estilo</button></div>
       <label style="margin-top:14px">Memoria visual · referencias</label>
       <div class="drop" id="dropPref" style="padding:10px;font-size:11.5px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Añadir referencia</div>
-      <input type="file" id="prefFile" accept="image/png,image/jpeg,image/webp" multiple class="hide">
+      <input type="file" id="prefFile" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" multiple class="hide">
       <div class="thumbs" id="prefThumbs"></div>
       <label class="check" style="margin-top:10px"><input type="checkbox" id="useVis" checked> Usar memoria visual al generar</label>
       <p class="hint">Con esto activo, estas imágenes se adjuntan solas como referencia en cada generación del proyecto (Crear y Editar), para mantener el mismo estilo sin re-subirlas. El estilo se guarda como <span class="mono">estilo.md</span> en la carpeta del proyecto y se antepone siempre al prompt.</p>
@@ -1508,6 +1541,8 @@ html,body{overflow-x:hidden}
 
 <div class="lightbox hide" id="lightbox">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <button class="lbnav prev" id="lbPrev" title="Anterior (←)"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <button class="lbnav next" id="lbNext" title="Siguiente (→)"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
   <img id="lbImg" src="" alt="Vista completa">
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
@@ -1689,6 +1724,47 @@ function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"
 function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
 // formatos que acepta OpenAI para entrada de imagen
 const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
+// ===== video → fotogramas de referencia (gpt-image-2 no acepta video) =====
+const VIDEO_RE=/\.(mp4|mov|m4v|webm|mkv|avi|qt)$/i;
+function isVideoFile(f){return !!f&&((f.type&&f.type.startsWith('video/'))||VIDEO_RE.test(f.name||''));}
+let vfPending=null,vfCount=4;
+function vfRenderChips(){$('vfChips').innerHTML=[1,2,3,4,5,6,7,8].map(n=>`<span class="chip${n===vfCount?' on':''}" data-n="${n}">${n}</span>`).join('')}
+function openVideoFrames(file,target){vfPending={file,target};vfCount=4;vfRenderChips();
+ $('vfName').textContent=file.name||'';$('vfModal').classList.remove('hide')}
+function closeVF(){$('vfModal').classList.add('hide');vfPending=null}
+async function extractVideoFrames(file,count){
+ const b64=await fileToB64(file);
+ const r=await(await fetch('/videoframes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:file.name,b64,count})})).json();
+ if(r.error){toast(r.error,'bad');return null}
+ return r.frames||[]}
+$('vfChips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;vfCount=+c.dataset.n;vfRenderChips()};
+$('vfCancel').onclick=closeVF;
+$('vfModal').querySelector('.mclose').onclick=closeVF;
+$('vfModal').onclick=e=>{if(e.target===$('vfModal'))closeVF()};
+$('vfGo').onclick=async()=>{if(!vfPending)return;const file=vfPending.file,target=vfPending.target,cnt=vfCount;
+ $('vfGo').disabled=true;const html0=$('vfGo').innerHTML;$('vfGo').textContent='Extrayendo…';
+ const frames=await extractVideoFrames(file,cnt);
+ $('vfGo').disabled=false;$('vfGo').innerHTML=html0;
+ if(!frames)return;
+ closeVF();
+ if(!frames.length){toast('No se extrajeron fotogramas','bad');return}
+ const plural=frames.length>1;
+ if(target==='pref'){const n=$('projSel').value,lbl=n||genLabel;
+  for(const fr of frames)await postRef(n,fr.name,fr.b64);
+  await loadProjects();
+  toast(frames.length+(plural?' fotogramas del video añadidos':' fotograma del video añadido')+' a la memoria de "'+lbl+'"')}
+ else{for(const fr of frames)refs.push({name:fr.name,b64:fr.b64});renderThumbs();
+  toast(frames.length+(plural?' fotogramas del video añadidos':' fotograma del video añadido')+' como referencia')}};
+// reparte una lista de archivos soltados/elegidos: imágenes directas + el primer video al modal de frames
+async function routeRefFiles(list,target){const arr=[...list];const vid=arr.find(isVideoFile);
+ const imgs=arr.filter(f=>!isVideoFile(f));
+ if(imgs.length){
+  if(target==='pref'){const n=$('projSel').value;let added=0;
+   for(const f of imgs){if(!OK_IMG_TYPES.has(f.type))continue;await postRef(n,f.name,await fileToB64(f));added++}
+   if(added){await loadProjects();toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+(n||genLabel)+'"')}}
+  else{const n=await addFiles(imgs);if(n)toast(n+(n>1?' imágenes añadidas':' imagen añadida')+' como referencia')}}
+ if(vid)openVideoFrames(vid,target);
+ if(arr.filter(isVideoFile).length>1)toast('Solo proceso un video a la vez','bad')}
 async function addFiles(list){let added=0,bad=0;
  for(const f of list){
   if(!OK_IMG_TYPES.has(f.type)){bad++;continue}
@@ -1697,7 +1773,7 @@ async function addFiles(list){let added=0,bad=0;
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
  if(added)renderThumbs();return added}
 $('drop').onclick=()=>$('files').click();
-$('files').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('files').onchange=e=>{routeRefFiles(e.target.files,'local');e.target.value=''};
 $('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs()}};
 ['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('hot')}));
 ['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('hot')}));
@@ -1714,7 +1790,7 @@ window.addEventListener('drop',async e=>{e.preventDefault();$('drop').classList.
   if(imgs.length){for(const im of imgs)refs.push({name:im.name,b64:im.b64});renderThumbs();
    toast(imgs.length>1?imgs.length+' imágenes añadidas como referencia':'Añadida como referencia');}
   return}
- if(dt.files.length){const n=await addFiles(dt.files);if(n)toast(n+(n>1?' imágenes añadidas':' imagen añadida')+' como referencia')}});
+ if(dt.files.length)routeRefFiles(dt.files,'local')});
 // pegar desde el portapapeles
 document.addEventListener('paste',async e=>{
  const t=document.activeElement.tagName;if(t==='TEXTAREA'||t==='INPUT')return;
@@ -1980,14 +2056,13 @@ async function imagesFromDT(dt){const out=[];
  else for(const f of dt.files){if(f.type&&f.type.startsWith('image/'))out.push({name:f.name,b64:await fileToB64(f)});}
  return out;}
 $('dropPref').onclick=()=>{$('prefFile').click()};
-$('prefFile').onchange=async e=>{const n=$('projSel').value,lbl=n||genLabel;
- let added=0;for(const f of e.target.files){await postRef(n,f.name,await fileToB64(f));added++}
- e.target.value='';await loadProjects();
- if(added)toast(added+(added>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+lbl+'"')};
+$('prefFile').onchange=async e=>{const list=e.target.files;e.target.value='';await routeRefFiles(list,'pref')};
 ['dragover','dragenter'].forEach(ev=>$('dropPref').addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.add('hot')}));
 $('dropPref').addEventListener('dragleave',e=>{e.preventDefault();$('dropPref').classList.remove('hot')});
 $('dropPref').addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();$('dropPref').classList.remove('hot');$('drop').classList.remove('hot');
  const n=$('projSel').value,lbl=n||genLabel;
+ const vid=[...(e.dataTransfer.files||[])].find(isVideoFile);
+ if(vid){openVideoFrames(vid,'pref');return}
  const imgs=await imagesFromDT(e.dataTransfer);
  for(const im of imgs)await postRef(n,im.name,im.b64);
  await loadProjects();
@@ -2079,19 +2154,38 @@ $('gal').onclick=async e=>{
    hist=hist.filter(it=>it.file!==card.dataset.file);renderGal();toast('Imagen eliminada')}
   else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
   return}
- if(card)openLb('/file?name='+encodeURIComponent(card.dataset.file),card.dataset.p,card.dataset.file)};
+ if(card){openLb('/file?name='+encodeURIComponent(card.dataset.file),card.dataset.p,card.dataset.file);lbScope='gal';lbCurFile=card.dataset.file;lbSyncNav()}};
 
 // ===== lightbox =====
-function openLb(src,p,file){$('lbImg').src=src;$('lbPrompt').textContent=p||'';
+let lbScope=null,lbCurFile=null;   // contexto de navegación con flechas (galería / estante)
+function lbNavigate(dir){
+ if($('lightbox').classList.contains('hide')||!lbScope||!lbCurFile)return;
+ const sel=lbScope==='gal'?'#gal .gcard':'#shelfGrid .scard';
+ const attr=lbScope==='gal'?'file':'shelf';
+ const cards=[...document.querySelectorAll(sel)];
+ const idx=cards.findIndex(c=>c.dataset[attr]===lbCurFile);
+ if(idx<0)return;
+ const ni=idx+dir;if(ni<0||ni>=cards.length)return;   // sin dar la vuelta
+ const c=cards[ni];
+ if(lbScope==='gal'){openLb('/file?name='+encodeURIComponent(c.dataset.file),c.dataset.p||'',c.dataset.file);lbScope='gal';lbCurFile=c.dataset.file;lbSyncNav()}
+ else{const it=shelfItems.find(x=>x.file===c.dataset.shelf);if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}}
+function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lbPrompt').textContent=p||'';
  $('lightbox').dataset.file=file||'';$('lbDesc').style.display=file?'':'none';
  $('lbPrompt').classList.toggle('hide',!p);
  if(file){$('lbDl').href='/file?name='+encodeURIComponent(file);$('lbDl').setAttribute('download',file)}
  else{$('lbDl').href=src;$('lbDl').setAttribute('download','imagen.png')}
  $('lbUse').style.display=p?'':'none';
  $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
- $('lightbox').classList.remove('hide')}
+ $('lightbox').classList.remove('hide');lbSyncNav()}
+function lbSyncNav(){const pv=$('lbPrev'),nx=$('lbNext');
+ if(!lbScope||!lbCurFile){pv.classList.add('off');nx.classList.add('off');return}
+ const sel=lbScope==='gal'?'#gal .gcard':'#shelfGrid .scard',attr=lbScope==='gal'?'file':'shelf';
+ const cards=[...document.querySelectorAll(sel)],idx=cards.findIndex(c=>c.dataset[attr]===lbCurFile);
+ pv.classList.toggle('off',idx<=0);nx.classList.toggle('off',idx<0||idx>=cards.length-1)}
 $('lightbox').onclick=()=>$('lightbox').classList.add('hide');
 $('lbBar').onclick=e=>e.stopPropagation();
+$('lbPrev').onclick=e=>{e.stopPropagation();lbNavigate(-1)};
+$('lbNext').onclick=e=>{e.stopPropagation();lbNavigate(1)};
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
  e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';});
@@ -2817,7 +2911,10 @@ document.addEventListener('keydown',e=>{
    else if(!$('musBox').classList.contains('hide'))runMUS();
    else runTTS()}
   else if(!$('go').disabled)run();return}
+ if((e.key==='ArrowRight'||e.key==='ArrowLeft')&&!$('lightbox').classList.contains('hide')){
+  e.preventDefault();lbNavigate(e.key==='ArrowRight'?1:-1);return}
  if(e.key==='Escape'){
+  if(!$('vfModal').classList.contains('hide')){closeVF();return}
   if(!$('cmpModal').classList.contains('hide')){$('cmpModal').classList.add('hide');return}
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
@@ -2879,7 +2976,7 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
  if(e.target.closest('a,.sbtn'))return;     // descargar u otro botón → su acción nativa
  const card=e.target.closest('.scard');     // clic en la imagen → ampliar en lightbox flotante
  if(card){const it=shelfItems.find(x=>x.file===card.dataset.shelf);
-  if(it)openLb('/shelffile?name='+encodeURIComponent(it.file),'','');}};
+  if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';});
@@ -3135,7 +3232,7 @@ def gallery_html(src, fav=False, proj=""):
           "glbCopy.onclick=function(){copyP(curPrompt);};")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>' + _h.escape(title) + ' · Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
+            '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
             '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink + '</header>'
             '<main class="grid">' + grid + '</main>'
@@ -3151,7 +3248,7 @@ def gallery_html(src, fav=False, proj=""):
 
 
 class H(BaseHTTPRequestHandler):
-    server_version = "Studio"
+    server_version = "GioStudio"
     sys_version = ""
 
     def log_message(self, *a):
@@ -3398,6 +3495,7 @@ class H(BaseHTTPRequestHandler):
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
+                 "/videoframes": self.h_videoframes,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
             if h:
                 return h()
@@ -3548,6 +3646,62 @@ class H(BaseHTTPRequestHandler):
                 pr[key]["refs"] = [x for x in pr[key].get("refs", []) if x != f]
                 save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
+
+    def h_videoframes(self):
+        # Extrae N fotogramas repartidos de un video para usarlos como referencia de gpt-image-2
+        # (gpt-image-2 no acepta video; estos frames le transmiten estilo/visual).
+        b = self._body()
+        try:
+            count = max(1, min(8, int(b.get("count", 4))))
+        except Exception:
+            count = 4
+        raw = base64.b64decode(b.get("b64", "") or "")
+        if not raw:
+            return self._json({"error": "No recibí el video."})
+        name = safe(os.path.splitext(b.get("name", "video"))[0]) or "video"
+        td = ROOT / "tmp"
+        td.mkdir(parents=True, exist_ok=True)
+        src = td / f"vf_{uuid.uuid4().hex}"
+        try:
+            src.write_bytes(raw)
+            # duración (ffprobe); si falla, repartimos sobre una estimación corta
+            dur = 0.0
+            try:
+                r = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration",
+                                    "-of", "default=nw=1:nk=1", str(src)],
+                                   capture_output=True, text=True, timeout=30)
+                dur = float((r.stdout or "").strip() or 0)
+            except Exception:
+                dur = 0.0
+            if not (dur > 0):
+                dur = 0.0  # sin duración fiable: usaremos thumbnails secuenciales
+            frames = []
+            for i in range(count):
+                if dur > 0:
+                    t = dur * (i + 0.5) / count
+                    args = [FFMPEG, "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}",
+                            "-i", str(src), "-frames:v", "1",
+                            "-vf", r"scale=min(1536\,iw):-2", "-c:v", "png", "-f", "image2pipe", "pipe:1"]
+                else:
+                    # sin duración: salta ~i*1.5s desde el inicio
+                    args = [FFMPEG, "-nostdin", "-loglevel", "error", "-ss", f"{i*1.5:.3f}",
+                            "-i", str(src), "-frames:v", "1",
+                            "-vf", r"scale=min(1536\,iw):-2", "-c:v", "png", "-f", "image2pipe", "pipe:1"]
+                try:
+                    out = subprocess.run(args, capture_output=True, timeout=60)
+                    if out.returncode == 0 and out.stdout:
+                        frames.append({"name": f"{name}_frame{i+1}.png",
+                                       "b64": base64.b64encode(out.stdout).decode()})
+                except Exception:
+                    pass
+            if not frames:
+                return self._json({"error": "No pude extraer fotogramas (¿formato de video no soportado?)."})
+            return self._json({"frames": frames})
+        finally:
+            try:
+                src.unlink()
+            except Exception:
+                pass
 
     def h_config(self):
         b = self._body()
@@ -4644,5 +4798,5 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     PENDING_VIDEOS.update(load_json(JOBS_JSON, {}))  # recupera trabajos de video en curso
-    print(f"Estudio v4 en  http://localhost:{PORT}")
+    print(f"Gio Studio en  http://localhost:{PORT}")
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
