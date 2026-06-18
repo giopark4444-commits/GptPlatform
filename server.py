@@ -662,6 +662,16 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
+.gal.selmode .gcard{cursor:pointer}
+.gal.selmode .gcard .gfloat{display:none}
+.gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
+.gal.selmode .gcard.sel::after{background:var(--accent);border-color:var(--accent);content:'✓';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.gal.selmode .gcard.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.galbulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;font-size:12.5px}
+.galbulk .gbcount{font-weight:600;margin-right:auto}
+.galbulk button{border:1px solid var(--line2);background:var(--surface);color:var(--txt);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
+.galbulk button:hover{border-color:var(--mut)}
+.galbulk button.bdel.arm{border-color:var(--bad);color:var(--bad)}
 .magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
 .magic:hover{color:var(--accent)}
 .magic svg{width:13px;height:13px}
@@ -1558,8 +1568,9 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
+      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
+      <div class="galbulk hide" id="galBulk"></div>
       <div class="gal" id="gal"></div>
       <button class="more hide" id="galMore"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 9l6 6 6-6"/></svg>Ver más</button>
     </div>
@@ -2203,7 +2214,7 @@ window.addEventListener('focus',()=>{pollAll();loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();loadGal();}});
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
-  return `<div class="gcard" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
+  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
@@ -2216,13 +2227,32 @@ function renderGal(){const items=galFiltered();
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}).join('')
   ||'<div class="hint">Aún no hay imágenes en este proyecto</div>';
  $('galMore').classList.add('hide');
+ $('gal').classList.toggle('selmode',selMode);
  $('galCount').textContent=items.length||''}
+// ===== selección múltiple del historial =====
+let selMode=false;const selFiles=new Set();
+function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');return}
+ bar.classList.remove('hide');
+ bar.innerHTML='<span class="gbcount">'+selFiles.size+' seleccionada'+(selFiles.size===1?'':'s')+'</span>'
+  +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
+  +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
+  +'<button id="bulkExit">Salir</button>';
+ $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
+ $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
+  let n=0;for(const f of selFiles){const it=hist.find(x=>x.file===f);if(it&&(it.prompt||'').trim()){try{await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:it.prompt})});n++}catch(e){}}}
+  toast(n?(n+' prompt(s) enviados a la biblioteca'):'Ninguna tenía prompt',n?'':'bad');selMode=false;selFiles.clear();renderGal();renderBulk()};
+ $('bulkDel').onclick=async(e)=>{const b=e.currentTarget;if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
+  if(!b.classList.contains('arm')){b.classList.add('arm');b.lastChild.textContent='¿Borrar '+selFiles.size+'?';setTimeout(()=>{b.classList.remove('arm');renderBulk()},2600);return}
+  for(const f of [...selFiles]){try{await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});hist=hist.filter(x=>x.file!==f)}catch(e){}}
+  const k=selFiles.size;selMode=false;selFiles.clear();renderGal();renderBulk();toast(k+' imagen(es) borradas')}}
+$('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();renderGal();renderBulk()};
 async function loadGal(){hist=await(await fetch('/history')).json();renderGal();renderAud()}
 $('galMore').onclick=()=>{shown+=30;renderGal()};
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(b)})}
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);e.dataTransfer.effectAllowed='copy'});
 $('gal').onclick=async e=>{
+ if(selMode){const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
   star=e.target.closest('.gstar'),up=e.target.closest('.gup'),lib=e.target.closest('.glib'),
