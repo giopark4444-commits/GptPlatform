@@ -3497,8 +3497,20 @@ function isDesc(id,ancestorId){let c=catById(id),g=0;while(c&&c.parent&&g++<50){
 function catDescIds(id){const out=[id];catChildren(id).forEach(ch=>out.push(...catDescIds(ch.id)));return out}
 function uniqueName(base,parent){let k=1,name=base;const sib=()=>catChildren(parent).some(c=>c.name===name);while(sib()){k++;name=base+' '+k}return name}
 function toast(m,bad){const t=$('#tt');t.textContent=m;t.className='tt show'+(bad?' bad':'');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800)}
-let saveT=null;
-function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{try{await fetch('/promptlib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lib)})}catch(e){toast('No se pudo guardar',1)}},250)}
+// guardado inmediato, serializado (sin perder cambios) + coalescing si llegan varios seguidos
+let saving=false, dirty=false;
+async function doSave(){if(saving){dirty=true;return}saving=true;
+ try{await fetch('/promptlib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lib)})}
+ catch(e){toast('No se pudo guardar',1)}
+ saving=false;if(dirty){dirty=false;doSave()}}
+function save(){doSave()}
+function libSnap(){return JSON.stringify({categories:lib.categories,items:lib.items})}
+let lastSnap='';
+// al volver a esta pestaña, recarga lo último del servidor (evita pisar cambios de otra pestaña) salvo si estás editando
+async function reloadIfIdle(){if(editCat||editingId||saving||dirty)return;
+ try{const fresh=await(await fetch('/promptlib')).json();
+  if(!fresh||!Array.isArray(fresh.categories)||!Array.isArray(fresh.items))return;
+  if(JSON.stringify({categories:fresh.categories,items:fresh.items})!==libSnap()){lib=fresh;migrate();render()}}catch(e){}}
 function migrate(){ // formato viejo: categories = ["Nombre",...] e items.cat = nombre → árbol con ids
  if(lib.categories.some(c=>typeof c==='string')){
   const map={};
@@ -3663,8 +3675,13 @@ async function pollInbox(){if(!inboxReady)return;
    r.items.forEach(x=>{const t=(x.prompt||'').trim();if(t)lib.items.unshift({id:uid(),text:t,title:(x.title||'').trim(),cat:'',verdict:'',fav:false,_new:true,ts:Date.now()})});
    save();render();toast(r.items.length+(r.items.length>1?' prompts recibidos del historial':' prompt recibido del historial'))}}catch(e){}}
 (async()=>{await load();inboxReady=true;pollInbox();setInterval(pollInbox,2500);})();
-window.addEventListener('focus',pollInbox);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollInbox()});
+async function onReturn(){await reloadIfIdle();pollInbox()}
+window.addEventListener('focus',onReturn);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)onReturn()});
+// respaldo: si quedó algo sin guardar al cerrar/ocultar la pestaña, lo mandamos con sendBeacon
+function flushBeacon(){try{navigator.sendBeacon('/promptlib',new Blob([JSON.stringify(lib)],{type:'application/json'}))}catch(e){}}
+window.addEventListener('pagehide',flushBeacon);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(saving||dirty))flushBeacon()});
 </script></body></html>"""
 
 
