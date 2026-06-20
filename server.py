@@ -590,6 +590,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:12px;
  padding:12px 14px;max-width:min(760px,92vw);cursor:default}
 .lbprompt{font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.85);white-space:pre-wrap;word-break:break-word;max-height:26vh;overflow-y:auto}
+.lbmeta{display:flex;flex-wrap:wrap;gap:6px}
+.lbmeta.hide{display:none}
+.lbmeta span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.82);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:2px 8px}
+.lbmeta span b{color:rgba(255,255,255,.55);font-weight:400;margin-right:3px}
 .lbbtns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .lbbar button,.lbbar a{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line2);
  color:var(--txt);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;flex:none}
@@ -1707,6 +1711,7 @@ html,body{overflow-x:hidden}
   <img id="lbImg" src="" alt="Vista completa">
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
+    <div class="lbmeta hide" id="lbMeta"></div>
     <div class="lbbtns">
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
     <button id="lbLib"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>A la biblioteca</button>
@@ -2428,6 +2433,17 @@ function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lb
  $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
  $('lbLib').style.display=p?'':'none';
  $('lbLib').onclick=ev=>{ev.stopPropagation();sendPromptToLib(p||'')};
+ // ficha técnica (resolución, calidad, modo, costo, tokens, fecha) si es del historial
+ const m=$('lbMeta');const it=file?hist.find(x=>x.file===file):null;
+ if(it){const QL={high:'Alta',medium:'Media',low:'Baja',auto:'Auto'};const tags=[];
+  if(it.size)tags.push('<span><b>Resolución</b>'+esc(it.size)+'</span>');
+  if(it.quality)tags.push('<span><b>Calidad</b>'+esc(QL[it.quality]||it.quality)+'</span>');
+  if(it.mode)tags.push('<span><b>Modo</b>'+(it.mode==='editar'?'Editar':'Crear')+'</span>');
+  if(typeof it.cost==='number')tags.push('<span><b>Costo</b>$'+(it.cost||0).toFixed(4)+'</span>');
+  if(it.output_tokens)tags.push('<span><b>Tokens</b>'+it.output_tokens+'</span>');
+  if(it.ts)tags.push('<span>'+esc(it.ts)+'</span>');
+  m.innerHTML=tags.join('');m.classList.toggle('hide',!tags.length)}
+ else m.classList.add('hide');
  $('lightbox').classList.remove('hide');lbSyncNav()}
 function lbSyncNav(){const pv=$('lbPrev'),nx=$('lbNext');
  if(!lbScope||!lbCurFile){pv.classList.add('off');nx.classList.add('off');return}
