@@ -13,7 +13,7 @@ from urllib.parse import urlparse, parse_qs
 
 LOCK = threading.Lock()  # serializa lecturas-escrituras de los JSON
 
-PORT = 7860
+PORT = int(os.environ.get("STUDIO_PORT", "7860"))
 HOME = Path.home()
 KEY_FILE = HOME / ".openai_key"
 EL_KEY_FILE = HOME / ".elevenlabs_key"
