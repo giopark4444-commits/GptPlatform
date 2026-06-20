@@ -684,6 +684,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
 .magic:hover{color:var(--accent)}
 .magic svg{width:13px;height:13px}
+.mpbtn{display:inline-flex;align-items:center;gap:7px;margin-top:8px;padding:8px 12px;font-size:12.5px;width:100%;justify-content:center}
+.mpbtn svg{color:var(--accent)}
+.mpbtn.busy{opacity:.55;pointer-events:none}
 #galSearch{font-size:12px;padding:8px 11px;margin-bottom:8px}
 .galrow{display:flex;gap:7px;margin-bottom:10px;align-items:center}
 .galrow select{margin:0;flex:1}
@@ -1166,6 +1169,7 @@ html,body{overflow-x:hidden}
     <div class="field">
       <label id="lblPrompt">Prompt<button class="magic" id="mpImg" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
       <textarea id="prompt" placeholder="Describe lo que imaginas…"></textarea>
+      <button class="ghost mpbtn" id="mpImgBtn" title="Reescribe y enriquece tu prompt con IA"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Mejorar con IA</button>
     </div>
 
     <div class="field">
@@ -3116,6 +3120,7 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
  }catch(e){toast(String(e),'bad')}
  btn.classList.remove('busy')}
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
+$('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 $('mpSd').onclick=e=>{e.preventDefault();improvePrompt($('mpSd'),'sdPrompt','video')};
 $('mpKl').onclick=e=>{e.preventDefault();improvePrompt($('mpKl'),'klPrompt','video')};
 $('lbDesc').onclick=async e=>{e.stopPropagation();
