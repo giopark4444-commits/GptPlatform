@@ -517,7 +517,7 @@ input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
 .drop:hover,.drop.hot{border-color:var(--accent);color:var(--txt);background:var(--surface2)}
 .thumbs{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
 .thumb{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1px solid var(--line2)}
-.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
 .thumb .x{position:absolute;top:2px;right:2px;width:17px;height:17px;border:0;border-radius:5px;background:rgba(0,0,0,.6);
  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .thumb .x svg{width:10px;height:10px;stroke-width:2.4}
@@ -1847,7 +1847,7 @@ $('dirPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
-function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
+function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" data-i="${i}"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
 // formatos que acepta OpenAI para entrada de imagen
 const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
 // ===== video → fotogramas de referencia (gpt-image-2 no acepta video) =====
@@ -1930,7 +1930,8 @@ async function addFiles(list){let added=0,bad=0;
  if(added)renderThumbs();return added}
 $('drop').onclick=()=>$('files').click();
 $('files').onchange=e=>{routeRefFiles(e.target.files,'local');e.target.value=''};
-$('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs()}};
+$('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs();return}
+ const t=e.target.closest('.thumb');if(t){const r=refs[+t.dataset.i];if(r)openLb('data:image/png;base64,'+r.b64,'',null)}};
 ['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('hot')}));
 ['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('hot')}));
 // arrastrar a cualquier parte de la ventana
@@ -2119,7 +2120,7 @@ function renderProj(){const n=$('projSel').value,p=projects[n];
  {const b=$('projBtnLbl');if(b)b.textContent=n||genLabel;}
  $('style').value=p?(styleTab==='img'?(p.style||''):(p.style_video||'')):'';
  $('style').placeholder=styleTab==='img'?'Estilo: técnica, paleta, luz, mood…':'Estilo de video: cámara, movimiento, ritmo, grading…';
- $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt=""><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
+ $('prefThumbs').innerHTML=p?p.refs.map(f=>`<div class="thumb" data-f="${esc(f)}"><img src="/pfile?project=${encodeURIComponent(n)}&name=${encodeURIComponent(f)}" alt="" title="Clic para ampliar"><button class="x" data-f="${esc(f)}" title="Quitar">${xicon()}</button></div>`).join(''):''}
 $('styleSeg').onclick=e=>{const btn=e.target.closest('button');if(!btn)return;
  stashStyle();styleTab=btn.dataset.st;
  [...$('styleSeg').children].forEach(x=>x.classList.toggle('on',x.dataset.st===styleTab));renderProj()};
@@ -2223,8 +2224,9 @@ $('dropPref').addEventListener('drop',async e=>{e.preventDefault();e.stopPropaga
  for(const im of imgs)await postRef(n,im.name,im.b64);
  await loadProjects();
  if(imgs.length)toast(imgs.length+(imgs.length>1?' referencias añadidas':' referencia añadida')+' a la memoria de "'+lbl+'"')});
-$('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');if(!b)return;const n=$('projSel').value;
- await fetch('/projectrefdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,file:b.dataset.f})});await loadProjects()};
+$('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');const n=$('projSel').value;
+ if(b){await fetch('/projectrefdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,file:b.dataset.f})});await loadProjects();return}
+ const t=e.target.closest('.thumb');if(t&&t.dataset.f)openLb('/pfile?project='+encodeURIComponent(n)+'&name='+encodeURIComponent(t.dataset.f),'',null)};
 
 // ===== historial =====
 const GDL='<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
