@@ -50,6 +50,7 @@ PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
 PRICE_IN_IMG = 8.0      # USD por 1M de tokens de imagen de entrada (referencias)
 PRICE_IN_IMG_CACHED = 2.0  # USD por 1M de tokens de imagen de entrada cacheados
 DISTILL_MODEL = "gpt-4o-mini"
+DETECT_MODEL = "gpt-4o"   # detección de personas/objetos + orientación (mejor localización que mini)
 API_GEN = "https://api.openai.com/v1/images/generations"
 API_EDIT = "https://api.openai.com/v1/images/edits"
 API_CHAT = "https://api.openai.com/v1/chat/completions"
@@ -700,6 +701,33 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .ang3dpresets{display:flex;flex-wrap:wrap;gap:4px}
 .ang3dpresets button{font-size:10.5px;padding:4px 7px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:7px;cursor:pointer;font-family:inherit}
 .ang3dpresets button:hover{border-color:var(--accent);color:var(--accent)}
+/* modal Ángulos 3D (detección + gizmos) */
+.posemodal{max-width:min(1000px,96vw);max-height:92vh;overflow:auto}
+.posemodal .exp{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-dim);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:8px}
+.posewrap{display:flex;gap:16px;align-items:stretch}
+.posestage{flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:260px;max-height:74vh;overflow:hidden}
+.posestage img{max-width:100%;max-height:74vh;display:block}
+.poseov{position:absolute}
+.posebusy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);border-radius:10px}
+.posebusy.hide{display:none}
+.posebusy .spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.posebox{position:absolute;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,0);pointer-events:none}
+.posebox.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.posebox .plabel{position:absolute;top:-10px;left:6px;font-size:10px;font-weight:600;color:#fff;background:var(--accent);padding:1px 7px;border-radius:10px;white-space:nowrap}
+.posecube{position:absolute;width:74px;height:74px;transform:translate(-50%,-50%);cursor:grab;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.posecube:active{cursor:grabbing}
+.poseside{width:300px;flex:none;display:flex;flex-direction:column;gap:10px}
+.poselist{display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;max-height:56vh}
+.posesub{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--surface2);cursor:pointer}
+.posesub.sel{border-color:var(--accent)}
+.posesub .pnm{font-size:12.5px;font-weight:600}
+.posesub .pdesc{font-size:11.5px;color:var(--accent);margin:3px 0 6px;line-height:1.4}
+.posesub .ppre{display:flex;flex-wrap:wrap;gap:4px}
+.posesub .ppre button{font-size:10px;padding:3px 7px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:6px;cursor:pointer;font-family:inherit}
+.posesub .ppre button:hover{border-color:var(--accent);color:var(--accent)}
+.posefoot{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.posefoot button{justify-content:center}
+@media(max-width:780px){.posewrap{flex-direction:column}.poseside{width:auto}}
 #galSearch{font-size:12px;padding:8px 11px;margin-bottom:8px}
 .galrow{display:flex;gap:7px;margin-bottom:10px;align-items:center}
 .galrow select{margin:0;flex:1}
@@ -1716,10 +1744,27 @@ html,body{overflow-x:hidden}
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
     <button id="lbLib"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>A la biblioteca</button>
     <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
+    <button id="lbPose"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Ángulos 3D</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
     </div>
   </div>
 </div>
+<div class="overlay hide" id="poseModal"><div class="modal posemodal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <h2>Ángulos 3D <span class="exp">experimental</span></h2>
+  <p class="modsub" style="color:var(--mut);font-size:12.5px;margin:-4px 0 12px">Detecta los elementos, gira su cubo al ángulo que quieras y genera. gpt-image-2 lo toma como guía fuerte (no exacta); funciona mejor con giros moderados.</p>
+  <div class="posewrap">
+    <div class="posestage" id="poseStage"><img id="poseImg" alt=""><div class="poseov" id="poseOv"></div><div class="posebusy hide" id="poseBusy"><div class="spin"></div></div></div>
+    <div class="poseside">
+      <button class="primary" id="poseDetect"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Detectar personas / objetos</button>
+      <div class="poselist" id="poseList"></div>
+      <div class="posefoot">
+        <button class="primary" id="poseGen" disabled><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Generar con estos ángulos</button>
+        <button id="poseCancel">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div></div>
 <script>
 const $=id=>document.getElementById(id);
 let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1.5,projects={};
@@ -2543,6 +2588,21 @@ async function run(){
  if(activeJobs===0&&!$('spinner').classList.contains('hide')&&!$('resultImg').src)showState('empty');
  validate();
 }
+// lanza un trabajo /edit no bloqueante (usado por Ángulos 3D) reutilizando el contador y el lienzo
+async function fireGenJob(body){
+ const showSpin=activeJobs===0 && $('resultImg').classList.contains('hide');
+ if(showSpin){$('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin')}
+ activeJobs++;updGenChip();
+ try{const d=await(await fetch('/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(d.error){toast(d.error,'bad');if(showSpin&&activeJobs===1)err(d.error)}
+  else{results=d.images&&d.images.length?d.images:[{image:d.image}];lastResult={prompt:body.prompt,refsUsed:[],fmt:'png'};
+   renderStrip();showResult(0);$('resbar').classList.remove('hide');bumpSess(d.cost||0,results.length);
+   $('cost').innerHTML='<b>$'+(d.cost||0).toFixed(4)+'</b>'+(d.via_visual?' · memoria visual':'');
+   loadGal();if(activeJobs>1)toast('Imagen lista')}
+ }catch(e){toast(String(e&&e.message||e||'Error'),'bad');if(showSpin&&activeJobs===1)err(e)}
+ activeJobs--;updGenChip();
+ if(activeJobs===0&&!$('spinner').classList.contains('hide')&&!$('resultImg').src)showState('empty');
+}
 $('go').onclick=run;$('again').onclick=run;
 // Enter genera (Shift+Enter = salto de línea) en los campos de prompt principales.
 // Los campos multilínea por naturaleza (lote de prompts, letra de canción) se
@@ -3187,13 +3247,13 @@ function ang3dDesc(){const ay=(((ang3d.yaw%360)+360)%360); const a2=ay>180?ay-36
  else if(p>=18)v='cámara en picado (vista desde arriba)';
  else v='cámara a la altura de los ojos';
  return {short:ang3dCap(h)+' · '+v, prompt:'Encuadre y ángulo: el sujeto visto '+h+', '+v+'.'};}
-function ang3dDraw(){const cv=$('ang3dCv');if(!cv)return;const ctx=cv.getContext('2d');
+function drawCubeCv(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d');
  const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
  const cs=getComputedStyle(document.body);
  const acc=(cs.getPropertyValue('--accent').trim()||'#1f6b54');
  const ln=(cs.getPropertyValue('--mut').trim()||'#888');
  const cx=W/2,cy=H/2,s=Math.min(W,H)*0.27;
- const ry=ang3d.yaw*Math.PI/180,rx=ang3d.pitch*Math.PI/180;
+ const ry=yaw*Math.PI/180,rx=pitch*Math.PI/180;
  function rot(p){let x=p[0],y=p[1],z=p[2];
   let x1=x*Math.cos(ry)+z*Math.sin(ry),z1=-x*Math.sin(ry)+z*Math.cos(ry);
   let y2=y*Math.cos(rx)-z1*Math.sin(rx),z2=y*Math.sin(rx)+z1*Math.cos(rx);
@@ -3209,6 +3269,7 @@ function ang3dDraw(){const cv=$('ang3dCv');if(!cv)return;const ctx=cv.getContext
  const c0=rot([0,0,0]),c1=rot([0,0,1.7]);
  ctx.beginPath();ctx.moveTo(cx+c0[0]*s,cy+c0[1]*s);ctx.lineTo(cx+c1[0]*s,cy+c1[1]*s);ctx.strokeStyle=acc;ctx.lineWidth=2.5;ctx.stroke();
  ctx.beginPath();ctx.arc(cx+c1[0]*s,cy+c1[1]*s,4,0,7);ctx.fillStyle=acc;ctx.fill();}
+function ang3dDraw(){drawCubeCv($('ang3dCv'),ang3d.yaw,ang3d.pitch)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on)ang3dUpd()};
@@ -3218,6 +3279,75 @@ $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value
  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
  cv.addEventListener('pointermove',e=>{if(!drag)return;ang3d.yaw+=(e.clientX-lx)*0.8;ang3d.pitch=Math.max(-60,Math.min(60,ang3d.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;ang3dUpd()});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
+// ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
+let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1;
+function poseDownscale(img,max){const nw=img.naturalWidth,nh=img.naturalHeight;let w=nw,h=nh;
+ if(Math.max(w,h)>max){const k=max/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
+ const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+ try{return c.toDataURL('image/png').split(',')[1]}catch(e){return ''}}
+function poseFacingFromDet(f){let yaw=0,pitch=0;
+ if(f){if(typeof f.yaw_deg==='number')yaw=f.yaw_deg;else{const m={front:0,front_left:-35,front_right:35,left_profile:-90,right_profile:90,back_left:-145,back_right:145,back:180,unknown:0};yaw=m[f.yaw_label]||0}
+  if(typeof f.pitch_deg==='number')pitch=f.pitch_deg;else{pitch=f.pitch_label==='looking_up'?22:f.pitch_label==='looking_down'?-22:0}}
+ return{yaw:Math.max(-180,Math.min(180,yaw)),pitch:Math.max(-60,Math.min(60,pitch))}}
+function poseFacingText(yaw,pitch){let y=(((yaw+180)%360+360)%360)-180;const a=Math.abs(y);
+ const dir=y>0?'hacia la derecha de la imagen':'hacia la izquierda de la imagen';let h;
+ if(a<=15)h='de frente a la cámara';
+ else if(a<=65)h='en vista 3/4 mirando '+dir;
+ else if(a<=115)h='de perfil, mirando '+dir;
+ else if(a<=160)h='casi de espaldas ('+dir+')';
+ else h='de espaldas a la cámara';
+ let v='';if(pitch>=18)v=', con la vista hacia arriba';else if(pitch<=-18)v=', con la vista hacia abajo';
+ return h+v}
+function posePos(b){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;
+ const hx=cx<0.34?'a la izquierda':cx>0.66?'a la derecha':'al centro';
+ const hy=cy<0.34?', arriba':cy>0.66?', abajo':'';return hx+hy}
+function poseLayout(){const img=$('poseImg'),stage=$('poseStage'),ov=$('poseOv');if(!img||!img.clientWidth)return;
+ const sr=stage.getBoundingClientRect(),ir=img.getBoundingClientRect();
+ ov.style.left=(ir.left-sr.left)+'px';ov.style.top=(ir.top-sr.top)+'px';ov.style.width=ir.width+'px';ov.style.height=ir.height+'px';
+ poseRenderCubes()}
+function poseRenderCubes(){const ov=$('poseOv');if(!ov)return;
+ ov.innerHTML=poseSubs.map((s,i)=>{const x=s.box[0]*100,y=s.box[1]*100,w=(s.box[2]-s.box[0])*100,h=(s.box[3]-s.box[1])*100;
+  return '<div class="posebox'+(i===poseSel?' sel':'')+'" style="left:'+x+'%;top:'+y+'%;width:'+w+'%;height:'+h+'%"><span class="plabel">'+esc(s.label)+'</span></div>'
+   +'<canvas class="posecube" data-i="'+i+'" width="74" height="74" style="left:'+(x+w/2)+'%;top:'+(y+h/2)+'%"></canvas>';}).join('');
+ poseSubs.forEach((s,i)=>{const cv=ov.querySelector('.posecube[data-i="'+i+'"]');if(cv)drawCubeCv(cv,s.yaw,s.pitch)});
+ ov.querySelectorAll('.posecube').forEach(cv=>{let drag=false,lx=0,ly=0;const i=+cv.dataset.i;
+  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;poseSelect(i);try{cv.setPointerCapture(e.pointerId)}catch(_){}; e.stopPropagation()});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;const s=poseSubs[i];s.yaw=(((s.yaw+(e.clientX-lx)*0.9)+540)%360)-180;s.pitch=Math.max(-60,Math.min(60,s.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;drawCubeCv(cv,s.yaw,s.pitch);poseUpdDesc(i)});
+  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false})})}
+function poseRenderList(){$('poseList').innerHTML=poseSubs.length?poseSubs.map((s,i)=>'<div class="posesub'+(i===poseSel?' sel':'')+'" data-i="'+i+'"><div class="pnm">'+esc(s.label)+'</div><div class="pdesc" data-d="'+i+'">'+esc(poseFacingText(s.yaw,s.pitch))+'</div><div class="ppre"><button data-y="0" data-p="0">Frente</button><button data-y="-35" data-p="0">3/4 izq</button><button data-y="35" data-p="0">3/4 der</button><button data-y="-90" data-p="0">Perfil izq</button><button data-y="90" data-p="0">Perfil der</button><button data-y="180" data-p="0">Espalda</button><button data-y="0" data-p="28">Arriba</button><button data-y="0" data-p="-28">Abajo</button></div></div>').join(''):'<div class="hint" style="font-size:12px">Pulsa «Detectar» para encontrar los elementos de la imagen.</div>'}
+function poseUpdDesc(i){const el=$('poseList').querySelector('.pdesc[data-d="'+i+'"]');if(el)el.textContent=poseFacingText(poseSubs[i].yaw,poseSubs[i].pitch)}
+function poseSelect(i){poseSel=i;[...$('poseList').querySelectorAll('.posesub')].forEach((b,j)=>b.classList.toggle('sel',j===i));[...$('poseOv').querySelectorAll('.posebox')].forEach((b,j)=>b.classList.toggle('sel',j===i))}
+$('poseList').addEventListener('click',e=>{const sub=e.target.closest('.posesub');if(!sub)return;const i=+sub.dataset.i;const pre=e.target.closest('.ppre button');
+ if(pre){poseSubs[i].yaw=+pre.dataset.y;poseSubs[i].pitch=+pre.dataset.p;poseUpdDesc(i);const cv=$('poseOv').querySelector('.posecube[data-i="'+i+'"]');if(cv)drawCubeCv(cv,poseSubs[i].yaw,poseSubs[i].pitch);return}
+ poseSelect(i)});
+function poseOpen(src){if(!src){toast('Abre una imagen primero','bad');return}
+ poseSubs=[];poseSel=-1;poseImg={src:src,full:'',w:0,h:0};$('poseList').innerHTML='';$('poseOv').innerHTML='';$('poseGen').disabled=true;
+ const img=$('poseImg');img.onload=()=>{poseImg.w=img.naturalWidth;poseImg.h=img.naturalHeight;poseImg.full=poseDownscale(img,2048);poseLayout()};
+ img.src=src;poseRenderList();$('poseModal').classList.remove('hide');setTimeout(poseLayout,60)}
+$('lbPose').onclick=ev=>{ev.stopPropagation();const src=$('lbImg').src;$('lightbox').classList.add('hide');poseOpen(src)};
+$('poseDetect').onclick=async()=>{const img=$('poseImg');if(!img||!img.naturalWidth){toast('La imagen no cargó','bad');return}
+ const max=1024;let dw=img.naturalWidth,dh=img.naturalHeight;if(Math.max(dw,dh)>max){const k=max/Math.max(dw,dh);dw=Math.round(dw*k);dh=Math.round(dh*k)}
+ const det=poseDownscale(img,max);if(!det){toast('No pude leer la imagen','bad');return}
+ $('poseBusy').classList.remove('hide');$('poseDetect').disabled=true;
+ try{const r=await(await fetch('/detectsubjects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({b64:det,w:dw,h:dh})})).json();
+  if(r.error)toast(r.error,'bad');
+  else{const ds=(r.detections||[]).filter(d=>Array.isArray(d.box)&&d.box.length===4);
+   poseSubs=ds.map(d=>{const f=poseFacingFromDet(d.facing);return{label:d.label||d.category||'elemento',cat:d.category,box:d.box.map(Number),yaw:f.yaw,pitch:f.pitch}});
+   poseSel=poseSubs.length?0:-1;poseRenderList();poseLayout();$('poseGen').disabled=!poseSubs.length;
+   toast(poseSubs.length?(poseSubs.length+(poseSubs.length>1?' elementos detectados':' elemento detectado')):'No detecté elementos',poseSubs.length?'':'bad')}
+ }catch(e){toast(String(e),'bad')}
+ $('poseBusy').classList.add('hide');$('poseDetect').disabled=false}
+async function poseGenerate(){if(!poseSubs.length){toast('Detecta primero los elementos','bad');return}
+ if(!poseImg.full){toast('La imagen aún se está cargando','bad');return}
+ const lines=poseSubs.map(s=>'- '+s.label+' ('+posePos(s.box)+'): '+poseFacingText(s.yaw,s.pitch)+'.').join('\n');
+ const instr='Edita esta imagen cambiando ÚNICAMENTE la orientación/ángulo de los siguientes elementos. Conserva su identidad, rasgos faciales, ropa, colores, proporciones, el estilo artístico, la iluminación y todo el resto de la escena exactamente igual:\n'+lines+'\nNo dibujes cubos, cajas, flechas ni guías de ningún tipo. Mantén el fondo y los demás elementos sin cambios.';
+ const ar=poseImg.w>=poseImg.h*1.15?'1536x1024':poseImg.h>=poseImg.w*1.15?'1024x1536':'1024x1024';
+ const body={prompt:instr,images:[{name:'base.png',b64:poseImg.full}],size:ar,quality:$('quality').value,n:1,output_format:'png',moderation:$('mod').value,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ $('poseModal').classList.add('hide');toast('Generando con los ángulos…');fireGenJob(body)}
+$('poseGen').onclick=poseGenerate;
+$('poseCancel').onclick=()=>$('poseModal').classList.add('hide');
+$('poseModal').querySelector('.mclose').onclick=()=>$('poseModal').classList.add('hide');
+$('poseModal').addEventListener('click',e=>{if(e.target===$('poseModal'))$('poseModal').classList.add('hide')});
 $('mpSd').onclick=e=>{e.preventDefault();improvePrompt($('mpSd'),'sdPrompt','video')};
 $('mpKl').onclick=e=>{e.preventDefault();improvePrompt($('mpKl'),'klPrompt','video')};
 $('lbDesc').onclick=async e=>{e.stopPropagation();
@@ -3247,6 +3377,7 @@ document.addEventListener('keydown',e=>{
   if(!$('lightbox').classList.contains('hide')){$('lightbox').classList.add('hide');return}
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
   if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
+  if(!$('poseModal').classList.contains('hide')){$('poseModal').classList.add('hide');return}
   if(!$('tutModal').classList.contains('hide')){$('tutModal').classList.add('hide');return}
   if(!$('setModal').classList.contains('hide')){$('setModal').classList.add('hide');return}
   if(!$('projModal').classList.contains('hide')){$('projModal').classList.add('hide');return}
@@ -4309,6 +4440,7 @@ class H(BaseHTTPRequestHandler):
                  "/falkey": self.h_falkey, "/video": self.h_video,
                  "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
+                 "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
@@ -5337,6 +5469,76 @@ class H(BaseHTTPRequestHandler):
         with urllib.request.urlopen(urllib.request.Request(API_CHAT, data=json.dumps(payload).encode(),
                 headers={"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}), timeout=90) as r:
             return json.loads(r.read())["choices"][0]["message"]["content"].strip()
+
+    def h_detectsubjects(self):
+        # Detecta personas/objetos + orientación (yaw/pitch) con visión gpt-4o (structured outputs).
+        b = self._body()
+        if not key():
+            return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
+        b64 = (b.get("b64") or "").strip()
+        if not b64:
+            return self._json({"error": "No recibí la imagen."})
+        try:
+            w = int(b.get("w") or 0); h = int(b.get("h") or 0)
+        except Exception:
+            w = h = 0
+        schema = {
+            "type": "object", "additionalProperties": False,
+            "required": ["detections"],
+            "properties": {"detections": {
+                "type": "array",
+                "description": "Una entrada por cada persona u objeto destacado y distinto que sea visible.",
+                "items": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["label", "category", "box", "facing"],
+                    "properties": {
+                        "label": {"type": "string", "description": "Sustantivo corto en español, p. ej. 'niña', 'hombre', 'auto', 'perro', 'silla'."},
+                        "category": {"type": "string", "enum": ["person", "animal", "vehicle", "object"]},
+                        "box": {"type": "array", "description": "Caja normalizada [x0,y0,x1,y1], origen arriba-izquierda, cada valor 0.0-1.0, x1>x0, y1>y0.", "items": {"type": "number"}},
+                        "facing": {
+                            "type": "object", "additionalProperties": False,
+                            "required": ["yaw_label", "yaw_deg", "pitch_label", "pitch_deg"],
+                            "properties": {
+                                "yaw_label": {"type": "string", "enum": ["front", "front_left", "front_right", "left_profile", "right_profile", "back_left", "back_right", "back", "unknown"], "description": "Hacia dónde mira el frente del cuerpo/cara respecto a la cámara, en términos de la pantalla (left=hacia la izquierda de la imagen)."},
+                                "yaw_deg": {"type": "number", "description": "Yaw aprox en grados. 0=de frente a cámara, +90=girado hacia la derecha de la imagen (perfil), 180=de espaldas, -90=hacia la izquierda. Rango -180..180."},
+                                "pitch_label": {"type": "string", "enum": ["level", "looking_up", "looking_down", "unknown"]},
+                                "pitch_deg": {"type": "number", "description": "Pitch aprox en grados. 0=nivel, positivo=mirando hacia arriba, negativo=hacia abajo. Rango -90..90."}
+                            }
+                        }
+                    }
+                }
+            }}
+        }
+        sysmsg = ("Eres un motor de detección visual preciso. Analizas UNA imagen y devuelves cada persona y objeto "
+                  "destacado distinto. El sistema de coordenadas tiene el ORIGEN (0,0) en la esquina SUPERIOR-IZQUIERDA, "
+                  "x aumenta hacia la derecha, y aumenta hacia abajo; x e y van de 0.0 a 1.0 relativos al ancho/alto. "
+                  "Las cajas son [x0,y0,x1,y1] = esquina superior-izquierda y luego inferior-derecha, con x1>x0 y y1>y0. "
+                  "Estima la orientación (facing) a partir de la cabeza y el cuerpo visibles. Si no estás seguro de la "
+                  "orientación, usa 'unknown'. Devuelve SOLO datos conformes al esquema; no inventes objetos que no se ven.")
+        usertext = (("La imagen mide %d de ancho por %d de alto (px). " % (w, h) if (w and h) else "")
+                    + "Detecta cada persona y cada objeto destacado. Para cada uno da una caja ajustada normalizada "
+                      "[x0,y0,x1,y1] (origen arriba-izquierda), una etiqueta corta, la categoría y la orientación (facing).")
+        payload = {"model": DETECT_MODEL, "temperature": 0, "max_tokens": 1600,
+                   "messages": [
+                       {"role": "system", "content": sysmsg},
+                       {"role": "user", "content": [
+                           {"type": "text", "text": usertext},
+                           {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64, "detail": "high"}}]}],
+                   "response_format": {"type": "json_schema", "json_schema": {"name": "detections", "strict": True, "schema": schema}}}
+        try:
+            with urllib.request.urlopen(urllib.request.Request(API_CHAT, data=json.dumps(payload).encode(),
+                    headers={"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}), timeout=90) as r:
+                data = json.loads(r.read())
+            content = data["choices"][0]["message"]["content"]
+            out = json.loads(content)
+        except urllib.error.HTTPError as e:
+            return self._json({"error": self._err(e)})
+        except urllib.error.URLError as e:
+            return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
+        except Exception as e:
+            return self._json({"error": f"No pude leer la detección: {e}"})
+        dets = out.get("detections", []) if isinstance(out, dict) else []
+        return self._json({"detections": dets})
 
     def h_magicprompt(self):
         b = self._body()
