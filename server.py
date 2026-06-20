@@ -701,6 +701,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .ang3dpresets{display:flex;flex-wrap:wrap;gap:4px}
 .ang3dpresets button{font-size:10.5px;padding:4px 7px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:7px;cursor:pointer;font-family:inherit}
 .ang3dpresets button:hover{border-color:var(--accent);color:var(--accent)}
+.ang3dseg{padding:2px;border-radius:9px}
+.ang3dseg button{flex:1;justify-content:center;font-size:11.5px;padding:5px 8px;border-radius:7px}
+.exp2{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-dim);padding:1px 6px;border-radius:20px;margin-left:6px}
 /* modal Ángulos 3D (detección + gizmos) */
 .posemodal{max-width:min(1000px,96vw);max-height:92vh;overflow:auto}
 .posemodal .exp{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-dim);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:8px}
@@ -717,6 +720,12 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .posecube{position:absolute;width:74px;height:74px;transform:translate(-50%,-50%);cursor:grab;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .posecube:active{cursor:grabbing}
 .poseside{width:300px;flex:none;display:flex;flex-direction:column;gap:10px}
+.posecam{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--surface2)}
+#poseCamCv{flex:none;width:84px;height:70px;background:var(--surface);border:1px solid var(--line);border-radius:8px;cursor:grab;touch-action:none}
+#poseCamCv:active{cursor:grabbing}
+.posecaminfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.posecamlbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
+.posecamtxt{font-size:11.5px;color:var(--accent);line-height:1.35}
 .poselist{display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;max-height:56vh}
 .posesub{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--surface2);cursor:pointer}
 .posesub.sel{border-color:var(--accent)}
@@ -1214,26 +1223,21 @@ html,body{overflow-x:hidden}
     </div>
 
     <div class="field">
-      <label class="check" style="margin:0"><input type="checkbox" id="ang3dOn"> Ángulo 3D · referencia de cámara</label>
+      <label class="check" style="margin:0"><input type="checkbox" id="ang3dOn"> Ángulo 3D · sujeto y cámara</label>
       <div id="ang3dBox" class="ang3d hide">
         <canvas id="ang3dCv" width="220" height="180" title="Arrastra para girar"></canvas>
         <div class="ang3dside">
-          <div class="ang3dtxt" id="ang3dTxt">Vista frontal · a la altura de los ojos</div>
-          <div class="ang3dpresets" id="ang3dPresets">
-            <button data-y="0" data-p="0">Frente</button>
-            <button data-y="35" data-p="-8">3/4 izq</button>
-            <button data-y="-35" data-p="-8">3/4 der</button>
-            <button data-y="90" data-p="0">Perfil izq</button>
-            <button data-y="-90" data-p="0">Perfil der</button>
-            <button data-y="180" data-p="0">Espalda</button>
-            <button data-y="20" data-p="30">Picado</button>
-            <button data-y="20" data-p="-28">Contrapicado</button>
-          </div>
+          <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
+          <div class="ang3dtxt" id="ang3dTxt"></div>
+          <div class="ang3dpresets" id="ang3dPresets"></div>
           <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el cubo como referencia visual</label>
-          <button class="ghost sm" id="ang3dIns" style="margin-top:4px">Insertar ángulo en el prompt</button>
+          <button class="ghost sm" id="ang3dIns" style="margin-top:4px">Insertar en el prompt</button>
         </div>
       </div>
-      <p class="hint hide" id="ang3dHint" style="margin-top:6px;font-size:11px">El ángulo se añade como guía al generar. Ojo: gpt-image-2 lo respeta como sugerencia fuerte, no exacta.</p>
+      <p class="hint hide" id="ang3dHint" style="margin-top:6px;font-size:11px">«Sujeto» gira al personaje/objeto; «Cámara» mueve el punto de vista. Se añade como guía al generar (gpt-image-2 lo respeta como sugerencia fuerte, no exacta).</p>
+      <button class="ghost" id="poseOpenBtn" style="width:100%;justify-content:center;margin-top:8px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Ángulos por elemento (detectar) <span class="exp2">experimental</span></button>
+      <input type="file" id="poseFile" accept="image/png,image/jpeg,image/webp" class="hide">
+      <p class="hint" style="margin-top:5px;font-size:11px">Detecta personas/objetos de tu imagen de referencia (o del resultado) y ajusta el ángulo de cada uno por separado.</p>
     </div>
 
     <div class="field">
@@ -1756,6 +1760,14 @@ html,body{overflow-x:hidden}
   <div class="posewrap">
     <div class="posestage" id="poseStage"><img id="poseImg" alt=""><div class="poseov" id="poseOv"></div><div class="posebusy hide" id="poseBusy"><div class="spin"></div></div></div>
     <div class="poseside">
+      <div class="posecam">
+        <canvas id="poseCamCv" width="96" height="80" title="Arrastra para mover la cámara"></canvas>
+        <div class="posecaminfo">
+          <div class="posecamlbl">Ángulo de cámara (toda la toma)</div>
+          <div class="posecamtxt" id="poseCamTxt"></div>
+          <div class="ppre" id="poseCamPre"><button data-y="0" data-p="0">Frontal</button><button data-y="0" data-p="35">Picado</button><button data-y="0" data-p="-28">Contrapicado</button><button data-y="0" data-p="60">Cenital</button></div>
+        </div>
+      </div>
       <button class="primary" id="poseDetect"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Detectar personas / objetos</button>
       <div class="poselist" id="poseList"></div>
       <div class="posefoot">
@@ -3233,20 +3245,39 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 // ===== Ángulo 3D (gizmo de cámara/orientación) =====
-let ang3d={yaw:25,pitch:-10};
+let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0}, ang3dMode='subj';
 function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
-function ang3dDesc(){const ay=(((ang3d.yaw%360)+360)%360); const a2=ay>180?ay-360:ay; const a=Math.abs(a2);
- let h;
- if(a<=15)h='de frente';
- else if(a<=65)h=(a2>0?'en vista 3/4 hacia la izquierda':'en vista 3/4 hacia la derecha');
- else if(a<=115)h=(a2>0?'de perfil izquierdo':'de perfil derecho');
- else if(a<=160)h=(a2>0?'en 3/4 trasero izquierdo':'en 3/4 trasero derecho');
- else h='de espaldas';
- const p=ang3d.pitch;let v;
- if(p<=-18)v='cámara en contrapicado (vista desde abajo)';
- else if(p>=18)v='cámara en picado (vista desde arriba)';
- else v='cámara a la altura de los ojos';
- return {short:ang3dCap(h)+' · '+v, prompt:'Encuadre y ángulo: el sujeto visto '+h+', '+v+'.'};}
+function ang3dActive(){return ang3dMode==='cam'?ang3dCam:ang3dSubj}
+function ang3dSubjText(){const a2=(((ang3dSubj.yaw+180)%360+360)%360)-180,a=Math.abs(a2);
+ const dir=a2>0?'hacia la derecha de la imagen':'hacia la izquierda de la imagen';let h;
+ if(a<=15)h='de frente a la cámara';
+ else if(a<=65)h='en vista 3/4 mirando '+dir;
+ else if(a<=115)h='de perfil, mirando '+dir;
+ else if(a<=160)h='casi de espaldas ('+dir+')';
+ else h='de espaldas a la cámara';
+ let v='';if(ang3dSubj.pitch>=18)v=', con la vista hacia arriba';else if(ang3dSubj.pitch<=-18)v=', con la vista hacia abajo';
+ return h+v;}
+function camTextFor(yaw,pitch){const a2=(((yaw+180)%360+360)%360)-180,a=Math.abs(a2);
+ const dir=a2>0?'la derecha':'la izquierda';let h;
+ if(a<=20)h='desde el frente';
+ else if(a<=70)h='desde un ángulo a '+dir;
+ else if(a<=115)h='desde el lado ('+dir+')';
+ else if(a<=160)h='desde atrás en ángulo';
+ else h='desde atrás';
+ let v;
+ if(pitch>=45)v='en vista cenital (muy desde arriba)';
+ else if(pitch>=18)v='en picado (desde arriba)';
+ else if(pitch<=-18)v='en contrapicado (desde abajo)';
+ else v='a la altura de los ojos';
+ return h+', '+v;}
+function ang3dCamText(){return camTextFor(ang3dCam.yaw,ang3dCam.pitch)}
+function ang3dDesc(){const s=ang3dSubjText(),c=ang3dCamText();
+ return {short:'Sujeto: '+ang3dCap(s)+'  ·  Cámara: '+ang3dCap(c),
+  prompt:'Encuadre y ángulo: muestra al sujeto '+s+', con la cámara '+c+'. Conserva su identidad y proporciones.'};}
+function ang3dPresetList(){return ang3dMode==='cam'
+ ?[['Frontal',0,0],['Lado izq',-90,0],['Lado der',90,0],['Detrás',180,0],['Picado',0,35],['Contrapicado',0,-28],['Cenital',0,60],['Nivel',0,0]]
+ :[['Frente',0,0],['3/4 izq',-35,0],['3/4 der',35,0],['Perfil izq',-90,0],['Perfil der',90,0],['Espalda',180,0],['Vista arriba',0,25],['Vista abajo',0,-25]];}
+function ang3dRenderPresets(){$('ang3dPresets').innerHTML=ang3dPresetList().map(p=>'<button data-y="'+p[1]+'" data-p="'+p[2]+'">'+p[0]+'</button>').join('')}
 function drawCubeCv(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d');
  const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
  const cs=getComputedStyle(document.body);
@@ -3269,18 +3300,25 @@ function drawCubeCv(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d');
  const c0=rot([0,0,0]),c1=rot([0,0,1.7]);
  ctx.beginPath();ctx.moveTo(cx+c0[0]*s,cy+c0[1]*s);ctx.lineTo(cx+c1[0]*s,cy+c1[1]*s);ctx.strokeStyle=acc;ctx.lineWidth=2.5;ctx.stroke();
  ctx.beginPath();ctx.arc(cx+c1[0]*s,cy+c1[1]*s,4,0,7);ctx.fillStyle=acc;ctx.fill();}
-function ang3dDraw(){drawCubeCv($('ang3dCv'),ang3d.yaw,ang3d.pitch)}
+function ang3dDraw(){const o=ang3dActive();drawCubeCv($('ang3dCv'),o.yaw,o.pitch)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
-$('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on)ang3dUpd()};
-$('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3d.yaw=+b.dataset.y;ang3d.pitch=+b.dataset.p;ang3dUpd()};
+$('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
+$('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));ang3dRenderPresets();ang3dUpd()};
+$('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const o=ang3dActive();o.yaw=+b.dataset.y;o.pitch=+b.dataset.p;ang3dUpd()};
 $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
 (function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
- cv.addEventListener('pointermove',e=>{if(!drag)return;ang3d.yaw+=(e.clientX-lx)*0.8;ang3d.pitch=Math.max(-60,Math.min(60,ang3d.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;ang3dUpd()});
+ cv.addEventListener('pointermove',e=>{if(!drag)return;const o=ang3dActive();o.yaw+=(e.clientX-lx)*0.8;o.pitch=Math.max(-60,Math.min(60,o.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;ang3dUpd()});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 // ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
-let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1;
+let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1,poseCam={yaw:0,pitch:0};
+function poseCamUpd(){drawCubeCv($('poseCamCv'),poseCam.yaw,poseCam.pitch);const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
+(function(){const cv=$('poseCamCv');if(!cv)return;let drag=false,lx=0,ly=0;
+ cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+ cv.addEventListener('pointermove',e=>{if(!drag)return;poseCam.yaw+=(e.clientX-lx)*0.9;poseCam.pitch=Math.max(-60,Math.min(70,poseCam.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;poseCamUpd()});
+ cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
+(function(){const pre=$('poseCamPre');if(pre)pre.onclick=e=>{const b=e.target.closest('button');if(!b)return;poseCam.yaw=+b.dataset.y;poseCam.pitch=+b.dataset.p;poseCamUpd()}})();
 function poseDownscale(img,max){const nw=img.naturalWidth,nh=img.naturalHeight;let w=nw,h=nh;
  if(Math.max(w,h)>max){const k=max/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
@@ -3323,7 +3361,7 @@ $('poseList').addEventListener('click',e=>{const sub=e.target.closest('.posesub'
 function poseOpen(src){if(!src){toast('Abre una imagen primero','bad');return}
  poseSubs=[];poseSel=-1;poseImg={src:src,full:'',w:0,h:0};$('poseList').innerHTML='';$('poseOv').innerHTML='';$('poseGen').disabled=true;
  const img=$('poseImg');img.onload=()=>{poseImg.w=img.naturalWidth;poseImg.h=img.naturalHeight;poseImg.full=poseDownscale(img,2048);poseLayout()};
- img.src=src;poseRenderList();$('poseModal').classList.remove('hide');setTimeout(poseLayout,60)}
+ img.src=src;poseRenderList();poseCam={yaw:0,pitch:0};poseCamUpd();$('poseModal').classList.remove('hide');setTimeout(poseLayout,60)}
 $('lbPose').onclick=ev=>{ev.stopPropagation();const src=$('lbImg').src;$('lightbox').classList.add('hide');poseOpen(src)};
 $('poseDetect').onclick=async()=>{const img=$('poseImg');if(!img||!img.naturalWidth){toast('La imagen no cargó','bad');return}
  const max=1024;let dw=img.naturalWidth,dh=img.naturalHeight;if(Math.max(dw,dh)>max){const k=max/Math.max(dw,dh);dw=Math.round(dw*k);dh=Math.round(dh*k)}
@@ -3340,7 +3378,8 @@ $('poseDetect').onclick=async()=>{const img=$('poseImg');if(!img||!img.naturalWi
 async function poseGenerate(){if(!poseSubs.length){toast('Detecta primero los elementos','bad');return}
  if(!poseImg.full){toast('La imagen aún se está cargando','bad');return}
  const lines=poseSubs.map(s=>'- '+s.label+' ('+posePos(s.box)+'): '+poseFacingText(s.yaw,s.pitch)+'.').join('\n');
- const instr='Edita esta imagen cambiando ÚNICAMENTE la orientación/ángulo de los siguientes elementos. Conserva su identidad, rasgos faciales, ropa, colores, proporciones, el estilo artístico, la iluminación y todo el resto de la escena exactamente igual:\n'+lines+'\nNo dibujes cubos, cajas, flechas ni guías de ningún tipo. Mantén el fondo y los demás elementos sin cambios.';
+ const camLine=(poseCam.yaw||poseCam.pitch)?('\nÁngulo de cámara de toda la toma: '+camTextFor(poseCam.yaw,poseCam.pitch)+'.'):'';
+ const instr='Edita esta imagen cambiando ÚNICAMENTE la orientación/ángulo de los siguientes elementos. Conserva su identidad, rasgos faciales, ropa, colores, proporciones, el estilo artístico, la iluminación y todo el resto de la escena exactamente igual:\n'+lines+camLine+'\nNo dibujes cubos, cajas, flechas ni guías de ningún tipo. Mantén el fondo y los demás elementos sin cambios.';
  const ar=poseImg.w>=poseImg.h*1.15?'1536x1024':poseImg.h>=poseImg.w*1.15?'1024x1536':'1024x1024';
  const body={prompt:instr,images:[{name:'base.png',b64:poseImg.full}],size:ar,quality:$('quality').value,n:1,output_format:'png',moderation:$('mod').value,project:$('projSel').value,save_desktop:$('saveDesk').checked};
  $('poseModal').classList.add('hide');toast('Generando con los ángulos…');fireGenJob(body)}
@@ -3348,6 +3387,15 @@ $('poseGen').onclick=poseGenerate;
 $('poseCancel').onclick=()=>$('poseModal').classList.add('hide');
 $('poseModal').querySelector('.mclose').onclick=()=>$('poseModal').classList.add('hide');
 $('poseModal').addEventListener('click',e=>{if(e.target===$('poseModal'))$('poseModal').classList.add('hide')});
+// abrir "Ángulos por elemento" desde la columna principal (usa la referencia, el resultado o pide un archivo)
+function poseOpenFromMain(){
+ if(refs.length){poseOpen('data:image/png;base64,'+refs[0].b64);return}
+ if(results.length&&!$('resultImg').classList.contains('hide')){poseOpen(results[active].image);return}
+ toast('Elige una imagen para detectar sus ángulos','');$('poseFile').click();
+}
+$('poseOpenBtn').onclick=poseOpenFromMain;
+$('poseFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ const fr=new FileReader();fr.onload=()=>poseOpen(fr.result);fr.readAsDataURL(f)};
 $('mpSd').onclick=e=>{e.preventDefault();improvePrompt($('mpSd'),'sdPrompt','video')};
 $('mpKl').onclick=e=>{e.preventDefault();improvePrompt($('mpKl'),'klPrompt','video')};
 $('lbDesc').onclick=async e=>{e.stopPropagation();
