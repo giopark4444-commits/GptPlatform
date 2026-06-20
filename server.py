@@ -5627,10 +5627,23 @@ class H(BaseHTTPRequestHandler):
             detail = "high"
         mime = MIME.get(fp.suffix.lstrip(".").lower(), "image/png").split(";")[0]
         uri = f"data:{mime};base64," + base64.b64encode(fp.read_bytes()).decode()
+        sysmsg = ("Eres director de arte y analista visual experto. Te dan UNA imagen y devuelves un PROMPT en español "
+                  "para recrearla con un modelo de generación de imágenes. Lo MÁS IMPORTANTE es el CONCEPTO VISUAL: "
+                  "EMPIEZA SIEMPRE por eso y solo DESPUÉS describe el contenido. Estructura así, en prosa fluida (sin viñetas ni encabezados):\n"
+                  "1) CONCEPTO VISUAL primero: estilo (p. ej. ilustración digital, acuarela, óleo, gouache, concept art, anime/manga, render 3D, "
+                  "fotorrealista, pixel art, cómic, etc.); técnica y medio (lineart, cell-shading, pinceladas sueltas/impasto, sfumato, semi-realista, "
+                  "grano de película, etc.); paleta de color (colores dominantes, temperatura cálida/fría, saturación, contraste, armonía); "
+                  "artistas, estudios o movimientos que usan ese estilo/técnica (nómbralos con 'al estilo de…' cuando sea claro, p. ej. Studio Ghibli, "
+                  "Moebius, Sargent, Loish, etc.); y otros aspectos técnicos del concepto: iluminación, atmósfera/mood, composición y encuadre, "
+                  "acabado/textura, y lente/cámara si es una fotografía.\n"
+                  "2) DESPUÉS describe lo que se ve: sujeto(s), vestuario, escena, fondo y elementos clave.\n"
+                  "Devuelve SOLO el prompt (sin comillas ni explicaciones), en español, detallado pero conciso (máx ~160 palabras).")
         try:
-            out = self._chat([{"role": "user", "content": [
-                {"type": "text", "text": "Describe esta imagen como un prompt detallado (sujeto, composición, iluminación, lente, paleta, estilo) para recrearla con un modelo de generación de imágenes. Devuelve solo el prompt, en español."},
-                {"type": "image_url", "image_url": {"url": uri, "detail": detail}}]}])
+            out = self._chat([
+                {"role": "system", "content": sysmsg},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "Analiza esta imagen y devuelve el prompt empezando por el concepto visual (estilo, técnica, paleta, artistas, aspectos técnicos) y luego lo que se ve."},
+                    {"type": "image_url", "image_url": {"url": uri, "detail": detail}}]}], max_tokens=700)
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except urllib.error.URLError as e:
