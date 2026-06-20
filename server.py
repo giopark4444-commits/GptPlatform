@@ -1230,7 +1230,7 @@ html,body{overflow-x:hidden}
           <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
           <div class="ang3dtxt" id="ang3dTxt"></div>
           <div class="ang3dpresets" id="ang3dPresets"></div>
-          <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el cubo como referencia visual</label>
+          <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el diagrama como referencia visual</label>
           <button class="ghost sm" id="ang3dIns" style="margin-top:4px">Insertar en el prompt</button>
         </div>
       </div>
@@ -3300,23 +3300,55 @@ function drawCubeCv(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d');
  const c0=rot([0,0,0]),c1=rot([0,0,1.7]);
  ctx.beginPath();ctx.moveTo(cx+c0[0]*s,cy+c0[1]*s);ctx.lineTo(cx+c1[0]*s,cy+c1[1]*s);ctx.strokeStyle=acc;ctx.lineWidth=2.5;ctx.stroke();
  ctx.beginPath();ctx.arc(cx+c1[0]*s,cy+c1[1]*s,4,0,7);ctx.fillStyle=acc;ctx.fill();}
-function ang3dDraw(){const o=ang3dActive();drawCubeCv($('ang3dCv'),o.yaw,o.pitch)}
+// vista superior (escenario): sujeto al centro con su flecha + cámara orbitando. Más intuitivo que el cubo.
+function sceneCols(){const cs=getComputedStyle(document.body);return{acc:(cs.getPropertyValue('--accent').trim()||'#1f6b54'),mut:(cs.getPropertyValue('--mut').trim()||'#888'),txt:(cs.getPropertyValue('--txt').trim()||'#222')}}
+function drawScene(cv,subjYaw,camYaw,camPitch,active){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const c=sceneCols(),D=Math.PI/180,cx=W/2,cy=H/2,R=Math.min(W,H)*0.36;
+ // piso
+ ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.setLineDash([4,4]);ctx.globalAlpha=.45;ctx.strokeStyle=c.mut;ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+ // cámara: glifo en la órbita + línea de visión al sujeto
+ const ca=camYaw*D,px=cx+Math.sin(ca)*R,py=cy+Math.cos(ca)*R,camOn=active==='cam';
+ ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(cx,cy);ctx.globalAlpha=camOn?.7:.35;ctx.strokeStyle=camOn?c.acc:c.mut;ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1;
+ ctx.save();ctx.translate(px,py);ctx.rotate(Math.atan2(cy-py,cx-px));ctx.fillStyle=camOn?c.acc:c.mut;
+ ctx.fillRect(-5,-5,9,10);ctx.beginPath();ctx.moveTo(4,-4);ctx.lineTo(11,-7);ctx.lineTo(11,7);ctx.lineTo(4,4);ctx.closePath();ctx.fill();ctx.restore();
+ // sujeto: punto + flecha de orientación
+ const subjOn=active!=='cam',sa=subjYaw*D,ax=cx+Math.sin(sa)*(R*0.55),ay=cy+Math.cos(sa)*(R*0.55);
+ ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ax,ay);ctx.strokeStyle=subjOn?c.acc:c.mut;ctx.lineWidth=3;ctx.stroke();
+ ctx.beginPath();ctx.arc(ax,ay,4,0,7);ctx.fillStyle=subjOn?c.acc:c.mut;ctx.fill();
+ ctx.beginPath();ctx.arc(cx,cy,6,0,7);ctx.fillStyle=subjOn?c.acc:c.mut;ctx.fill();
+ // etiquetas
+ ctx.font='9px sans-serif';ctx.textAlign='center';ctx.globalAlpha=.85;ctx.fillStyle=c.txt;
+ ctx.fillText('sujeto',cx,cy+R+10);
+ const hb=camPitch>=45?'cenital':camPitch>=18?'picado':camPitch<=-18?'contrapicado':'nivel';
+ ctx.fillText('cámara · '+hb,px,py-9);ctx.globalAlpha=1;ctx.textAlign='start';}
+function drawDial(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const c=sceneCols(),D=Math.PI/180,cx=W/2,cy=H/2,R=Math.min(W,H)*0.36;
+ ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.globalAlpha=.5;ctx.strokeStyle=c.mut;ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1;
+ const a=yaw*D,ax=cx+Math.sin(a)*R,ay=cy+Math.cos(a)*R;
+ ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ax,ay);ctx.strokeStyle=c.acc;ctx.lineWidth=3;ctx.stroke();
+ ctx.beginPath();ctx.arc(ax,ay,4,0,7);ctx.fillStyle=c.acc;ctx.fill();
+ ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fillStyle=c.acc;ctx.fill();
+ if(Math.abs(pitch)>=18){ctx.fillStyle=c.acc;ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(pitch>0?'▲':'▼',cx,cy-R-1);ctx.textAlign='start';}}
+function sceneAngle(cv,e){const r=cv.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);return Math.round(Math.atan2(dx,dy)*180/Math.PI);}
+function ang3dDraw(){drawScene($('ang3dCv'),ang3dSubj.yaw,ang3dCam.yaw,ang3dCam.pitch,ang3dMode)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
 $('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));ang3dRenderPresets();ang3dUpd()};
 $('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const o=ang3dActive();o.yaw=+b.dataset.y;o.pitch=+b.dataset.p;ang3dUpd()};
 $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
-(function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
- cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
- cv.addEventListener('pointermove',e=>{if(!drag)return;const o=ang3dActive();o.yaw+=(e.clientX-lx)*0.8;o.pitch=Math.max(-60,Math.min(60,o.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;ang3dUpd()});
+(function(){const cv=$('ang3dCv');if(!cv)return;let drag=false;
+ const set=e=>{ang3dActive().yaw=sceneAngle(cv,e);ang3dUpd()};
+ cv.addEventListener('pointerdown',e=>{drag=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}set(e)});
+ cv.addEventListener('pointermove',e=>{if(drag)set(e)});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 // ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
 let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1,poseCam={yaw:0,pitch:0};
-function poseCamUpd(){drawCubeCv($('poseCamCv'),poseCam.yaw,poseCam.pitch);const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
-(function(){const cv=$('poseCamCv');if(!cv)return;let drag=false,lx=0,ly=0;
- cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
- cv.addEventListener('pointermove',e=>{if(!drag)return;poseCam.yaw+=(e.clientX-lx)*0.9;poseCam.pitch=Math.max(-60,Math.min(70,poseCam.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;poseCamUpd()});
+function poseCamUpd(){drawScene($('poseCamCv'),0,poseCam.yaw,poseCam.pitch,'cam');const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
+(function(){const cv=$('poseCamCv');if(!cv)return;let drag=false;
+ const set=e=>{poseCam.yaw=sceneAngle(cv,e);poseCamUpd()};
+ cv.addEventListener('pointerdown',e=>{drag=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}set(e)});
+ cv.addEventListener('pointermove',e=>{if(drag)set(e)});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 (function(){const pre=$('poseCamPre');if(pre)pre.onclick=e=>{const b=e.target.closest('button');if(!b)return;poseCam.yaw=+b.dataset.y;poseCam.pitch=+b.dataset.p;poseCamUpd()}})();
 function poseDownscale(img,max){const nw=img.naturalWidth,nh=img.naturalHeight;let w=nw,h=nh;
@@ -3347,10 +3379,11 @@ function poseRenderCubes(){const ov=$('poseOv');if(!ov)return;
  ov.innerHTML=poseSubs.map((s,i)=>{const x=s.box[0]*100,y=s.box[1]*100,w=(s.box[2]-s.box[0])*100,h=(s.box[3]-s.box[1])*100;
   return '<div class="posebox'+(i===poseSel?' sel':'')+'" style="left:'+x+'%;top:'+y+'%;width:'+w+'%;height:'+h+'%"><span class="plabel">'+esc(s.label)+'</span></div>'
    +'<canvas class="posecube" data-i="'+i+'" width="74" height="74" style="left:'+(x+w/2)+'%;top:'+(y+h/2)+'%"></canvas>';}).join('');
- poseSubs.forEach((s,i)=>{const cv=ov.querySelector('.posecube[data-i="'+i+'"]');if(cv)drawCubeCv(cv,s.yaw,s.pitch)});
- ov.querySelectorAll('.posecube').forEach(cv=>{let drag=false,lx=0,ly=0;const i=+cv.dataset.i;
-  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;poseSelect(i);try{cv.setPointerCapture(e.pointerId)}catch(_){}; e.stopPropagation()});
-  cv.addEventListener('pointermove',e=>{if(!drag)return;const s=poseSubs[i];s.yaw=(((s.yaw+(e.clientX-lx)*0.9)+540)%360)-180;s.pitch=Math.max(-60,Math.min(60,s.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;drawCubeCv(cv,s.yaw,s.pitch);poseUpdDesc(i)});
+ poseSubs.forEach((s,i)=>{const cv=ov.querySelector('.posecube[data-i="'+i+'"]');if(cv)drawDial(cv,s.yaw,s.pitch)});
+ ov.querySelectorAll('.posecube').forEach(cv=>{let drag=false;const i=+cv.dataset.i;
+  const set=e=>{poseSubs[i].yaw=sceneAngle(cv,e);drawDial(cv,poseSubs[i].yaw,poseSubs[i].pitch);poseUpdDesc(i)};
+  cv.addEventListener('pointerdown',e=>{drag=true;poseSelect(i);try{cv.setPointerCapture(e.pointerId)}catch(_){}; e.stopPropagation();set(e)});
+  cv.addEventListener('pointermove',e=>{if(drag){e.stopPropagation();set(e)}});
   cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false})})}
 function poseRenderList(){$('poseList').innerHTML=poseSubs.length?poseSubs.map((s,i)=>'<div class="posesub'+(i===poseSel?' sel':'')+'" data-i="'+i+'"><div class="pnm">'+esc(s.label)+'</div><div class="pdesc" data-d="'+i+'">'+esc(poseFacingText(s.yaw,s.pitch))+'</div><div class="ppre"><button data-y="0" data-p="0">Frente</button><button data-y="-35" data-p="0">3/4 izq</button><button data-y="35" data-p="0">3/4 der</button><button data-y="-90" data-p="0">Perfil izq</button><button data-y="90" data-p="0">Perfil der</button><button data-y="180" data-p="0">Espalda</button><button data-y="0" data-p="28">Arriba</button><button data-y="0" data-p="-28">Abajo</button></div></div>').join(''):'<div class="hint" style="font-size:12px">Pulsa «Detectar» para encontrar los elementos de la imagen.</div>'}
 function poseUpdDesc(i){const el=$('poseList').querySelector('.pdesc[data-d="'+i+'"]');if(el)el.textContent=poseFacingText(poseSubs[i].yaw,poseSubs[i].pitch)}
