@@ -547,6 +547,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  overflow:hidden;background:var(--surface);position:relative;
  background-image:linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%),linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%);
  background-size:24px 24px;background-position:0 0,12px 12px}
+.genchip{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:8px;
+ background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line2);border-radius:20px;
+ padding:6px 13px;font-size:12px;color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.18)}
+.genchip .gcdot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:gcpulse 1s ease-in-out infinite}
+@keyframes gcpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 .canvas img.result{max-width:100%;max-height:100%;display:block;cursor:zoom-in;border-radius:3px}
 .floaters{position:absolute;top:12px;right:12px;display:flex;gap:7px;opacity:0;transform:translateY(-4px);transition:.18s;z-index:2}
 .canvas:hover .floaters,.canvas:focus-within .floaters{opacity:1;transform:none}
@@ -1540,7 +1545,8 @@ html,body{overflow-x:hidden}
   <div class="col mid an">
    <div id="imgStage" style="display:flex;flex-direction:column;flex:none">
     <div class="canvas" id="canvas">
-      <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd> Imagen <kbd>2</kbd> Audio <kbd>3</kbd> Video · <kbd>⌘</kbd><kbd>V</kbd> pegar</div></div>
+      <div class="genchip hide" id="genChip"><span class="gcdot"></span><span id="genChipTxt">Generando…</span></div>
+      <div class="empty" id="emptyState"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg><div>Tu imagen aparecerá aquí</div><div class="kbdhint"><kbd>⌘</kbd><kbd>↵</kbd> generar · <kbd>1</kbd> Imagen <kbd>2</kbd> Audio <kbd>3</kbd> Video · <kbd>⌘</kbd><kbd>V</kbd> pegar · puedes lanzar varias a la vez</div></div>
       <div class="spin hide" id="spinner"></div>
       <img class="result hide" id="resultImg" alt="Resultado" draggable="true">
       <div class="floaters hide" id="floaters">
@@ -1682,7 +1688,7 @@ function refTokens(w,h){if(!w||!h)return REF_IMG_TOKENS;return Math.min(1536,Mat
 function ensureRefTokens(){refs.filter(r=>r.tok===undefined).forEach(r=>{r.tok=null;
  const im=new Image();im.onload=()=>{r.tok=refTokens(im.naturalWidth,im.naturalHeight);validate();};
  im.onerror=()=>{r.tok=REF_IMG_TOKENS;validate();};im.src='data:image/png;base64,'+r.b64;});}
-let results=[],active=0,lastResult=null;
+let results=[],active=0,lastResult=null,activeJobs=0;
 let hist=[],shown=30,cmpA=null;
 function openCmp(fa,fb){
  $('cmpA').src='/file?name='+encodeURIComponent(fa);
@@ -2415,29 +2421,35 @@ function renderStrip(){const s=$('strip');
  s.classList.remove('hide')}
 $('strip').onclick=e=>{const b=e.target.closest('.sth');if(b)showResult(+b.dataset.i)};
 
+function updGenChip(){const n=activeJobs;$('genChip').classList.toggle('hide',n<=0);
+ if(n>0)$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…'}
 async function run(){
  const prompt=$('prompt').value.trim();if(!prompt){toast('Escribe el prompt','bad');$('prompt').focus();return}
  const proj=$('projSel').value,pdata=projects[proj];
  const useVisual=$('useVis').checked&&pdata&&pdata.refs.length>0;
  if(mode==='editar'&&refs.length===0&&!useVisual){toast('Sube una imagen (o activa memoria visual)','bad');return}
  if(mask&&refs.length===0&&useVisual)toast('Ojo: la máscara se aplicará a la primera referencia del proyecto');
- $('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');
- $('go').disabled=true;const prevTxt=$('goTxt').textContent;$('goTxt').textContent='Generando…';
+ const fmt=$('fmt').value;
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
-  output_format:$('fmt').value,moderation:$('mod').value,
+  output_format:fmt,moderation:$('mod').value,
   partial_images:+($('partImg').value||0),project:proj,
   save_desktop:$('saveDesk').checked};
- if($('fmt').value!=='png')body.output_compression=+$('comp').value;
+ if(fmt!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
  const refsUsed=refs.map(r=>({name:r.name,b64:r.b64}));
- if(willEdit){url='/edit';body.images=refs;if(mask)body.mask=mask;body.use_project_refs=useVisual}
- const willStream=(+($('partImg').value||0))>0 && +$('n').value===1;
+ if(willEdit){url='/edit';body.images=refsUsed;if(mask)body.mask=mask;body.use_project_refs=useVisual}
+ // stream de previews solo si es el único trabajo en curso (evita que peleen por el lienzo)
+ const willStream=(+($('partImg').value||0))>0 && +$('n').value===1 && activeJobs===0;
+ // muestra el spinner en el lienzo solo si no hay nada que mostrar y es el primer trabajo
+ const showSpin = activeJobs===0 && $('resultImg').classList.contains('hide');
+ if(showSpin){$('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');}
+ activeJobs++;updGenChip();
  try{
   let d;
   const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(willStream&&resp.body&&(resp.headers.get('content-type')||'').includes('ndjson')){
    const reader=resp.body.getReader(),dec=new TextDecoder();let buf='';
-   const ext=$('fmt').value==='jpeg'?'jpeg':$('fmt').value;
+   const ext=fmt==='jpeg'?'jpeg':fmt;
    for(;;){const{value,done}=await reader.read();if(done)break;
     buf+=dec.decode(value,{stream:true});let nl;
     while((nl=buf.indexOf('\n'))>=0){const ln=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!ln)continue;
@@ -2447,10 +2459,10 @@ async function run(){
      else if(ev.type==='error')d={error:ev.error};}}
    if(!d)d={error:'El preview no devolvió resultado.'};
   }else{d=await resp.json();}
-  if(d.error){err(d.error)}
+  if(d.error){toast(d.error,'bad');if(showSpin&&activeJobs===1)err(d.error)}
   else{
    results=d.images&&d.images.length?d.images:[{image:d.image}];
-   lastResult={prompt,refsUsed,fmt:$('fmt').value};
+   lastResult={prompt,refsUsed,fmt};
    renderStrip();showResult(0);
    $('resbar').classList.remove('hide');
    bumpSess(d.cost||0,results.length);
@@ -2462,9 +2474,13 @@ async function run(){
    $('cost').innerHTML=ctxt
     +(results.length>1?' · '+results.length+' imágenes':'')
     +(d.via_visual?' · memoria visual':'');
+   if(activeJobs>1)toast('Imagen lista');
    loadGal()}
- }catch(e){err(e)}
- $('goTxt').textContent=prevTxt;validate();
+ }catch(e){toast(String(e&&e.message||e||'Error'),'bad');if(showSpin&&activeJobs===1)err(e)}
+ activeJobs--;updGenChip();
+ // si ya no queda nada generando y el lienzo quedó en spinner sin resultado, vuelve a vacío
+ if(activeJobs===0&&!$('spinner').classList.contains('hide')&&!$('resultImg').src)showState('empty');
+ validate();
 }
 $('go').onclick=run;$('again').onclick=run;
 // Enter genera (Shift+Enter = salto de línea) en los campos de prompt principales.
