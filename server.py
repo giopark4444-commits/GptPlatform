@@ -705,11 +705,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .ang3dseg button{flex:1;justify-content:center;font-size:11.5px;padding:5px 8px;border-radius:7px}
 .exp2{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-dim);padding:1px 6px;border-radius:20px;margin-left:6px}
 /* modal Ángulos 3D (detección + gizmos) */
-.posemodal{max-width:min(1000px,96vw);max-height:92vh;overflow:auto}
+.modal.posemodal{max-width:min(1040px,96vw);width:96%;max-height:92vh;overflow:auto}
 .posemodal .exp{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-dim);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:8px}
-.posewrap{display:flex;gap:16px;align-items:stretch}
-.posestage{flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:260px;max-height:74vh;overflow:hidden}
-.posestage img{max-width:100%;max-height:74vh;display:block}
+.posewrap{display:flex;flex-direction:column;gap:14px}
+.posestage{width:100%;position:relative;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--line);border-radius:10px;min-height:300px;max-height:58vh;overflow:hidden}
+.posestage img{max-width:100%;max-height:58vh;display:block}
 .poseov{position:absolute}
 .posebusy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);border-radius:10px}
 .posebusy.hide{display:none}
@@ -719,9 +719,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .posebox .plabel{position:absolute;top:-10px;left:6px;font-size:10px;font-weight:600;color:#fff;background:var(--accent);padding:1px 7px;border-radius:10px;white-space:nowrap}
 .posecube{position:absolute;width:74px;height:74px;transform:translate(-50%,-50%);cursor:grab;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .posecube:active{cursor:grabbing}
-.poseside{width:300px;flex:none;display:flex;flex-direction:column;gap:10px}
+.poseside{width:auto;display:flex;flex-direction:column;gap:10px}
 .posecam{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--surface2)}
-#poseCamCv{flex:none;width:84px;height:70px;background:var(--surface);border:1px solid var(--line);border-radius:8px;cursor:grab;touch-action:none}
+#poseCamCv{flex:none;width:104px;height:94px;background:var(--surface);border:1px solid var(--line);border-radius:8px;cursor:grab;touch-action:none}
 #poseCamCv:active{cursor:grabbing}
 .posecaminfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .posecamlbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
@@ -736,7 +736,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .posesub .ppre button:hover{border-color:var(--accent);color:var(--accent)}
 .posefoot{display:flex;flex-direction:column;gap:8px;margin-top:auto}
 .posefoot button{justify-content:center}
-@media(max-width:780px){.posewrap{flex-direction:column}.poseside{width:auto}}
+@media(min-width:900px){.posewrap{flex-direction:row;align-items:stretch}.posestage{flex:1;min-width:0;width:auto;max-height:78vh}.posestage img{max-height:78vh}.poseside{width:300px;flex:none}}
 #galSearch{font-size:12px;padding:8px 11px;margin-bottom:8px}
 .galrow{display:flex;gap:7px;margin-bottom:10px;align-items:center}
 .galrow select{margin:0;flex:1}
@@ -1761,7 +1761,7 @@ html,body{overflow-x:hidden}
     <div class="posestage" id="poseStage"><img id="poseImg" alt=""><div class="poseov" id="poseOv"></div><div class="posebusy hide" id="poseBusy"><div class="spin"></div></div></div>
     <div class="poseside">
       <div class="posecam">
-        <canvas id="poseCamCv" width="96" height="80" title="Arrastra para mover la cámara"></canvas>
+        <canvas id="poseCamCv" width="120" height="108" title="Arrastra para orbitar la cámara"></canvas>
         <div class="posecaminfo">
           <div class="posecamlbl">Ángulo de cámara (toda la toma)</div>
           <div class="posecamtxt" id="poseCamTxt"></div>
@@ -3330,25 +3330,51 @@ function drawDial(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d'),W=cv
  ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fillStyle=c.acc;ctx.fill();
  if(Math.abs(pitch)>=18){ctx.fillStyle=c.acc;ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(pitch>0?'▲':'▼',cx,cy-R-1);ctx.textAlign='start';}}
 function sceneAngle(cv,e){const r=cv.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);return Math.round(Math.atan2(dx,dy)*180/Math.PI);}
-function ang3dDraw(){drawScene($('ang3dCv'),ang3dSubj.yaw,ang3dCam.yaw,ang3dCam.pitch,ang3dMode)}
+// esfera de órbita 3D para la CÁMARA: sujeto al centro, cámara orbitando; arrastra para mover en 3D
+function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const c=sceneCols(),D=Math.PI/180,cx=W/2,cy=H/2,R=Math.min(W,H)*0.38,vt=20*D;
+ function proj(px,py,pz){const y2=py*Math.cos(vt)-pz*Math.sin(vt),z2=py*Math.sin(vt)+pz*Math.cos(vt);return{x:cx+px*R,y:cy-y2*R,z:z2};}
+ // alambre de la esfera: ecuador + meridiano frontal
+ function ring(fn,front){ctx.beginPath();for(let t=0;t<=360;t+=8){const p=fn(t*D),s=proj(p[0],p[1],p[2]);t?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);}ctx.closePath();ctx.globalAlpha=front?.5:.5;ctx.strokeStyle=c.mut;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}
+ ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.globalAlpha=.25;ctx.strokeStyle=c.mut;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;
+ ring(t=>[Math.sin(t),0,Math.cos(t)]); // ecuador
+ ring(t=>[0,Math.sin(t),Math.cos(t)]); // meridiano
+ // sujeto al centro (dot + flecha de orientación, proyectada en el ecuador)
+ const sp=proj(0,0,0);
+ const sa=subjYaw*D,se=proj(Math.sin(sa)*0.42,0,Math.cos(sa)*0.42);
+ ctx.beginPath();ctx.moveTo(sp.x,sp.y);ctx.lineTo(se.x,se.y);ctx.strokeStyle=c.mut;ctx.lineWidth=2;ctx.stroke();
+ ctx.beginPath();ctx.arc(sp.x,sp.y,5,0,7);ctx.fillStyle=c.mut;ctx.fill();
+ // cámara en la esfera (az=yaw, el=pitch)
+ const az=camYaw*D,el=camPitch*D;
+ const P=proj(Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el));
+ ctx.beginPath();ctx.moveTo(sp.x,sp.y);ctx.lineTo(P.x,P.y);ctx.strokeStyle=c.acc;ctx.globalAlpha=.6;ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1;
+ const sz=4+(P.z+1)*2.2; // más grande si está más cerca
+ ctx.save();ctx.translate(P.x,P.y);ctx.rotate(Math.atan2(sp.y-P.y,sp.x-P.x));ctx.fillStyle=c.acc;
+ ctx.fillRect(-sz*0.7,-sz*0.7,sz*1.1,sz*1.4);ctx.beginPath();ctx.moveTo(sz*0.4,-sz*0.6);ctx.lineTo(sz*1.5,-sz);ctx.lineTo(sz*1.5,sz);ctx.lineTo(sz*0.4,sz*0.6);ctx.closePath();ctx.fill();ctx.restore();
+ // etiquetas
+ ctx.font='9px sans-serif';ctx.textAlign='center';ctx.globalAlpha=.85;ctx.fillStyle=c.txt;
+ const hb=camPitch>=45?'cenital':camPitch>=18?'picado':camPitch<=-18?'contrapicado':'nivel';
+ ctx.fillText('cámara · '+hb, cx, H-5);ctx.globalAlpha=1;ctx.textAlign='start';}
+function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
 $('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));ang3dRenderPresets();ang3dUpd()};
 $('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const o=ang3dActive();o.yaw=+b.dataset.y;o.pitch=+b.dataset.p;ang3dUpd()};
 $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
-(function(){const cv=$('ang3dCv');if(!cv)return;let drag=false;
- const set=e=>{ang3dActive().yaw=sceneAngle(cv,e);ang3dUpd()};
- cv.addEventListener('pointerdown',e=>{drag=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}set(e)});
- cv.addEventListener('pointermove',e=>{if(drag)set(e)});
+(function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
+ cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+ cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  if(ang3dMode==='cam'){ang3dCam.yaw+=dx*0.8;ang3dCam.pitch=Math.max(-80,Math.min(80,ang3dCam.pitch-dy*0.7))}
+  else{ang3dSubj.yaw+=dx*0.8;ang3dSubj.pitch=Math.max(-60,Math.min(60,ang3dSubj.pitch+dy*0.6))}
+  ang3dUpd()});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 // ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
 let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1,poseCam={yaw:0,pitch:0};
-function poseCamUpd(){drawScene($('poseCamCv'),0,poseCam.yaw,poseCam.pitch,'cam');const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
-(function(){const cv=$('poseCamCv');if(!cv)return;let drag=false;
- const set=e=>{poseCam.yaw=sceneAngle(cv,e);poseCamUpd()};
- cv.addEventListener('pointerdown',e=>{drag=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}set(e)});
- cv.addEventListener('pointermove',e=>{if(drag)set(e)});
+function poseCamUpd(){drawCamSphere($('poseCamCv'),poseCam.yaw,poseCam.pitch,0);const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
+(function(){const cv=$('poseCamCv');if(!cv)return;let drag=false,lx=0,ly=0;
+ cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+ cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;poseCam.yaw+=dx*0.8;poseCam.pitch=Math.max(-80,Math.min(80,poseCam.pitch-dy*0.7));poseCamUpd()});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 (function(){const pre=$('poseCamPre');if(pre)pre.onclick=e=>{const b=e.target.closest('button');if(!b)return;poseCam.yaw=+b.dataset.y;poseCam.pitch=+b.dataset.p;poseCamUpd()}})();
 function poseDownscale(img,max){const nw=img.naturalWidth,nh=img.naturalHeight;let w=nw,h=nh;
@@ -3379,11 +3405,10 @@ function poseRenderCubes(){const ov=$('poseOv');if(!ov)return;
  ov.innerHTML=poseSubs.map((s,i)=>{const x=s.box[0]*100,y=s.box[1]*100,w=(s.box[2]-s.box[0])*100,h=(s.box[3]-s.box[1])*100;
   return '<div class="posebox'+(i===poseSel?' sel':'')+'" style="left:'+x+'%;top:'+y+'%;width:'+w+'%;height:'+h+'%"><span class="plabel">'+esc(s.label)+'</span></div>'
    +'<canvas class="posecube" data-i="'+i+'" width="74" height="74" style="left:'+(x+w/2)+'%;top:'+(y+h/2)+'%"></canvas>';}).join('');
- poseSubs.forEach((s,i)=>{const cv=ov.querySelector('.posecube[data-i="'+i+'"]');if(cv)drawDial(cv,s.yaw,s.pitch)});
- ov.querySelectorAll('.posecube').forEach(cv=>{let drag=false;const i=+cv.dataset.i;
-  const set=e=>{poseSubs[i].yaw=sceneAngle(cv,e);drawDial(cv,poseSubs[i].yaw,poseSubs[i].pitch);poseUpdDesc(i)};
-  cv.addEventListener('pointerdown',e=>{drag=true;poseSelect(i);try{cv.setPointerCapture(e.pointerId)}catch(_){}; e.stopPropagation();set(e)});
-  cv.addEventListener('pointermove',e=>{if(drag){e.stopPropagation();set(e)}});
+ poseSubs.forEach((s,i)=>{const cv=ov.querySelector('.posecube[data-i="'+i+'"]');if(cv)drawCubeCv(cv,s.yaw,s.pitch)});
+ ov.querySelectorAll('.posecube').forEach(cv=>{let drag=false,lx=0,ly=0;const i=+cv.dataset.i;
+  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;poseSelect(i);try{cv.setPointerCapture(e.pointerId)}catch(_){}; e.stopPropagation()});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;e.stopPropagation();const s=poseSubs[i],dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;s.yaw=(((s.yaw+dx*0.9)+540)%360)-180;s.pitch=Math.max(-60,Math.min(60,s.pitch+dy*0.6));drawCubeCv(cv,s.yaw,s.pitch);poseUpdDesc(i)});
   cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false})})}
 function poseRenderList(){$('poseList').innerHTML=poseSubs.length?poseSubs.map((s,i)=>'<div class="posesub'+(i===poseSel?' sel':'')+'" data-i="'+i+'"><div class="pnm">'+esc(s.label)+'</div><div class="pdesc" data-d="'+i+'">'+esc(poseFacingText(s.yaw,s.pitch))+'</div><div class="ppre"><button data-y="0" data-p="0">Frente</button><button data-y="-35" data-p="0">3/4 izq</button><button data-y="35" data-p="0">3/4 der</button><button data-y="-90" data-p="0">Perfil izq</button><button data-y="90" data-p="0">Perfil der</button><button data-y="180" data-p="0">Espalda</button><button data-y="0" data-p="28">Arriba</button><button data-y="0" data-p="-28">Abajo</button></div></div>').join(''):'<div class="hint" style="font-size:12px">Pulsa «Detectar» para encontrar los elementos de la imagen.</div>'}
 function poseUpdDesc(i){const el=$('poseList').querySelector('.pdesc[data-d="'+i+'"]');if(el)el.textContent=poseFacingText(poseSubs[i].yaw,poseSubs[i].pitch)}
