@@ -687,6 +687,15 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .mpbtn{display:inline-flex;align-items:center;gap:7px;margin-top:8px;padding:8px 12px;font-size:12.5px;width:100%;justify-content:center}
 .mpbtn svg{color:var(--accent)}
 .mpbtn.busy{opacity:.55;pointer-events:none}
+.ang3d{display:flex;gap:12px;margin-top:10px;align-items:flex-start}
+.ang3d.hide{display:none}
+#ang3dCv{flex:none;width:140px;height:114px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;cursor:grab;touch-action:none}
+#ang3dCv:active{cursor:grabbing}
+.ang3dside{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ang3dtxt{font-size:12px;color:var(--accent);font-weight:600;line-height:1.35}
+.ang3dpresets{display:flex;flex-wrap:wrap;gap:4px}
+.ang3dpresets button{font-size:10.5px;padding:4px 7px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:7px;cursor:pointer;font-family:inherit}
+.ang3dpresets button:hover{border-color:var(--accent);color:var(--accent)}
 #galSearch{font-size:12px;padding:8px 11px;margin-bottom:8px}
 .galrow{display:flex;gap:7px;margin-bottom:10px;align-items:center}
 .galrow select{margin:0;flex:1}
@@ -1170,6 +1179,29 @@ html,body{overflow-x:hidden}
       <label id="lblPrompt">Prompt<button class="magic" id="mpImg" title="Mejorar prompt con IA"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg></button></label>
       <textarea id="prompt" placeholder="Describe lo que imaginas…"></textarea>
       <button class="ghost mpbtn" id="mpImgBtn" title="Reescribe y enriquece tu prompt con IA"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Mejorar con IA</button>
+    </div>
+
+    <div class="field">
+      <label class="check" style="margin:0"><input type="checkbox" id="ang3dOn"> Ángulo 3D · referencia de cámara</label>
+      <div id="ang3dBox" class="ang3d hide">
+        <canvas id="ang3dCv" width="220" height="180" title="Arrastra para girar"></canvas>
+        <div class="ang3dside">
+          <div class="ang3dtxt" id="ang3dTxt">Vista frontal · a la altura de los ojos</div>
+          <div class="ang3dpresets" id="ang3dPresets">
+            <button data-y="0" data-p="0">Frente</button>
+            <button data-y="35" data-p="-8">3/4 izq</button>
+            <button data-y="-35" data-p="-8">3/4 der</button>
+            <button data-y="90" data-p="0">Perfil izq</button>
+            <button data-y="-90" data-p="0">Perfil der</button>
+            <button data-y="180" data-p="0">Espalda</button>
+            <button data-y="20" data-p="30">Picado</button>
+            <button data-y="20" data-p="-28">Contrapicado</button>
+          </div>
+          <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el cubo como referencia visual</label>
+          <button class="ghost sm" id="ang3dIns" style="margin-top:4px">Insertar ángulo en el prompt</button>
+        </div>
+      </div>
+      <p class="hint hide" id="ang3dHint" style="margin-top:6px;font-size:11px">El ángulo se añade como guía al generar. Ojo: gpt-image-2 lo respeta como sugerencia fuerte, no exacta.</p>
     </div>
 
     <div class="field">
@@ -2448,6 +2480,9 @@ async function run(){
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
  const refsUsed=refs.map(r=>({name:r.name,b64:r.b64}));
  if(willEdit){url='/edit';body.images=refsUsed;if(mask)body.mask=mask;body.use_project_refs=useVisual}
+ // ángulo 3D: añade la guía de cámara al prompt (y opcionalmente el cubo como referencia)
+ if($('ang3dOn')&&$('ang3dOn').checked){const d=ang3dDesc();body.prompt=(body.prompt+' '+d.prompt).trim();
+  if($('ang3dRef').checked){const ab=ang3dSnap();if(ab){if(url!=='/edit'){url='/edit';body.images=refsUsed.slice()}body.images=(body.images||[]).concat([{name:'angulo3d.png',b64:ab}])}}}
  // stream de previews solo si es el único trabajo en curso (evita que peleen por el lienzo)
  const willStream=(+($('partImg').value||0))>0 && +$('n').value===1 && activeJobs===0;
  // muestra el spinner en el lienzo solo si no hay nada que mostrar y es el primer trabajo
@@ -3121,6 +3156,52 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
  btn.classList.remove('busy')}
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
+// ===== Ángulo 3D (gizmo de cámara/orientación) =====
+let ang3d={yaw:25,pitch:-10};
+function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function ang3dDesc(){const ay=(((ang3d.yaw%360)+360)%360); const a2=ay>180?ay-360:ay; const a=Math.abs(a2);
+ let h;
+ if(a<=15)h='de frente';
+ else if(a<=65)h=(a2>0?'en vista 3/4 hacia la izquierda':'en vista 3/4 hacia la derecha');
+ else if(a<=115)h=(a2>0?'de perfil izquierdo':'de perfil derecho');
+ else if(a<=160)h=(a2>0?'en 3/4 trasero izquierdo':'en 3/4 trasero derecho');
+ else h='de espaldas';
+ const p=ang3d.pitch;let v;
+ if(p<=-18)v='cámara en contrapicado (vista desde abajo)';
+ else if(p>=18)v='cámara en picado (vista desde arriba)';
+ else v='cámara a la altura de los ojos';
+ return {short:ang3dCap(h)+' · '+v, prompt:'Encuadre y ángulo: el sujeto visto '+h+', '+v+'.'};}
+function ang3dDraw(){const cv=$('ang3dCv');if(!cv)return;const ctx=cv.getContext('2d');
+ const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const cs=getComputedStyle(document.body);
+ const acc=(cs.getPropertyValue('--accent').trim()||'#1f6b54');
+ const ln=(cs.getPropertyValue('--mut').trim()||'#888');
+ const cx=W/2,cy=H/2,s=Math.min(W,H)*0.27;
+ const ry=ang3d.yaw*Math.PI/180,rx=ang3d.pitch*Math.PI/180;
+ function rot(p){let x=p[0],y=p[1],z=p[2];
+  let x1=x*Math.cos(ry)+z*Math.sin(ry),z1=-x*Math.sin(ry)+z*Math.cos(ry);
+  let y2=y*Math.cos(rx)-z1*Math.sin(rx),z2=y*Math.sin(rx)+z1*Math.cos(rx);
+  return[x1,y2,z2];}
+ const V=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+ const P=V.map(v=>{const r=rot(v);return{x:cx+r[0]*s,y:cy+r[1]*s,z:r[2]};});
+ const faces=[{i:[4,5,6,7],front:1},{i:[0,1,2,3]},{i:[0,4,7,3]},{i:[1,5,6,2]},{i:[0,1,5,4]},{i:[3,2,6,7]}];
+ faces.forEach(f=>f.z=(P[f.i[0]].z+P[f.i[1]].z+P[f.i[2]].z+P[f.i[3]].z)/4);
+ faces.sort((a,b)=>a.z-b.z);
+ faces.forEach(f=>{ctx.beginPath();f.i.forEach((vi,k)=>{const pt=P[vi];k?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y)});ctx.closePath();
+  if(f.front){ctx.fillStyle=acc+'cc';ctx.fill()}
+  ctx.globalAlpha=f.front?1:.5;ctx.strokeStyle=f.front?acc:ln;ctx.lineWidth=f.front?2:1;ctx.stroke();ctx.globalAlpha=1});
+ const c0=rot([0,0,0]),c1=rot([0,0,1.7]);
+ ctx.beginPath();ctx.moveTo(cx+c0[0]*s,cy+c0[1]*s);ctx.lineTo(cx+c1[0]*s,cy+c1[1]*s);ctx.strokeStyle=acc;ctx.lineWidth=2.5;ctx.stroke();
+ ctx.beginPath();ctx.arc(cx+c1[0]*s,cy+c1[1]*s,4,0,7);ctx.fillStyle=acc;ctx.fill();}
+function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
+function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
+$('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on)ang3dUpd()};
+$('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3d.yaw=+b.dataset.y;ang3d.pitch=+b.dataset.p;ang3dUpd()};
+$('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
+(function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
+ cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+ cv.addEventListener('pointermove',e=>{if(!drag)return;ang3d.yaw+=(e.clientX-lx)*0.8;ang3d.pitch=Math.max(-60,Math.min(60,ang3d.pitch+(e.clientY-ly)*0.6));lx=e.clientX;ly=e.clientY;ang3dUpd()});
+ cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
 $('mpSd').onclick=e=>{e.preventDefault();improvePrompt($('mpSd'),'sdPrompt','video')};
 $('mpKl').onclick=e=>{e.preventDefault();improvePrompt($('mpKl'),'klPrompt','video')};
 $('lbDesc').onclick=async e=>{e.stopPropagation();
