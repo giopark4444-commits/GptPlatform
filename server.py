@@ -552,6 +552,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  padding:6px 13px;font-size:12px;color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.18)}
 .genchip .gcdot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:gcpulse 1s ease-in-out infinite}
 @keyframes gcpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.dzhi{outline:2px dashed var(--accent)!important;outline-offset:3px;border-radius:10px;background:var(--accent-dim)!important;transition:.12s}
 .canvas img.result{max-width:100%;max-height:100%;display:block;cursor:zoom-in;border-radius:3px}
 .floaters{position:absolute;top:12px;right:12px;display:flex;gap:7px;opacity:0;transform:translateY(-4px);transition:.18s;z-index:2}
 .canvas:hover .floaters,.canvas:focus-within .floaters{opacity:1;transform:none}
@@ -2325,8 +2326,11 @@ $('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();renderGal();render
 async function loadGal(){hist=await(await fetch('/history')).json();renderGal();renderAud()}
 $('galMore').onclick=()=>{shown+=30;renderGal()};
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(b)})}
+function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('dzhi',on)})}
+window.addEventListener('dragend',()=>markDropZones(false));
+window.addEventListener('drop',()=>markDropZones(false));
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
- e.dataTransfer.setData('text/x-studio-file',card.dataset.file);e.dataTransfer.effectAllowed='copy'});
+ e.dataTransfer.setData('text/x-studio-file',card.dataset.file);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 $('gal').onclick=async e=>{
  if(selMode){const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
  if(e.target.closest('a'))return;
@@ -2398,7 +2402,7 @@ $('lbPrev').onclick=e=>{e.stopPropagation();lbNavigate(-1)};
 $('lbNext').onclick=e=>{e.stopPropagation();lbNavigate(1)};
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
- e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';});
+ e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 
 // ===== resultado(s) =====
 function showState(s){$('emptyState').classList.toggle('hide',s!=='empty');$('spinner').classList.toggle('hide',s!=='spin');
@@ -3201,7 +3205,7 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
   if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
- e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';});
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
