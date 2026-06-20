@@ -672,6 +672,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .galbulk button{border:1px solid var(--line2);background:var(--surface);color:var(--txt);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
 .galbulk button:hover{border-color:var(--mut)}
 .galbulk button.bdel.arm{border-color:var(--bad);color:var(--bad)}
+.galeye{flex-wrap:wrap;row-gap:7px}
+.galeye #galCount{margin-left:6px}
+.galactions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
 .magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
 .magic:hover{color:var(--accent)}
 .magic svg{width:13px;height:13px}
@@ -1635,7 +1638,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<button class="chip" id="galFavBtn" title="Ver solo favoritas (★)" style="margin-left:auto">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="margin-left:6px;text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button><span class="mono" id="galCount" style="margin-left:10px;font-weight:400"></span></h3>
+      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="galbulk hide" id="galBulk"></div>
       <div class="gal" id="gal"></div>
@@ -3141,7 +3144,7 @@ async function loadShelf(){try{const r=await(await fetch('/shelf')).json();
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').innerHTML=shelfItems.map(it=>{const u='/shelffile?name='+encodeURIComponent(it.file);
-  return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="false">
+  return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
