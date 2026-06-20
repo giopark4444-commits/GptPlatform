@@ -2284,7 +2284,7 @@ window.addEventListener('focus',()=>{pollAll();loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();loadGal();}});
 function renderGal(){const items=galFiltered();
  $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
-  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-p="${p}"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}" loading="lazy" draggable="true">
+  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-p="${p}" draggable="true"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
