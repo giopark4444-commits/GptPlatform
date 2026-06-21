@@ -3718,6 +3718,22 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .gmovemenu .gmvh{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8170;padding:5px 9px 6px}
 .gmovemenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:8px;font:inherit;font-size:13px;color:#2a2620;cursor:pointer;white-space:nowrap}
 .gmovemenu button:hover{background:rgba(31,107,84,.1);color:#1f6b54}
+.gmvtabs{display:flex;gap:4px;padding:2px;margin-bottom:4px;background:rgba(0,0,0,.05);border-radius:8px}
+.gmvtabs button{flex:1;text-align:center;padding:6px 8px;border-radius:6px;font-size:12.5px;color:#8a8170}
+.gmvtabs button:hover{background:rgba(0,0,0,.04)}
+.gmvtabs button.on{background:#1f6b54;color:#fff}
+.gmvtabs button.on:hover{background:#1f6b54;color:#fff}
+.tile.gsel{outline:3px solid #1f6b54;outline-offset:-3px}
+.tile.gsel::after{content:"✓";position:absolute;top:8px;left:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#1f6b54;color:#fff;border-radius:50%;font-size:14px;font-weight:700;z-index:3}
+body.selmode .tile{cursor:pointer}
+body.selmode .acts{display:none!important}
+.gselbar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);z-index:40;display:none;align-items:center;gap:10px;background:#faf6ec;border:1px solid #cfc4ac;border-radius:14px;box-shadow:0 10px 32px rgba(0,0,0,.22);padding:10px 14px;opacity:0;transition:.18s}
+.gselbar.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+.gselbar #gseln{font-size:13px;color:#2a2620;font-weight:600;margin-right:4px}
+.gselbar button{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;border:1px solid #cfc4ac;background:#fff;color:#2a2620;border-radius:9px;padding:7px 12px;cursor:pointer}
+.gselbar button:hover{border-color:#1f6b54;color:#1f6b54}
+.gselbar button svg{width:15px;height:15px}
+.gselbar .gselx{border-color:transparent;color:#8a8170}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3767,6 +3783,16 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
  .gmovemenu .gmvh{color:#9a8f78}
  .gmovemenu button{color:#ece6d8}
  .gmovemenu button:hover{background:rgba(224,165,113,.14);color:#e0a571}
+ .gmvtabs{background:rgba(255,255,255,.06)}
+ .gmvtabs button{color:#9a8f78}
+ .gmvtabs button.on,.gmvtabs button.on:hover{background:#e0a571;color:#1c1812}
+ .tile.gsel{outline-color:#e0a571}
+ .tile.gsel::after{background:#e0a571;color:#1c1812}
+ .gselbar{background:#1c1812;border-color:#3a3322;box-shadow:0 10px 32px rgba(0,0,0,.55)}
+ .gselbar #gseln{color:#ece6d8}
+ .gselbar button{background:#231f1c;border-color:#3a3322;color:#ece6d8}
+ .gselbar button:hover{border-color:#e0a571;color:#e0a571}
+ .gselbar .gselx{border-color:transparent;color:#9a8f78}
 }
 """
 
@@ -3844,6 +3870,7 @@ def gallery_html(src, fav=False, proj=""):
           "function closeLb(){glb.classList.remove('show');glbImg.src='';}"
           "var g=document.querySelector('.grid');"
           "if(g)g.addEventListener('click',async function(e){"
+          "if(selMode){var st=e.target.closest('.tile');if(st){e.preventDefault();toggleSel(st);}return;}"
           "var b=e.target.closest('[data-act]');"
           "if(b){e.preventDefault();var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
           "if(act==='ref'){stageRef(file);}"
@@ -3869,23 +3896,37 @@ def gallery_html(src, fav=False, proj=""):
           "if(c.error){gt(c.error);return;}var eff=(SRC==='shelf')?c.shelf_effective:c.effective;"
           "if(gfdir)gfdir.textContent=eff;gt('Carpeta cambiada ✓');}"
           "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};"
-          # --- mover imágenes a otro proyecto ---
-          "var moveFile='',moveTile=null;"
+          # --- mover / copiar imágenes a otro proyecto (individual o en lote) ---
+          "var mvFiles=[],mvTiles=[],mvMode='move';"
           "var mv=document.createElement('div');mv.className='gmovemenu';mv.style.display='none';"
-          "mv.innerHTML='<div class=\"gmvh\">Mover a proyecto…</div>'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button data-n=\"'+encodeURIComponent(p.name)+'\">'+nm+'</button>';}).join('');"
+          "mv.innerHTML='<div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">a proyecto…</div>'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-n=\"'+encodeURIComponent(p.name)+'\">'+nm+'</button>';}).join('');"
           "document.body.appendChild(mv);"
-          "function openMove(anchor,file,tile){moveFile=file;moveTile=tile||null;var r=anchor.getBoundingClientRect();"
-          "mv.style.display='block';var w=mv.offsetWidth||200;"
+          "function setMode(m){mvMode=m;mv.querySelectorAll('.gmvtabs button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m);});}"
+          "mv.querySelectorAll('.gmvtabs button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setMode(t.dataset.m);};});"
+          "function openMenu(anchor,files,tiles){mvFiles=files;mvTiles=tiles||[];var r=anchor.getBoundingClientRect();mv.style.display='block';var w=mv.offsetWidth||210;"
           "mv.style.top=(r.bottom+window.scrollY+4)+'px';mv.style.left=Math.max(8,Math.min(r.left+window.scrollX,window.scrollX+window.innerWidth-w-8))+'px';}"
           "function closeMv(){mv.style.display='none';}"
           "function updCount(){var c=document.querySelector('.count');if(c)c.textContent=document.querySelectorAll('.tile').length+' imágenes';}"
-          "mv.addEventListener('click',async function(e){var b=e.target.closest('button[data-n]');if(!b)return;var dest=decodeURIComponent(b.getAttribute('data-n'));closeMv();"
-          "try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:moveFile,project:PROJ,dest:dest})})).json();"
-          "if(r&&r.ok){if(moveTile&&moveTile.remove)moveTile.remove();closeLb();updCount();gt('Movida a '+b.textContent+' ✓');}else gt((r&&r.error)||'No se pudo mover');}catch(x){gt('No se pudo mover');}});"
-          "document.addEventListener('click',function(e){if(mv.style.display==='block'&&!mv.contains(e.target)&&!e.target.closest('[data-act=\"move\"]')&&e.target.id!=='glbMove'&&!(e.target.closest&&e.target.closest('#glbMove')))closeMv();});"
+          "mv.addEventListener('click',async function(e){var b=e.target.closest('button.gmvp');if(!b)return;var dest=decodeURIComponent(b.getAttribute('data-n'));var mode=mvMode,files=mvFiles.slice(),tiles=mvTiles.slice();closeMv();if(!files.length)return;"
+          "try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ,dest:dest,mode:mode})})).json();"
+          "if(r&&r.ok){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var n=r.done||files.length;var verb=mode==='copy'?'copiada':'movida';gt((n>1?n+' '+verb+'s':'1 '+verb)+' a '+b.textContent+' ✓');if(selMode)exitSel();}else gt((r&&r.error)||'No se pudo');}catch(x){gt('No se pudo');}});"
+          "document.addEventListener('click',function(e){if(mv.style.display==='block'&&!mv.contains(e.target)&&!e.target.closest('[data-act=\"move\"]')&&!(e.target.closest&&(e.target.closest('#glbMove')||e.target.closest('#gselmove')||e.target.closest('#gselcopy'))))closeMv();});"
           "window.addEventListener('resize',closeMv);"
           "var glbMove=document.getElementById('glbMove');"
-          "if(glbMove)glbMove.onclick=function(){var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMove(glbMove,curFile,t);};")
+          "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
+          # --- selección en lote ---
+          "var selMode=false,selSet={};"
+          "var selbtn=document.getElementById('gselbtn'),selbar=document.getElementById('gselbar'),seln=document.getElementById('gseln');"
+          "function selFiles(){return Object.keys(selSet);}"
+          "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
+          "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n+(n===1?' seleccionada':' seleccionadas');if(selbar)selbar.classList.toggle('show',selMode);}"
+          "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
+          "function exitSel(){selMode=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
+          "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
+          "var gselmove=document.getElementById('gselmove'),gselcopy=document.getElementById('gselcopy'),gselcancel=document.getElementById('gselcancel');"
+          "if(gselmove)gselmove.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('move');openMenu(gselmove,selFiles(),selTiles());};"
+          "if(gselcopy)gselcopy.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('copy');openMenu(gselcopy,selFiles(),selTiles());};"
+          "if(gselcancel)gselcancel.onclick=exitSel;")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
@@ -3894,9 +3935,16 @@ def gallery_html(src, fav=False, proj=""):
             '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
             'Carpeta: <b id="gfdir">' + _h.escape(folder) + '</b>'
             '<button class="gfbtn" id="gfpick">cambiar</button></span>'
-            '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink + '</header>'
+            '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink
+            + (('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover o copiar">'
+                '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>') if move_targets else '')
+            + '</header>'
             '<main class="grid">' + grid + '</main>'
-            '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
+            + (('<div class="gselbar" id="gselbar"><span id="gseln">0 seleccionadas</span>'
+                '<button id="gselmove">' + GMV + 'Mover a…</button>'
+                '<button id="gselcopy">' + GCP + 'Copiar a…</button>'
+                '<button class="gselx" id="gselcancel">Cancelar</button></div>') if move_targets else '')
+            + '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
             '<img id="glbImg" alt="">'
             '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
             '<button class="gbtn" id="glbRef">' + GPL + 'Usar como referencia</button>'
@@ -4886,18 +4934,27 @@ class H(BaseHTTPRequestHandler):
         return self._json({"ok": True})
 
     def h_moveitem(self):
-        # mueve una imagen (archivo interno + metadato) de un proyecto a otro, mismo tipo (historial/estante)
+        # mueve o COPIA una o varias imágenes (archivo interno + metadato) a otro proyecto, mismo tipo
         b = self._body()
         src = b.get("src", "history")
-        f = os.path.basename(b.get("file", "") or "")
+        files = b.get("files")
+        if not files:
+            one = b.get("file", "")
+            files = [one] if one else []
+        files = [os.path.basename(x) for x in files if x]
         srcp = b.get("project", "") or ""
         dest = b.get("dest", "") or ""
-        if not f:
-            return self._json({"error": "Falta el archivo"})
+        mode = b.get("mode", "move")
+        if mode not in ("move", "copy"):
+            mode = "move"
+        if not files:
+            return self._json({"error": "Faltan archivos"})
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
         if proj_key(srcp) == proj_key(dest):
             return self._json({"error": "Ya está en ese proyecto"})
+        done = 0
+        errors = []
         with LOCK:
             if src == "history":
                 sj, dj = phist_json(srcp), phist_json(dest)
@@ -4908,40 +4965,47 @@ class H(BaseHTTPRequestHandler):
                 sdir, ddir = pshelf_dir(srcp), pshelf_dir(dest)
                 ext_dest = shelf_dir(dest)
             items = load_json(sj, [])
-            entry = next((x for x in items if x.get("file") == f), None)
-            if entry is None:
-                return self._json({"error": "No encuentro esa imagen"})
-            # archivo interno: evita colisión de nombre en el destino
-            target = f
-            if (ddir / target).exists():
-                stem, ext = os.path.splitext(f)
-                target = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
-            raw = None
-            srcfile = sdir / f
-            try:
-                if srcfile.is_file():
-                    raw = srcfile.read_bytes()
-                    (ddir / target).write_bytes(raw)
-                    srcfile.unlink()
-            except Exception as e:
-                return self._json({"error": f"No pude mover el archivo: {e}"})
-            # espeja en la carpeta externa del destino (si difiere de la interna)
-            try:
-                if raw is not None and ext_dest.resolve() != ddir.resolve():
-                    ext_dest.mkdir(parents=True, exist_ok=True)
-                    (ext_dest / target).write_bytes(raw)
-            except Exception:
-                pass
-            # mueve el metadato
-            new_entry = dict(entry)
-            new_entry["file"] = target
-            if src == "history":
-                new_entry["project"] = dest
-            save_json(sj, [x for x in items if x.get("file") != f])
             ditems = load_json(dj, [])
-            ditems.insert(0, new_entry)
-            save_json(dj, ditems)
-        return self._json({"ok": True, "file": target, "dest": dest})
+            moved_files = set()
+            for f in files:
+                entry = next((x for x in items if x.get("file") == f), None)
+                if entry is None:
+                    errors.append(f)
+                    continue
+                target = f                       # evita colisión de nombre en el destino
+                if (ddir / target).exists():
+                    stem, ext = os.path.splitext(f)
+                    target = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
+                raw = None
+                srcfile = sdir / f
+                try:
+                    if srcfile.is_file():
+                        raw = srcfile.read_bytes()
+                        (ddir / target).write_bytes(raw)
+                        if mode == "move":
+                            srcfile.unlink()
+                except Exception:
+                    errors.append(f)
+                    continue
+                try:                              # espeja en la carpeta externa del destino
+                    if raw is not None and ext_dest.resolve() != ddir.resolve():
+                        ext_dest.mkdir(parents=True, exist_ok=True)
+                        (ext_dest / target).write_bytes(raw)
+                except Exception:
+                    pass
+                new_entry = dict(entry)
+                new_entry["file"] = target
+                if src == "history":
+                    new_entry["project"] = dest
+                ditems.insert(0, new_entry)
+                if mode == "move":
+                    moved_files.add(f)
+                done += 1
+            if mode == "move" and moved_files:
+                save_json(sj, [x for x in items if x.get("file") not in moved_files])
+            if done:
+                save_json(dj, ditems)
+        return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "errors": errors})
 
     def _style_prefix(self, project):
         if not project:
