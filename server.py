@@ -175,38 +175,79 @@ def save_json(p, data):
 
 
 ACTIVE_PROJ = ""   # proyecto activo del estudio (lo fija /setproject). "" o "general" = carpetas originales (proyecto General)
+ACTIVE_SUB = ""    # subproyecto activo del estudio (lo fija /setproject). "" = raíz del proyecto
 
 
 def is_general(proj):
     return (proj or "").strip().lower() in ("", "general")
 
 
-def phist_dir(proj):
-    d = HIST_DIR if is_general(proj) else PROJ_DIR / safe(proj) / "historial"
+def _sub_safe(sub):
+    # nombre de carpeta seguro del subproyecto ("" = raíz del proyecto)
+    s = (sub or "").strip()
+    return safe(s) if s else ""
+
+
+def psub_base(proj, sub):
+    # carpeta base de un subproyecto: proyectos/<proj>/sub/<sub>/  (proj_folder cubre General→"general")
+    return proj_folder(proj) / "sub" / _sub_safe(sub)
+
+
+def list_subs(proj):
+    # enumera subproyectos por escaneo de la carpeta sub/ (las carpetas mandan, no un JSON)
+    base = proj_folder(proj) / "sub"
+    out = []
+    if base.is_dir():
+        for d in sorted(base.iterdir(), key=lambda p: p.name.lower()):
+            if not d.is_dir():
+                continue
+            label = ""
+            lf = d / "label.txt"   # nombre legible (los espacios/acentos se pierden en safe())
+            if lf.exists():
+                try:
+                    label = lf.read_text().strip()
+                except Exception:
+                    pass
+            out.append({"key": d.name, "label": label or d.name})
+    return out
+
+
+def phist_dir(proj, sub=""):
+    if sub:
+        d = psub_base(proj, sub) / "historial"
+    else:
+        d = HIST_DIR if is_general(proj) else PROJ_DIR / safe(proj) / "historial"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
-def phist_json(proj):
+def phist_json(proj, sub=""):
+    if sub:
+        return psub_base(proj, sub) / "historial.json"
     return HIST_JSON if is_general(proj) else PROJ_DIR / safe(proj) / "historial.json"
 
 
-def pshelf_dir(proj):
-    d = SHELF_DIR if is_general(proj) else PROJ_DIR / safe(proj) / "estante"
+def pshelf_dir(proj, sub=""):
+    if sub:
+        d = psub_base(proj, sub) / "estante"
+    else:
+        d = SHELF_DIR if is_general(proj) else PROJ_DIR / safe(proj) / "estante"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
-def pshelf_json(proj):
+def pshelf_json(proj, sub=""):
+    if sub:
+        return psub_base(proj, sub) / "estante.json"
     return SHELF_JSON if is_general(proj) else PROJ_DIR / safe(proj) / "estante.json"
 
 
 def add_history(item):
     with LOCK:
-        jp = phist_json(item.get("project"))
+        jp = phist_json(item.get("project"), item.get("sub", ""))
         h = load_json(jp, [])
         h.insert(0, item)
-        save_json(jp, h)  # sin tope: la galería recuerda todo (por proyecto)
+        save_json(jp, h)  # sin tope: la galería recuerda todo (por proyecto/subproyecto)
 
 
 def safe(name):
@@ -317,6 +358,17 @@ def shelf_dir(proj=None):
     return Path(os.path.expanduser(raw)) if raw else pshelf_dir(proj)
 
 
+def save_dir_sub(proj=None, sub=""):
+    # carpeta externa de copias: en un subproyecto cuelga de save_dir(proj)/<subkey>/
+    base = save_dir(proj)
+    return (base / _sub_safe(sub)) if sub else base
+
+
+def shelf_dir_sub(proj=None, sub=""):
+    base = shelf_dir(proj)
+    return (base / _sub_safe(sub)) if sub else base
+
+
 def icloud_dir():
     return HOME / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
 
@@ -406,6 +458,18 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projbtn svg{width:15px;height:15px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
 .projbtn .chev{width:13px;height:13px;margin-left:2px}
 .projbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subsel{background:var(--surface2);border:1px solid var(--line);color:var(--txt);border-radius:11px;padding:8px 12px;font-size:13px;font-family:var(--ui);cursor:pointer;max-width:220px}
+.subsel:hover{border-color:var(--accent)}
+.subchips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.subchip{font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:3px 10px;cursor:pointer;transition:.14s}
+.subchip:hover{border-color:var(--line2);color:var(--txt)}
+.subchip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.histgroup{margin:0 0 10px}
+.histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
+.movepop{position:fixed;z-index:60;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
+.movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
+.movepop button.mpopt{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--txt);font-size:13px;font-family:var(--ui);padding:7px 10px;border-radius:8px;cursor:pointer}
+.movepop button.mpopt:hover{background:var(--accent-dim);color:var(--accent)}
 /* modal de proyectos */
 .modal.projmodal{max-width:min(1180px,96vw);width:96%}
 .modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
@@ -429,6 +493,19 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projfoot .pedit:hover{color:var(--accent);border-color:var(--accent)}
 .projfoot .pdel:hover{color:var(--bad);border-color:var(--bad)}
 .projfoot .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
+.subrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:2px 3px 0;margin-top:1px}
+.subchipp{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;font-size:11.5px;color:var(--txt);max-width:100%}
+.subchipp .scn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.subchipp .scc{font-size:10px;color:var(--mut);background:var(--surface);border-radius:10px;padding:0 6px;font-variant-numeric:tabular-nums}
+.subchipp .subren,.subchipp .subx{flex:none;width:20px;height:20px;border:0;background:none;color:var(--faint);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.14s}
+.subchipp:hover .subren,.subchipp:hover .subx{opacity:1}
+.subchipp .subren svg,.subchipp .subx svg{width:12px;height:12px}
+.subchipp .subren:hover{color:var(--accent)}
+.subchipp .subx:hover{color:var(--bad)}
+.subchipp .subx.arm{color:#fff;background:var(--bad);opacity:1}
+.subadd{flex:none;font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--line2);border-radius:20px;padding:3px 10px;cursor:pointer;font-family:inherit}
+.subadd:hover{border-color:var(--accent);background:var(--accent-dim)}
+.subconv{flex:none;font-size:11px;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:3px 6px;cursor:pointer;font-family:inherit;max-width:150px}
 .projfoot .pedit svg,.projfoot .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
 .prename{width:100%;font-size:13px;padding:5px 8px;margin:0}
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
@@ -1177,6 +1254,7 @@ html,body{overflow-x:hidden}
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <select id="projSel" class="hide"></select>
+    <select id="subSel" class="subsel" title="Subproyecto activo — lo que generes va aquí"></select>
     <button class="projbtn" id="promptLibBtn" title="Biblioteca de prompts — guarda tus prompts favoritos y los que sirven, por categorías (abre en pestaña aparte)">
       <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span>Prompt Library</span>
@@ -1649,6 +1727,7 @@ html,body{overflow-x:hidden}
         <span id="shelfDirRow" class="hide"><input type="text" id="shelfDirIn" placeholder="~/Pictures/MiEstante" spellcheck="false"><button class="ghost sm" id="shelfDirSave">Guardar</button></span>
       </div>
       <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" multiple hidden>
+      <div class="subchips" id="shelfSubChips"></div>
       <div class="shelfgrid" id="shelfGrid"></div>
       <div class="shelfempty" id="shelfEmpty">Arrastra imágenes aquí o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, describirla, descargarla o quitarla.</div>
     </div>
@@ -1718,6 +1797,7 @@ html,body{overflow-x:hidden}
     </div>
     <div class="sec">
       <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
+      <div class="subchips" id="galSubChips"></div>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
       <div class="galbulk hide" id="galBulk"></div>
@@ -1930,7 +2010,7 @@ function renderSaveWhere(){
  $('dirBox').style.opacity=$('saveDesk').checked?'1':'.4'}
 $('saveDesk').checked=localStorage.getItem('studio_desk')!=='0';
 $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').checked?'1':'0');renderSaveWhere()};
-async function loadConfig(){const r=await(await fetch('/config')).json();
+async function loadConfig(){const r=await(await fetch('/config?project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(activeSub||''))).json();
  genLabel=r.general_label||'General';
  $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();
  if($('histDirLbl'))$('histDirLbl').textContent=r.effective||'(carpeta interna de la app)';
@@ -2207,11 +2287,27 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
  $('maskModal').classList.add('hide');if(mode!=='editar')setMode('editar');
  toast('Listo: '+made.join(' + ')+(annoOps>0||pins.length?' · instrucciones añadidas al prompt':''))};
 
-async function loadProjects(){projects=await(await fetch('/projects')).json();const s=$('projSel');
+let activeSub=localStorage.getItem('studio_sub')||'';
+function curSubs(){return (window.SUBS&&window.SUBS[curProj()])||[]}
+function pj(extra){return Object.assign({project:$('projSel').value,sub:activeSub},extra||{})}
+async function loadProjects(){const _r=await(await fetch('/projects')).json();projects=_r.projects||_r;window.SUBS=_r.subs||{};const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
- s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).filter(n=>n).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
-async function setActiveProject(n){try{await fetch('/setproject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})});}catch(e){}}
-async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);await setActiveProject(n);renderProj();await loadConfig();await loadGal();await loadShelf();}
+ s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).filter(n=>n).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderSubSel();renderProj()}
+function renderSubSel(){const sel=$('subSel');if(!sel)return;const subs=curSubs();
+ if(!subs.some(s=>s.key===activeSub))activeSub='';
+ sel.innerHTML='<option value="">Todo el proyecto</option>'+subs.map(s=>`<option value="${esc(s.key)}" ${s.key===activeSub?'selected':''}>${esc(s.label)}</option>`).join('')+'<option value="__new__">+ Crear subproyecto…</option>';
+ sel.value=activeSub}
+async function createSub(){const name=prompt('Nombre del subproyecto:');if(!name||!name.trim())return null;
+ const r=await(await fetch('/subcreate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:$('projSel').value,name:name.trim()})})).json();
+ if(r.error){toast(r.error,'bad');return null}
+ await loadProjects();activeSub=r.key;localStorage.setItem('studio_sub',activeSub);renderSubSel();await switchProject();toast('Subproyecto "'+r.label+'" creado');return r.key}
+async function setActiveProject(n,sub){try{await fetch('/setproject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n,sub:sub||''})});}catch(e){}}
+async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);
+ const subs=curSubs();if(!subs.some(s=>s.key===activeSub))activeSub='';
+ localStorage.setItem('studio_sub',activeSub);
+ await setActiveProject(n,activeSub);renderSubSel();renderProj();await loadConfig();
+ galSubs=new Set([activeSub]);shelfSubs=new Set([activeSub]);
+ renderGalChips();renderShelfChips();await loadGal();await loadShelf();}
 let styleTab='img';
 function stashStyle(){const n=$('projSel').value;if(!projects[n])return;
  projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
@@ -2226,6 +2322,9 @@ $('styleSeg').onclick=e=>{const btn=e.target.closest('button');if(!btn)return;
  [...$('styleSeg').children].forEach(x=>x.classList.toggle('on',x.dataset.st===styleTab));renderProj()};
 $('style').addEventListener('input',stashStyle);
 $('projSel').onchange=()=>switchProject();
+$('subSel').onchange=async()=>{const v=$('subSel').value;
+ if(v==='__new__'){renderSubSel();await createSub();return}
+ activeSub=v;localStorage.setItem('studio_sub',activeSub);await switchProject()};
 $('useVis').checked=localStorage.getItem('studio_usevis')!=='0';
 $('useVis').onchange=()=>localStorage.setItem('studio_usevis',$('useVis').checked?'1':'0');
 // crear / borrar proyecto — reutilizable (modal o panel)
@@ -2261,9 +2360,15 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
    :`<div class="ph">${esc((c.label||'?').slice(0,1).toUpperCase())}</div>`;
   const acts=`<button class="pedit" data-edit="1" title="Renombrar">${PEN}</button><button class="pdel" data-del="1" title="${c.name?'Borrar proyecto':'Vaciar General'}">${GTR}</button>`;
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
+  const subs=c.subs||[];
+  const subrow=`<div class="subrow">`
+   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" title="${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
+   +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
+   +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
+   +`</div>`;
   return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}">
    <div class="projcard">${cov}</div>
-   <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div></div>`}).join('');}
+   <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div>${subrow}</div>`}).join('');}
 async function renameProject(old,nw){nw=(nw||'').trim();
  if(!nw){renderProjCards(lastProjCards);return}
  const r=await(await fetch('/projectrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old:old,new:nw})})).json();
@@ -2295,8 +2400,23 @@ $('projGrid').onclick=async e=>{
    toast((name?('Borra "'+label+'" y TODO su contenido'):('Vacía «'+label+'»: borra su historial y Mis imágenes'))+' · clic otra vez','bad');
    setTimeout(()=>del.classList.remove('arm'),2800);return}
   del.classList.remove('arm');await deleteProject(name);openProjModal();return}
+ const sadd=e.target.closest('[data-subadd]');
+ if(sadd){e.stopPropagation();const nm=prompt('Nombre del nuevo subproyecto de "'+(label)+'":');if(nm&&nm.trim()){const r=await(await fetch('/subcreate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,name:nm.trim()})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto "'+nm.trim()+'" creado')}}return}
+ const sren=e.target.closest('[data-subren]');
+ if(sren){e.stopPropagation();const key=sren.dataset.subren,old=sren.dataset.sublabel||key;const nw=prompt('Nuevo nombre del subproyecto:',old);if(nw!==null&&nw.trim()){const r=await(await fetch('/subrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,key:key,new:nw.trim()})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto renombrado')}}return}
+ const sdel=e.target.closest('[data-subdel]');
+ if(sdel){e.stopPropagation();const key=sdel.dataset.subdel;
+  if(!sdel.classList.contains('arm')){[...$('projGrid').querySelectorAll('.subx.arm')].forEach(x=>x.classList.remove('arm'));sdel.classList.add('arm');toast('Borra el subproyecto y TODO su contenido · clic otra vez','bad');setTimeout(()=>sdel.classList.remove('arm'),2800);return}
+  const r=await(await fetch('/subdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,key:key})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto borrado')}return}
+ if(e.target.closest('.subrow'))return;
  if(e.target.closest('input'))return;
- $('projSel').value=name;await switchProject();$('projModal').classList.add('hide')};
+ $('projSel').value=name;activeSub='';await switchProject();$('projModal').classList.add('hide')};
+$('projGrid').addEventListener('change',async e=>{const sc=e.target.closest('.subconv');if(!sc||!sc.value||!sc.value.trim())return;
+ const item=sc.closest('.projitem');if(!item)return;const src=item.dataset.name,dest=sc.value;
+ if(!confirm('¿Convertir el proyecto "'+item.dataset.label+'" en subproyecto de "'+(projects[dest]!==undefined?dest:dest)+'"? Se moverá su carpeta y su contenido.')){sc.value='';return}
+ const r=await(await fetch('/subconvert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:src,dest:dest})})).json();
+ if(r&&r.error){toast(r.error,'bad');sc.value='';return}
+ const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('Convertido en subproyecto de "'+dest+'" ✓')});
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!projects[n])return;
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
@@ -2308,10 +2428,13 @@ async function postRef(project,name,b64){
  await fetch('/projectref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,image:{name,b64}})})}
 // resuelve un drop a [{name,b64}] desde cualquier fuente: resultado, historial, estante o archivos del SO
 async function imagesFromDT(dt){const out=[];
+ const multi=dt.getData('text/x-studio-files');
  const uri=dt.getData('text/x-studio-b64'),hist=dt.getData('text/x-studio-file'),shelf=dt.getData('text/x-studio-shelf');
+ const fsub=dt.getData('text/x-studio-filesub')||'';
+ if(multi){try{const arr=JSON.parse(multi);for(const e of arr){const b=await(await fetch('/file?name='+encodeURIComponent(e.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(e.sub||''))).blob();out.push({name:e.file,b64:await blobToB64(b)})}return out}catch(_){}}
  if(uri){const c=uri.indexOf(',');out.push({name:'generada.png',b64:c>=0?uri.slice(c+1):uri});}
- else if(hist){const b=await(await fetch('/file?name='+encodeURIComponent(hist))).blob();out.push({name:hist,b64:await blobToB64(b)});}
- else if(shelf){const b=await(await fetch('/shelffile?name='+encodeURIComponent(shelf))).blob();out.push({name:shelf,b64:await blobToB64(b)});}
+ else if(hist){const b=await(await fetch('/file?name='+encodeURIComponent(hist)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(fsub))).blob();out.push({name:hist,b64:await blobToB64(b)});}
+ else if(shelf){const ssub=dt.getData('text/x-studio-shelfsub')||'';const b=await(await fetch('/shelffile?name='+encodeURIComponent(shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub))).blob();out.push({name:shelf,b64:await blobToB64(b)});}
  else for(const f of dt.files){if(f.type&&f.type.startsWith('image/'))out.push({name:f.name,b64:await fileToB64(f)});}
  return out;}
 $('dropPref').onclick=()=>{$('prefFile').click()};
@@ -2350,7 +2473,8 @@ $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
 function curProj(){return $('projSel')?($('projSel').value||''):''}
 $('galAll').onclick=()=>{const p=encodeURIComponent(curProj()),fav=$('galFavBtn').classList.contains('on');
- window.open('/galeria?'+(fav?'fav=1&':'')+'project='+p,'_blank','noopener');};
+ const sp=galSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...galSubs].join(',')));
+ window.open('/galeria?'+(fav?'fav=1&':'')+'project='+p+sp,'_blank','noopener');};
 // las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
 async function addRefFromServer(src,file,project){try{
  const pq='&project='+encodeURIComponent(project||'');
@@ -2393,48 +2517,113 @@ function pollAll(){pollStage();pollPromptStage();}
 setInterval(pollAll,2500);
 window.addEventListener('focus',()=>{pollAll();loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();loadGal();}});
-function renderGal(){const items=galFiltered();
- $('gal').innerHTML=items.map(it=>{const fn=encodeURIComponent(it.file),p=esc(it.prompt||'');
-  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-p="${p}" draggable="true"><img src="/file?name=${fn}" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
+function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
+ const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
+ return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="true"><img src="/file?name=${fn}${pq}" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
-   <a class="gfbtn" href="/file?name=${fn}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <a class="gfbtn" href="/file?name=${fn}${pq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn gcopy" title="Copiar prompt">${GCP}</button>
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
-   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}).join('')
-  ||'<div class="hint">Aún no hay imágenes en este proyecto</div>';
+   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
+function renderGal(){const items=galFiltered();
+ if(histGroups.length>1){
+  const subs=curSubs();
+  $('gal').innerHTML=histGroups.map(g=>{
+   let gi=(g.items||[]).filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
+   const q=$('galSearch').value.trim().toLowerCase();const fav=$('galFavBtn').classList.contains('on');
+   if(q)gi=gi.filter(it=>(it.prompt||'').toLowerCase().includes(q));
+   if(fav)gi=gi.filter(it=>it.fav);
+   const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
+   const inner=gi.map(it=>gcardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
+   return `<div class="histgroup"><div class="histgrouphdr">${esc(lbl)}</div>${inner}</div>`}).join('')
+   ||'<div class="hint">Aún no hay imágenes</div>';
+ }else{
+  $('gal').innerHTML=items.map(it=>gcardHtml(it)).join('')
+   ||'<div class="hint">Aún no hay imágenes en este proyecto</div>';
+ }
  $('galMore').classList.add('hide');
  $('gal').classList.toggle('selmode',selMode);
  $('galCount').textContent=items.length||''}
 // ===== selección múltiple del historial =====
 let selMode=false;const selFiles=new Set();
-function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');return}
+function selFileSub(f){const c=$('gal').querySelector('.gcard[data-file="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
+// destinos de "Mover": cada proyecto (raíz) + cada subproyecto de cada proyecto
+function moveTargets(){const out=[];const list=Object.keys(window.SUBS||{});
+ for(const n of list){const lbl=n||genLabel;out.push({project:n,sub:'',label:lbl});
+  for(const s of (window.SUBS[n]||[]))out.push({project:n,sub:s.key,label:lbl+' › '+s.label})}
+ return out}
+function closeMovePop(){const e=$('movePop');if(e)e.remove()}
+document.addEventListener('click',e=>{const mp=$('movePop');if(mp&&!mp.contains(e.target)&&!e.target.closest('#bulkMove'))closeMovePop()});
+async function bulkMoveTo(dest,dest_sub){
+ // agrupa la selección por sub de origen (al ver "Todos" puede haber varios)
+ const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+ let moved=0;
+ for(const ssub of Object.keys(byd)){
+  if(curProj()===dest&&ssub===dest_sub)continue;
+  const r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'history',files:byd[ssub],project:curProj(),sub:ssub,dest:dest,dest_sub:dest_sub,mode:'move'})})).json();
+  if(r&&r.error){toast(r.error,'bad');continue}moved+=byd[ssub].length}
+ closeMovePop();selMode=false;selFiles.clear();await loadGal();renderBulk();
+ if(moved)toast(moved+' imagen(es) movidas')}
+function openMovePop(anchor){closeMovePop();
+ const tgts=moveTargets();
+ const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
+ pop.innerHTML='<div class="mphdr">Mover a…</div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ document.body.appendChild(pop);
+ const r=anchor.getBoundingClientRect();pop.style.left=Math.min(r.left,window.innerWidth-pop.offsetWidth-12)+'px';pop.style.top=(r.bottom+6)+'px';
+ pop.onclick=e=>{const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub)}}
+function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  bar.classList.remove('hide');
  bar.innerHTML='<span class="gbcount">'+selFiles.size+' seleccionada'+(selFiles.size===1?'':'s')+'</span>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
+  +'<button id="bulkMove">'+GCM+'Mover</button>'
   +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="bulkExit">Salir</button>';
+ $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget)};
  $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
   let n=0;for(const f of selFiles){const it=hist.find(x=>x.file===f);if(it&&(it.prompt||'').trim()){try{await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:it.prompt})});n++}catch(e){}}}
   toast(n?(n+' prompt(s) enviados a la biblioteca'):'Ninguna tenía prompt',n?'':'bad');selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkDel').onclick=async(e)=>{const b=e.currentTarget;if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
   if(!b.classList.contains('arm')){b.classList.add('arm');b.lastChild.textContent='¿Borrar '+selFiles.size+'?';setTimeout(()=>{b.classList.remove('arm');renderBulk()},2600);return}
-  for(const f of [...selFiles]){try{await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});hist=hist.filter(x=>x.file!==f)}catch(e){}}
+  for(const f of [...selFiles]){const fs=selFileSub(f);try{await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f,project:curProj(),sub:fs})});hist=hist.filter(x=>x.file!==f);if(histGroups.length){const g=histGroups.find(x=>x.k===fs);if(g)g.items=g.items.filter(it=>it.file!==f)}}catch(e){}}
   const k=selFiles.size;selMode=false;selFiles.clear();renderGal();renderBulk();toast(k+' imagen(es) borradas')}}
 $('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();renderGal();renderBulk()};
-async function loadGal(){hist=await(await fetch('/history')).json();renderGal();renderAud()}
+let galSubs=new Set([activeSub]),histGroups=[];
+function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
+ if(!subs.length){c.innerHTML='';return}
+ const chip=(k,lbl)=>`<button class="subchip${galSubs.has(k)?' on':''}" data-k="${esc(k)}">${esc(lbl)}</button>`;
+ c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label)).join('')+`<button class="subchip${galSubs.has('all')?' on':''}" data-k="all">Todos</button>`}
+$('galSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
+ if(k==='all'){galSubs=new Set(['all'])}else{galSubs.delete('all');if(galSubs.has(k))galSubs.delete(k);else galSubs.add(k);if(!galSubs.size)galSubs.add('')}
+ renderGalChips();loadGal()};
+async function loadGal(){const subs=curSubs();
+ let groups;
+ if(!subs.length){groups=[{k:activeSub||''}]}
+ else if(galSubs.has('all')){groups=[{k:''}].concat(subs.map(s=>({k:s.key})))}
+ else{groups=[...galSubs].map(k=>({k}))}
+ if(!groups.length)groups=[{k:''}];
+ histGroups=[];
+ for(const g of groups){const items=await(await fetch('/history?project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(g.k))).json();
+  (items||[]).forEach(it=>it._sub=g.k);histGroups.push({k:g.k,items:items||[]})}
+ hist=histGroups.length===1?histGroups[0].items:[].concat(...histGroups.map(g=>g.items));
+ renderGal();renderAud()}
 $('galMore').onclick=()=>{shown+=30;renderGal()};
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(b)})}
 function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('dzhi',on)})}
 window.addEventListener('dragend',()=>markDropZones(false));
 window.addEventListener('drop',()=>markDropZones(false));
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
- e.dataTransfer.setData('text/x-studio-file',card.dataset.file);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+ if(selMode&&selFiles.size>1&&selFiles.has(card.dataset.file)){
+  const arr=[...$('gal').querySelectorAll('.gcard')].filter(c=>selFiles.has(c.dataset.file)).map(c=>({file:c.dataset.file,sub:c.dataset.sub||''}));
+  e.dataTransfer.setData('text/x-studio-files',JSON.stringify(arr));}
+ e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
+ if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
+ e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 $('gal').onclick=async e=>{
  if(selMode){const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
  if(e.target.closest('a'))return;
@@ -2448,29 +2637,30 @@ $('gal').onclick=async e=>{
   else if(cmpA===card.dataset.file){cmpA=null;cmp.classList.remove('fav');toast('Comparación cancelada')}
   else{openCmp(cmpA,card.dataset.file);cmpA=null;renderGal()}
   return}
- if(iter){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file))).blob();
+ const cardSub=card?(card.dataset.sub||''):'';const fileQ='&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(cardSub);
+ if(iter){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();
   refs=[{name:card.dataset.file,b64:await blobToB64(b)}];mask=null;renderThumbs();renderMaskThumb();
   setMode('editar');$('prompt').value='';$('prompt').placeholder='Describe solo el cambio: "ahora de noche", "quita el texto", "hazlo acuarela"…';
   $('prompt').focus();toast('Iterando sobre esa imagen · describe el cambio');return}
  if(star){const it=hist.find(x=>x.file===card.dataset.file);if(!it)return;
   it.fav=!it.fav;star.classList.toggle('fav',it.fav);
-  fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav})});
+  fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav,project:curProj(),sub:cardSub})});
   if($('galFavBtn').classList.contains('on'))renderGal();return}
  if(up){up.classList.add('busy');toast('Mejorando 2× con IA · ~30s…');
-  try{const d=await(await fetch('/upscale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,save_desktop:$('saveDesk').checked})})).json();
+  try{const d=await(await fetch('/upscale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,project:curProj(),sub:cardSub,save_desktop:$('saveDesk').checked})})).json();
    if(d.error)toast(d.error,'bad');
    else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Lista en '+d.size)}
   }catch(x){toast(String(x),'bad')}
   up.classList.remove('busy');return}
  if(cp){$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);toast('Prompt copiado');return}
- if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file))).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
+ if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
   if(del.classList.contains('arm')){
-   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file})});
-   hist=hist.filter(it=>it.file!==card.dataset.file);renderGal();toast('Imagen eliminada')}
+   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,project:curProj(),sub:cardSub})});
+   hist=hist.filter(it=>it.file!==card.dataset.file);if(histGroups.length){const g=histGroups.find(x=>x.k===cardSub);if(g)g.items=g.items.filter(it=>it.file!==card.dataset.file)}renderGal();toast('Imagen eliminada')}
   else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
   return}
- if(card){openLb('/file?name='+encodeURIComponent(card.dataset.file),card.dataset.p,card.dataset.file);lbScope='gal';lbCurFile=card.dataset.file;lbSyncNav()}};
+ if(card){openLb('/file?name='+encodeURIComponent(card.dataset.file)+fileQ,card.dataset.p,card.dataset.file);lbScope='gal';lbCurFile=card.dataset.file;lbSyncNav()}};
 
 // ===== lightbox =====
 let lbScope=null,lbCurFile=null;   // contexto de navegación con flechas (galería / estante)
@@ -2483,13 +2673,12 @@ function lbNavigate(dir){
  if(idx<0)return;
  const ni=idx+dir;if(ni<0||ni>=cards.length)return;   // sin dar la vuelta
  const c=cards[ni];
- if(lbScope==='gal'){openLb('/file?name='+encodeURIComponent(c.dataset.file),c.dataset.p||'',c.dataset.file);lbScope='gal';lbCurFile=c.dataset.file;lbSyncNav()}
+ if(lbScope==='gal'){openLb('/file?name='+encodeURIComponent(c.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),c.dataset.p||'',c.dataset.file);lbScope='gal';lbCurFile=c.dataset.file;lbSyncNav()}
  else{const it=shelfItems.find(x=>x.file===c.dataset.shelf);if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}}
 function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lbPrompt').textContent=p||'';
  $('lightbox').dataset.file=file||'';$('lbDesc').style.display=file?'':'none';
  $('lbPrompt').classList.toggle('hide',!p);
- if(file){$('lbDl').href='/file?name='+encodeURIComponent(file);$('lbDl').setAttribute('download',file)}
- else{$('lbDl').href=src;$('lbDl').setAttribute('download','imagen.png')}
+ $('lbDl').href=src;$('lbDl').setAttribute('download',file||'imagen.png');
  $('lbUse').style.display=p?'':'none';
  $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
  $('lbLib').style.display=p?'':'none';
@@ -2551,7 +2740,7 @@ async function run(){
  const fmt=$('fmt').value;
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
   output_format:fmt,moderation:$('mod').value,
-  partial_images:+($('partImg').value||0),project:proj,
+  partial_images:+($('partImg').value||0),project:proj,sub:activeSub,
   save_desktop:$('saveDesk').checked};
  if(fmt!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
@@ -2691,7 +2880,7 @@ async function runMUS(){const p=$('musPrompt').value.trim();
  $('musGo').disabled=true;$('musGoTxt').textContent='Generando · 1–3 min…';
  const body={model:$('musModel').value,prompt:p,lyrics:$('musLyrics').value,
   instrumental:$('musInstr').checked,negative:$('musNeg').value,seed:$('musSeed').value.trim(),
-  project:$('projSel').value,save_desktop:$('saveDesk').checked};
+  project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
  try{const d=await(await fetch('/music',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(d.error)toast(d.error,'bad');
   else{$('audPlayer').src='/file?name='+encodeURIComponent(d.file);
@@ -2771,7 +2960,7 @@ async function runTTS(){const text=$('ttsText').value.trim();
     model_id:$('elModel').value,stability:+$('elStab').value,similarity:+$('elSim').value,
     style:+$('elSty').value,speed:+$('elSpd').value,boost:$('elBoost').checked,
     seed:$('elSeed').value.trim(),normalization:$('elNorm').value,format:$('elFmt').value,
-    project:$('projSel').value,save_desktop:$('saveDesk').checked};
+    project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
    d=await(await fetch('/elspeech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
    if(d.error)toast(d.error,'bad');
    else{showAudResult(d,(body.voice_name||'ElevenLabs')+' · '+$('elModel').value.replace('eleven_',''));
@@ -2780,7 +2969,7 @@ async function runTTS(){const text=$('ttsText').value.trim();
   }else{
    const m=$('ttsModel').value;
    const body={input:text,model:m,voice:selVoice,format:$('ttsFmt').value,
-    project:$('projSel').value,save_desktop:$('saveDesk').checked};
+    project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
    if(m==='gpt-4o-mini-tts')body.instructions=$('ttsInstr').value;else body.speed=+$('ttsSpeed').value;
    d=await(await fetch('/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
    if(d.error)toast(d.error,'bad');
@@ -2840,7 +3029,7 @@ $('sfxInf').oninput=()=>$('sfxInfV').textContent=(+$('sfxInf').value).toFixed(2)
 async function runSFX(){const text=$('sfxText').value.trim();
  if(!text){toast('Describe el efecto de sonido','bad');$('sfxText').focus();return}
  $('sfxGo').disabled=true;$('sfxGoTxt').textContent='Generando…';
- const body={input:text,influence:+$('sfxInf').value,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ const body={input:text,influence:+$('sfxInf').value,project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
  if(!$('sfxAuto').checked)body.duration=+$('sfxDur').value;
  try{const d=await(await fetch('/elsfx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(d.error)toast(d.error,'bad');
@@ -2900,7 +3089,7 @@ async function runSTT(){
  $('sttGo').disabled=true;$('sttGoTxt').textContent='Transcribiendo…';
  const body={name:sttFile.name,b64:sttFile.b64,model:$('sttModel').value,language:$('sttLang').value,
   prompt:$('sttPrompt').value,response_format:$('sttFmt').value,translate:$('sttTrad').checked,
-  temperature:+$('sttTemp').value,duration:sttDur,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+  temperature:+$('sttTemp').value,duration:sttDur,project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
  try{const d=await(await fetch('/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(d.error)toast(d.error,'bad');
   else{$('txText').value=d.text;
@@ -2925,31 +3114,33 @@ function renderAud(){renderVid();fillOhAudSel();
   const playable=it.kind!=='stt',playing=playingFile===it.file;
   const sub=it.kind==='stt'?esc(it.model||''):esc(it.voice||'');
   const price=it.credits?it.credits+' cr':'$'+(it.cost||0).toFixed(4);
-  return `<div class="arow" data-file="${esc(it.file)}">
+  const aq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
+  return `<div class="arow" data-file="${esc(it.file)}" data-sub="${esc(it._sub||'')}">
    <button class="ap${playing?' playing':''}" title="${playable?(playing?'Pausar':'Reproducir'):'Ver transcripción'}">${playable?(playing?APAUSE:APLAY):ADOC}</button>
    <div class="ameta"><div class="at" title="${esc(it.prompt||'')}">${esc(it.prompt||it.file)}</div>
     <div class="as mono">${sub} · ${price}</div></div>
-   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}${aq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn adel" title="Borrar (doble clic)">${GTR}</button></div>`}).join('')}
 $('audList').onclick=async e=>{
  const row=e.target.closest('.arow');if(!row||e.target.closest('a'))return;
  const del=e.target.closest('.adel');
+ const aqd=row?('&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(row.dataset.sub||'')):'';
  if(del){if(del.classList.contains('arm')){
-   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file})});
+   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file,project:curProj(),sub:row.dataset.sub||''})});
    if(playingFile===row.dataset.file){audEl.pause();playingFile=null}
-   hist=hist.filter(it=>it.file!==row.dataset.file);renderAud();toast('Eliminado')}
+   hist=hist.filter(it=>it.file!==row.dataset.file);if(histGroups.length){const g=histGroups.find(x=>x.k===(row.dataset.sub||''));if(g)g.items=g.items.filter(it=>it.file!==row.dataset.file)}renderAud();toast('Eliminado')}
   else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
   return}
  if(!e.target.closest('.ap'))return;
  const it=hist.find(x=>x.file===row.dataset.file);if(!it)return;
  if(it.kind==='stt'){
-  const t=await(await fetch('/file?name='+encodeURIComponent(it.file))).text();
+  const t=await(await fetch('/file?name='+encodeURIComponent(it.file)+aqd)).text();
   $('txText').value=t;$('txCost').innerHTML='<b>$'+(it.cost||0).toFixed(4)+'</b> · '+esc(it.model||'');
-  $('txDl').href='/file?name='+encodeURIComponent(it.file);$('txDl').setAttribute('download',it.file);
+  $('txDl').href='/file?name='+encodeURIComponent(it.file)+aqd;$('txDl').setAttribute('download',it.file);
   if(mode!=='audio')setMode('audio');
   $('audEmpty').classList.add('hide');$('txResult').classList.remove('hide');return}
  if(playingFile===it.file&&!audEl.paused){audEl.pause();playingFile=null}
- else{audEl.src='/file?name='+encodeURIComponent(it.file);audEl.play();playingFile=it.file}
+ else{audEl.src='/file?name='+encodeURIComponent(it.file)+aqd;audEl.play();playingFile=it.file}
  renderAud()};
 
 // ===== video: Seedance · Kling · OmniHuman (vía fal.ai) =====
@@ -3138,7 +3329,7 @@ function klMultiList(){return $('klMulti').value.split('\n').map(l=>l.trim()).fi
 async function runVID(){
  if(!falReady){toast('Conecta tu clave de fal.ai','bad');return}
  const est=parseFloat(($('vidEst').textContent.match(/[\d.]+/)||[0])[0])||0;
- let body={cost_est:est,project:$('projSel').value,save_desktop:$('saveDesk').checked,
+ let body={cost_est:est,project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked,
   use_memory:$('vidUseMem').checked},title='';
  if(vidTab==='sd'){
   let prompt=$('sdPrompt').value.trim();
@@ -3169,7 +3360,7 @@ async function runVID(){
   if(!lsAud){toast('Elige o sube el audio nuevo','bad');return}
   const body2={video:lsVid,audio:lsAud,guidance:+$('lsGuid').value,loop_mode:$('lsLoop').value,
    seed:$('lsSeed').value.trim(),label:$('lsAudSel').value||'audio subido',
-   project:$('projSel').value,save_desktop:$('saveDesk').checked};
+   project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
   $('vidGo').disabled=true;$('vidGoTxt').textContent='Enviando…';
   $('vidEmpty').classList.add('hide');$('vidResult').classList.add('hide');$('vidProgress').classList.remove('hide');
   $('vidProgTxt').textContent='Sincronizando labios…';$('vidProgSub').textContent='Enviando a fal.ai';
@@ -3214,28 +3405,28 @@ $('vidGo').onclick=runVID;
 function renderVid(){const items=hist.filter(it=>it.kind==='vid');
  $('vidSec').classList.toggle('hide',!items.length);
  $('vidList').innerHTML=items.slice(0,10).map(it=>
-  `<div class="arow" data-file="${esc(it.file)}">
+  `<div class="arow" data-file="${esc(it.file)}" data-sub="${esc(it._sub||'')}">
    <button class="ap" title="Ver video"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
    <div class="ameta"><div class="at" title="${esc(it.prompt||'')}">${esc(it.prompt||it.file)}</div>
     <div class="as mono">${esc(it.model||'')} · $${(it.cost||0).toFixed(2)}</div></div>
-   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <a class="gfbtn" href="/file?name=${encodeURIComponent(it.file)}&project=${encodeURIComponent(curProj())}${it._sub?'&sub='+encodeURIComponent(it._sub):''}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
    <button class="gfbtn vdel" title="Borrar (doble clic)">${GTR}</button></div>`).join('')}
 $('vidList').onclick=async e=>{
  const row=e.target.closest('.arow');if(!row||e.target.closest('a'))return;
- const del=e.target.closest('.vdel');
+ const del=e.target.closest('.vdel');const vq=row?('&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(row.dataset.sub||'')):'';
  if(del){if(del.classList.contains('arm')){
-   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file})});
-   hist=hist.filter(it=>it.file!==row.dataset.file);renderVid();toast('Video eliminado')}
+   await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:row.dataset.file,project:curProj(),sub:row.dataset.sub||''})});
+   hist=hist.filter(it=>it.file!==row.dataset.file);if(histGroups.length){const g=histGroups.find(x=>x.k===(row.dataset.sub||''));if(g)g.items=g.items.filter(it=>it.file!==row.dataset.file)}renderVid();toast('Video eliminado')}
   else{del.classList.add('arm');setTimeout(()=>del.classList.remove('arm'),1800)}
   return}
  if(!e.target.closest('.ap'))return;
  const it=hist.find(x=>x.file===row.dataset.file);if(!it)return;
  if(mode!=='video')setMode('video');
  $('vidEmpty').classList.add('hide');$('vidProgress').classList.add('hide');$('vidResult').classList.remove('hide');
- $('vidPlayer').src='/file?name='+encodeURIComponent(it.file);
+ $('vidPlayer').src='/file?name='+encodeURIComponent(it.file)+vq;
  $('vidTitle').textContent=(it.prompt||'').slice(0,60);
  $('vidCost').innerHTML='<b>$'+(it.cost||0).toFixed(2)+'</b>';
- $('vidDl').href='/file?name='+encodeURIComponent(it.file);$('vidDl').setAttribute('download',it.file)};
+ $('vidDl').href='/file?name='+encodeURIComponent(it.file)+vq;$('vidDl').setAttribute('download',it.file)};
 
 // ===== magic prompt + describir =====
 async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
@@ -3443,7 +3634,7 @@ async function poseGenerate(){if(!poseSubs.length){toast('Detecta primero los el
  const camLine=(poseCam.yaw||poseCam.pitch)?('\nÁngulo de cámara de toda la toma: '+camTextFor(poseCam.yaw,poseCam.pitch)+'.'):'';
  const instr='Edita esta imagen cambiando ÚNICAMENTE la orientación/ángulo de los siguientes elementos. Conserva su identidad, rasgos faciales, ropa, colores, proporciones, el estilo artístico, la iluminación y todo el resto de la escena exactamente igual:\n'+lines+camLine+'\nNo dibujes cubos, cajas, flechas ni guías de ningún tipo. Mantén el fondo y los demás elementos sin cambios.';
  const ar=poseImg.w>=poseImg.h*1.15?'1536x1024':poseImg.h>=poseImg.w*1.15?'1024x1536':'1024x1024';
- const body={prompt:instr,images:[{name:'base.png',b64:poseImg.full}],size:ar,quality:$('quality').value,n:1,output_format:'png',moderation:$('mod').value,project:$('projSel').value,save_desktop:$('saveDesk').checked};
+ const body={prompt:instr,images:[{name:'base.png',b64:poseImg.full}],size:ar,quality:$('quality').value,n:1,output_format:'png',moderation:$('mod').value,project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked};
  $('poseModal').classList.add('hide');toast('Generando con los ángulos…');fireGenJob(body)}
 $('poseGen').onclick=poseGenerate;
 $('poseCancel').onclick=()=>$('poseModal').classList.add('hide');
@@ -3503,22 +3694,46 @@ function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{con
  let bw,bh;if(W>=H){bw=m;bh=Math.max(3,Math.round(m*H/W))}else{bh=m;bw=Math.max(3,Math.round(m*W/H))}
  const s=document.createElement('span');s.className='mini';s.style.width=bw+'px';s.style.height=bh+'px';c.insertBefore(s,c.firstChild)})}
 // ===== Estante de imágenes propias (local, en tu equipo · no en OpenAI) =====
-let shelfItems=[];
-async function loadShelf(){try{const r=await(await fetch('/shelf')).json();
- shelfItems=r.items||[];if(r.dir)$('shelfDirLbl').textContent=r.dir;renderShelf();}catch(e){}}
-function renderShelf(){
- $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
- $('shelfGrid').innerHTML=shelfItems.map(it=>{const u='/shelffile?name='+encodeURIComponent(it.file);
-  return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
+let shelfItems=[],shelfSubs=new Set([activeSub]),shelfGroups=[];
+function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
+function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
+ if(!subs.length){c.innerHTML='';return}
+ const chip=(k,lbl)=>`<button class="subchip${shelfSubs.has(k)?' on':''}" data-k="${esc(k)}">${esc(lbl)}</button>`;
+ c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label)).join('')+`<button class="subchip${shelfSubs.has('all')?' on':''}" data-k="all">Todos</button>`}
+$('shelfSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
+ if(k==='all'){shelfSubs=new Set(['all'])}else{shelfSubs.delete('all');if(shelfSubs.has(k))shelfSubs.delete(k);else shelfSubs.add(k);if(!shelfSubs.size)shelfSubs.add('')}
+ renderShelfChips();loadShelf()};
+async function loadShelf(){const subs=curSubs();
+ let groups;
+ if(!subs.length){groups=[{k:activeSub||''}]}
+ else if(shelfSubs.has('all')){groups=[{k:''}].concat(subs.map(s=>({k:s.key})))}
+ else{groups=[...shelfSubs].map(k=>({k}))}
+ if(!groups.length)groups=[{k:''}];
+ shelfGroups=[];let dir='';
+ for(const g of groups){try{const r=await(await fetch('/shelf?project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(g.k))).json();
+  const items=r.items||[];items.forEach(it=>it._sub=g.k);shelfGroups.push({k:g.k,items});if(r.dir&&g.k===(activeSub||''))dir=r.dir;if(r.dir&&!dir)dir=r.dir}catch(e){shelfGroups.push({k:g.k,items:[]})}}
+ shelfItems=shelfGroups.length===1?shelfGroups[0].items:[].concat(...shelfGroups.map(g=>g.items));
+ if(dir)$('shelfDirLbl').textContent=dir;renderShelf()}
+function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
+ return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
-  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}).join('');}
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
+function renderShelf(){
+ $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
+ if(shelfGroups.length>1){const subs=curSubs();
+  $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
+   const inner=(g.items||[]).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
+   return `<div class="histgroup" style="grid-column:1/-1"><div class="histgrouphdr">${esc(lbl)}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
+ }else{
+  $('shelfGrid').innerHTML=shelfItems.map(it=>scardHtml(it)).join('');
+ }}
 async function shelfAddImages(imgs){if(!imgs.length)return;
- const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs})})).json();
+ const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:curProj(),sub:activeSub})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
- shelfItems=r.items||shelfItems;renderShelf();
+ await loadShelf();
  const n=imgs.length-(r.skipped?r.skipped.length:0);
  if(n>0)toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
 async function shelfAddFiles(files){const imgs=[];let bad=0;
@@ -3526,31 +3741,31 @@ async function shelfAddFiles(files){const imgs=[];let bad=0;
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
  await shelfAddImages(imgs);}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
-$('shelfAll').onclick=()=>window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj()),'_blank','noopener');
+$('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...shelfSubs].join(',')));window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj())+sp,'_blank','noopener')};
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
  if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
 $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
- if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;
-  const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file))).blob();
+ if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;const ssub=shelfFileSub(it.file);
+  const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub))).blob();
   refs.push({name:it.name||it.file,b64:await blobToB64(b)});renderThumbs();
   if(mode!=='editar')setMode('editar');validate();toast('Añadida como referencia');return;}
- if(desc){const it=shelfItems.find(x=>x.file===desc.dataset.file);if(!it)return;
+ if(desc){const it=shelfItems.find(x=>x.file===desc.dataset.file);if(!it)return;const ssub=shelfFileSub(it.file);
   desc.classList.add('busy');toast('Describiendo imagen…');
-  try{const d=await(await fetch('/describe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file})})).json();
+  try{const d=await(await fetch('/describe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,shelf:true,project:curProj(),sub:ssub})})).json();
    if(d.error)toast(d.error,'bad');
    else{setMode('crear');$('prompt').value=d.prompt;validate();$('prompt').focus();toast('Prompt de la imagen copiado al panel Crear');}
   }catch(x){toast(String(x),'bad')}
   desc.classList.remove('busy');return;}
- if(del){const f=del.dataset.file;
-  await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f})});
-  shelfItems=shelfItems.filter(x=>x.file!==f);renderShelf();return;}
+ if(del){const f=del.dataset.file;const ssub=shelfFileSub(f);
+  await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f,project:curProj(),sub:ssub})});
+  await loadShelf();return;}
  if(e.target.closest('a,.sbtn'))return;     // descargar u otro botón → su acción nativa
  const card=e.target.closest('.scard');     // clic en la imagen → ampliar en lightbox flotante
- if(card){const it=shelfItems.find(x=>x.file===card.dataset.shelf);
-  if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
+ if(card){const it=shelfItems.find(x=>x.file===card.dataset.shelf);const ssub=card.dataset.sub||'';
+  if(it){openLb('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
- e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
@@ -3565,7 +3780,7 @@ shEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();sh
  if(imgs.length)await shelfAddImages(imgs);});
 // carpeta de guardado configurable
 async function saveShelfDir(p){if(!p)return;
- const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:p,project:curProj()})})).json();
+ const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shelf_dir:p,project:curProj(),sub:activeSub})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.shelf_effective)$('shelfDirLbl').textContent=r.shelf_effective;
  $('shelfDirRow').classList.add('hide');toast('«Mis imágenes» de este proyecto se guardarán en '+(r.shelf_effective||'tu carpeta'));loadShelf();}
@@ -3577,7 +3792,7 @@ $('shelfDirSave').onclick=()=>saveShelfDir($('shelfDirIn').value);
 $('shelfDirIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shelfDirSave').click();}});
 // carpeta del HISTORIAL (copia externa de las imágenes generadas)
 async function saveHistDir(p){if(!p)return;
- const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:p,project:curProj()})})).json();
+ const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:p,project:curProj(),sub:activeSub})})).json();
  if(c.error){toast(c.error,'bad');return;}
  cfgEffective=c.effective||cfgEffective;
  if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}
@@ -3651,7 +3866,7 @@ $('tutBtn').onclick=()=>{$('tutModal').classList.remove('hide')};
 $('tutModal').onclick=e=>{if(e.target===$('tutModal'))$('tutModal').classList.add('hide')};
 $('setGenPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
  try{const r=await(await fetch('/pickfolder')).json();
-  if(r.path){const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:r.path,project:curProj()})})).json();
+  if(r.path){const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:r.path,project:curProj(),sub:activeSub})})).json();
    if(c.error){toast(c.error,'bad');return;}
    cfgEffective=c.effective||cfgEffective;if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}renderSaveWhere();$('setGenPath').textContent=c.effective;
    toast('Las imágenes generadas de este proyecto se copiarán en '+c.effective);}
@@ -3666,7 +3881,11 @@ $('themeWrap').onclick=e=>{const s=e.target.closest('.swatch');if(s)applyTheme(s
 $('langSeg').onclick=e=>{const b=e.target.closest('button');if(b)applyLang(b.dataset.lang);};
 buildMinis();validate();checkKey();setProv(prov);markValidChips();
 // config (etiqueta de General) → proyecto activo → historial + Mis imágenes de ese proyecto
-(async()=>{await loadConfig();await loadProjects();await setActiveProject($('projSel').value);await loadGal();await loadShelf();})();
+(async()=>{await loadProjects();activeSub=localStorage.getItem('studio_sub')||'';
+ const subs0=curSubs();if(!subs0.some(s=>s.key===activeSub))activeSub='';
+ renderSubSel();galSubs=new Set([activeSub]);shelfSubs=new Set([activeSub]);
+ await setActiveProject($('projSel').value,activeSub);await loadConfig();
+ renderGalChips();renderShelfChips();await loadGal();await loadShelf();})();
 (function(){let saved=localStorage.getItem('studio_theme');
  if(!localStorage.getItem('studio_theme_default_v2')){localStorage.setItem('studio_theme_default_v2','1');
   if(!saved||saved==='carbon'){localStorage.removeItem('studio_theme');saved=null;}}
@@ -3757,6 +3976,17 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .gselx{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;background:none;color:#8a8170;border-radius:50%;cursor:pointer;transition:.14s}
 .gselx:hover{background:rgba(0,0,0,.06);color:#2a2620}
 .gselx svg{width:16px;height:16px}
+.gchips{display:flex;flex-wrap:wrap;gap:7px;padding:16px 26px 0}
+.gchip{font-size:12.5px;color:#8a8170;text-decoration:none;border:1px solid #e3dccb;border-radius:999px;padding:6px 13px;background:#fffdf6;white-space:nowrap;transition:.14s}
+.gchip:hover{border-color:#cfc4ac;color:#2a2620}
+.gchip.on{color:#fff;background:#1f6b54;border-color:#1f6b54}
+.groups{padding:8px 0 0}
+.ggroup{padding:0}
+.ggroup .grid{padding:8px 26px 22px}
+.ggrouphdr{position:sticky;top:62px;z-index:3;display:flex;align-items:center;gap:10px;margin:18px 26px 0;padding:9px 14px;
+ background:rgba(255,253,246,.92);backdrop-filter:blur(8px);border:1px solid #e3dccb;border-radius:12px}
+.ggroupname{font-size:13.5px;font-weight:650;color:#2a2620;letter-spacing:-.01em}
+.ggroupcount{font-size:11.5px;color:#8a8170;background:rgba(0,0,0,.05);border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3799,6 +4029,12 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
  .tile{background:#1c1812;border-color:#2a2418}
  .tile:hover{border-color:#3a3322}
  .gtoast{background:#ece6d8;color:#1c1812}
+ .gchip{color:#9a8f78;border-color:#2a2418;background:#1c1812}
+ .gchip:hover{border-color:#3a3322;color:#ece6d8}
+ .gchip.on{color:#1c1812;background:#e0a571;border-color:#e0a571}
+ .ggrouphdr{background:rgba(28,24,18,.92);border-color:#2a2418}
+ .ggroupname{color:#ece6d8}
+ .ggroupcount{color:#9a8f78;background:rgba(255,255,255,.06)}
  .gfolder{color:#9a8f78;border-color:#2a2418}
  .gfolder b{color:#ece6d8}
  .gfbtn{color:#e0a571}
@@ -3830,23 +4066,59 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 }
 """
 
-def gallery_html(src, fav=False, proj=""):
+def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
     import html as _h, json as _json
     from urllib.parse import quote as _q
     is_shelf = (src == "shelf")
-    folder = str((shelf_dir(proj) if is_shelf else save_dir(proj))).replace(str(HOME), "~")
+    folder = str((shelf_dir_sub(proj, sub) if is_shelf else save_dir_sub(proj, sub))).replace(str(HOME), "~")
     _glabel = load_json(CONF_JSON, {}).get("general_label") or "General"
-    _allp = [{"name": "", "label": _glabel}] + [{"name": k, "label": k} for k in load_projects().keys() if k]
-    move_targets = [p for p in _allp if proj_key(p["name"]) != proj_key(proj)]
-    pq = ("&project=" + _q(proj)) if proj else ""
-    plabel = (" · " + proj) if (proj and not is_general(proj)) else ""
-    if is_shelf:
-        items, title, base = load_json(pshelf_json(proj), []), "Mis imágenes" + plabel, "/shelffile?name="
+    # destinos de "mover": cada proyecto (raíz) + cada subproyecto, excepto el grupo de origen
+    move_targets = []
+    for p in [{"name": "", "label": _glabel}] + [{"name": k, "label": k} for k in load_projects().keys() if k]:
+        if not (proj_key(p["name"]) == proj_key(proj) and not sub):
+            move_targets.append({"name": p["name"], "sub": "", "label": p["label"]})
+        for s in list_subs(p["name"]):
+            if proj_key(p["name"]) == proj_key(proj) and _sub_safe(s["key"]) == _sub_safe(sub):
+                continue
+            move_targets.append({"name": p["name"], "sub": s["key"],
+                                 "label": p["label"] + " › " + s["label"]})
+    _all_subs = list_subs(proj)
+    _subkeys = [s["key"] for s in _all_subs]
+    _sub_label_of = {s["key"]: s["label"] for s in _all_subs}
+    _sublabel = ""
+    if sub:
+        _sublabel = _sub_label_of.get(_sub_safe(sub), sub)
+    # --- resolver qué grupos (raíz / subproyectos) se muestran ---
+    # subs_filter: "all" = raíz + todos; "k1,k2" = los listados (cadena vacía = raíz);
+    #              "" + sub = solo ese sub; "" sin sub = solo raíz (igual que hoy)
+    sf = (subs_filter or "").strip()
+    if sf == "all":
+        group_keys = [""] + _subkeys
+    elif sf:
+        group_keys = []
+        for k in sf.split(","):
+            kk = _sub_safe(k)
+            if kk == "" and "" not in group_keys:
+                group_keys.append("")
+            elif kk in _subkeys and kk not in group_keys:
+                group_keys.append(kk)
+        if not group_keys:
+            group_keys = [_sub_safe(sub)]
     else:
-        items, title, base = load_json(phist_json(proj), []), "Historial" + plabel, "/file?name="
+        group_keys = [_sub_safe(sub)]
+    multi = len(group_keys) > 1
+    plabel = (" · " + proj) if (proj and not is_general(proj)) else ""
+    if not multi and sub:
+        plabel += " › " + _sublabel
+    if is_shelf:
+        title, base = "Mis imágenes" + plabel, "/shelffile?name="
+    else:
+        title, base = "Historial" + plabel, "/file?name="
         if fav:
-            items = [it for it in items if it.get("fav")]
             title = "Historial · favoritas" + plabel
+    if multi:
+        title = ("Mis imágenes" if is_shelf else ("Historial · favoritas" if fav else "Historial")) \
+            + ((" · " + proj) if (proj and not is_general(proj)) else "")
     GPL = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
     GCP = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
     GST = '<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>'
@@ -3854,12 +4126,12 @@ def gallery_html(src, fav=False, proj=""):
     GOP = '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>'
     GLB = '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
     GMV = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6M9.5 13.5 12 11l2.5 2.5"/></svg>'
-    tiles = []
-    for it in items:
+    def _tile_html(it, gk):
         f = it.get("file", "")
         if not f:
-            continue
-        u = base + _q(f) + pq
+            return ""
+        gpq = (("&project=" + _q(proj)) if proj else "") + (("&sub=" + _q(gk)) if gk else "")
+        u = base + _q(f) + gpq
         fa = _h.escape(f)
         prompt = "" if is_shelf else str(it.get("prompt", "") or "")
         pa = _h.escape(prompt)
@@ -3876,50 +4148,98 @@ def gallery_html(src, fav=False, proj=""):
         btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
-        tiles.append('<figure class="tile" data-file="' + fa + '" data-fav="' + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
-                     '<img src="' + u + '" loading="lazy" alt="">'
-                     '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
-    grid = "".join(tiles) if tiles else '<div class="empty">Aún no hay imágenes.</div>'
-    pqg = ("?project=" + _q(proj)) if proj else ""
+        return ('<figure class="tile" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
+                + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
+                '<img src="' + u + '" loading="lazy" alt="">'
+                '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
+
+    # cargar cada grupo (raíz + subproyectos seleccionados) y construir su grilla
+    groups = []          # [(key, label, [tile_html...])]
+    total_tiles = 0
+    for gk in group_keys:
+        if is_shelf:
+            g_items = load_json(pshelf_json(proj, gk), [])
+        else:
+            g_items = load_json(phist_json(proj, gk), [])
+            if fav:
+                g_items = [it for it in g_items if it.get("fav")]
+        g_tiles = [t for t in (_tile_html(it, gk) for it in g_items) if t]
+        total_tiles += len(g_tiles)
+        glabel = ("Raíz del proyecto" if (proj and not is_general(proj)) else "General") if gk == "" else _sub_label_of.get(gk, gk)
+        groups.append((gk, glabel, g_tiles))
+    if multi:
+        # Historial/Mis imágenes separado por recuadro + encabezado del subproyecto
+        secs = []
+        for gk, glabel, g_tiles in groups:
+            inner = "".join(g_tiles) if g_tiles else '<div class="empty">Sin imágenes en este grupo.</div>'
+            secs.append('<section class="ggroup">'
+                        '<div class="ggrouphdr"><span class="ggroupname">' + _h.escape(glabel) + '</span>'
+                        '<span class="ggroupcount">' + str(len(g_tiles)) + '</span></div>'
+                        '<div class="grid">' + inner + '</div></section>')
+        grid = "".join(secs)
+    else:
+        only = groups[0][2] if groups else []
+        grid = "".join(only) if only else '<div class="empty">Aún no hay imágenes.</div>'
+    # chips para elegir qué subproyectos ver (solo si el proyecto tiene subproyectos)
+    chips_html = ""
+    if _all_subs:
+        sel_root = ("" in group_keys)
+        sel_all = (sf == "all")
+        def _chip(key, lbl, on):
+            url = "/galeria?" + (("fav=1&") if (fav and not is_shelf) else "") + (("src=shelf&") if is_shelf else "")
+            url += ("project=" + _q(proj)) if proj else ""
+            url += "&subs=" + _q(key)
+            return ('<a class="gchip' + (' on' if on else '') + '" href="' + url + '">' + _h.escape(lbl) + '</a>')
+        cps = [_chip("", "Raíz", sel_root and not sel_all)]
+        for s in _all_subs:
+            cps.append(_chip(s["key"], s["label"], (s["key"] in group_keys) and not sel_all))
+        cps.append(_chip("all", "Todos", sel_all))
+        chips_html = '<div class="gchips">' + "".join(cps) + '</div>'
+    _subq = ("&sub=" + _q(sub)) if sub else ""
+    pqg = ("?project=" + _q(proj) + _subq) if (proj or sub) else ("?sub=" + _q(sub)) if sub else ""
     if is_shelf:
         favlink = ""
     elif fav:
         favlink = '<a class="favtog on" href="/galeria' + pqg + '" title="Ver todas las imágenes">' + GST + 'Todas</a>'
     else:
-        favlink = '<a class="favtog" href="/galeria?fav=1' + (("&project=" + _q(proj)) if proj else "") + '" title="Ver solo las favoritas">' + GST + 'Solo favoritas</a>'
+        favlink = '<a class="favtog" href="/galeria?fav=1' + (("&project=" + _q(proj)) if proj else "") + _subq + '" title="Ver solo las favoritas">' + GST + 'Solo favoritas</a>'
     js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
           "const PROJ=" + _json.dumps(proj or "") + ";"
+          "const SUB=" + _json.dumps(sub or "") + ";"
           "const MOVES=" + _json.dumps(move_targets) + ";"
-          "var PQ=PROJ?('&project='+encodeURIComponent(PROJ)):'';"
           "var BASE=(SRC==='shelf')?'/shelffile?name=':'/file?name=';"
+          # PQ depende del subproyecto del tile (puede haber varios grupos en pantalla)
+          "function pqOf(s){return (PROJ?('&project='+encodeURIComponent(PROJ)):'')+(s?('&sub='+encodeURIComponent(s)):'');}"
+          "function subOf(file){var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(file):file)+'\"]');}catch(_){}return (t&&t.dataset.sub)||SUB||'';}"
           "const tEl=document.getElementById('gtoast');"
           "function gt(m){tEl.textContent=m;tEl.classList.add('show');clearTimeout(tEl._t);tEl._t=setTimeout(function(){tEl.classList.remove('show')},1800);}"
-          "async function stageRef(file){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file,project:PROJ})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
+          "async function stageRef(file){try{var r=await fetch('/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:file,project:PROJ,sub:subOf(file)})});var j=await r.json();gt(j&&j.ok?'Enviada como referencia al estudio ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
           "async function copyP(p){try{await navigator.clipboard.writeText(p||'');gt('Prompt copiado');}catch(x){gt('No se pudo copiar');}}"
           "async function stageP(p){if(!(p||'').trim()){gt('Esta imagen no tiene prompt');return;}try{var r=await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p})});var j=await r.json();gt(j&&j.ok?'Prompt enviado a la biblioteca ✓':(j&&j.error?j.error:'No se pudo enviar'));}catch(x){gt('No se pudo enviar');}}"
           "var glb=document.getElementById('glb'),glbImg=document.getElementById('glbImg'),glbP=document.getElementById('glbP'),glbDl=document.getElementById('glbDl'),glbCopy=document.getElementById('glbCopy');"
-          "var curFile='',curPrompt='';"
-          "function openLb(file,prompt){curFile=file;curPrompt=prompt||'';var u=BASE+encodeURIComponent(file)+PQ;"
+          "var curFile='',curPrompt='',curSub='';"
+          "function openLb(file,prompt,s){curFile=file;curPrompt=prompt||'';curSub=(s!==undefined&&s!==null)?s:subOf(file);var u=BASE+encodeURIComponent(file)+pqOf(curSub);"
           "glbImg.src=u;glbP.textContent=curPrompt;glbDl.href=u;glbDl.setAttribute('download',file);glbCopy.style.display=curPrompt?'':'none';glb.classList.add('show');}"
           "function closeLb(){glb.classList.remove('show');glbImg.src='';}"
-          "var g=document.querySelector('.grid');"
-          "if(g)g.addEventListener('click',async function(e){"
+          "var GRIDS=[].slice.call(document.querySelectorAll('.grid'));"
+          "function allTiles(){return [].slice.call(document.querySelectorAll('.tile'));}"
+          "GRIDS.forEach(function(g){g.addEventListener('click',async function(e){"
           "if(selMode){if(window.__marqueed){window.__marqueed=false;return;}var st=e.target.closest('.tile');if(st){e.preventDefault();var ts=[].slice.call(g.querySelectorAll('.tile')),idx=ts.indexOf(st);"
           "if(e.shiftKey&&lastSelIdx!==null&&lastSelIdx<ts.length){var a=Math.min(lastSelIdx,idx),z=Math.max(lastSelIdx,idx);for(var i=a;i<=z;i++){var t=ts[i];if(t&&!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel');}}updSel();}"
           "else{toggleSel(st);lastSelIdx=idx;}}return;}"
           "var b=e.target.closest('[data-act]');"
           "if(b){e.preventDefault();var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
           "if(act==='ref'){stageRef(file);}"
-          "else if(act==='open'){openLb(file,tile.dataset.prompt);}"
+          "else if(act==='open'){openLb(file,tile.dataset.prompt,tile.dataset.sub);}"
           "else if(act==='prompt'){copyP(tile.dataset.prompt);}"
           "else if(act==='move'){setMode('move');openMenu(b,[file],[tile]);}"
           "else if(act==='lib'){stageP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
-          "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ})});}catch(x){}"
+          "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ,sub:tile.dataset.sub||''})});}catch(x){}"
           "gt(on?'Marcada como favorita':'Quitada de favoritas');}return;}"
           "if(e.target.closest('a'))return;"
-          "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt);"
-          "});"
+          "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt,tile.dataset.sub);"
+          "});});"
           "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
           "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mv&&mv.style.display!=='none'){closeMv();}else if(selMode){exitSel();}else{closeLb();}}});"
           "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
@@ -3927,7 +4247,7 @@ def gallery_html(src, fav=False, proj=""):
           "var gfdir=document.getElementById('gfdir'),gfpick=document.getElementById('gfpick');"
           "if(gfpick)gfpick.onclick=async function(){gt('Abriendo selector de carpeta…');"
           "try{var r=await(await fetch('/pickfolder')).json();"
-          "if(r.path){var fld=(SRC==='shelf')?'shelf_dir':'save_dir';var body={project:PROJ};body[fld]=r.path;"
+          "if(r.path){var fld=(SRC==='shelf')?'shelf_dir':'save_dir';var body={project:PROJ,sub:SUB};body[fld]=r.path;"
           "var c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();"
           "if(c.error){gt(c.error);return;}var eff=(SRC==='shelf')?c.shelf_effective:c.effective;"
           "if(gfdir)gfdir.textContent=eff;gt('Carpeta cambiada ✓');}"
@@ -3935,7 +4255,7 @@ def gallery_html(src, fav=False, proj=""):
           # --- mover / copiar imágenes a otro proyecto (individual o en lote) ---
           "var mvFiles=[],mvTiles=[],mvMode='move';"
           "var mv=document.createElement('div');mv.className='gmvov';mv.style.display='none';"
-          "mv.innerHTML='<div class=\"gmvcard\"><button class=\"gmvclose\" title=\"Cerrar (Esc)\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button><div class=\"gmvtitle\">Enviar a proyecto</div><div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">Elige el proyecto destino</div><div class=\"gmvlist\">'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-n=\"'+encodeURIComponent(p.name)+'\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"/></svg><span>'+nm+'</span></button>';}).join('')+'</div></div>';"
+          "mv.innerHTML='<div class=\"gmvcard\"><button class=\"gmvclose\" title=\"Cerrar (Esc)\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button><div class=\"gmvtitle\">Enviar a proyecto</div><div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">Elige el proyecto destino</div><div class=\"gmvlist\">'+MOVES.map(function(p,i){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-i=\"'+i+'\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"/></svg><span>'+nm+'</span></button>';}).join('')+'</div></div>';"
           "document.body.appendChild(mv);"
           "function setMode(m){mvMode=m;mv.querySelectorAll('.gmvtabs button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m);});}"
           "mv.querySelectorAll('.gmvtabs button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setMode(t.dataset.m);};});"
@@ -3943,24 +4263,30 @@ def gallery_html(src, fav=False, proj=""):
           "function closeMv(){mv.style.display='none';}"
           "mv.querySelector('.gmvclose').onclick=closeMv;"
           "mv.addEventListener('click',function(e){if(e.target===mv)closeMv();});"
-          "function updCount(){var c=document.querySelector('.count');if(c)c.textContent=document.querySelectorAll('.tile').length+' imágenes';}"
-          "mv.addEventListener('click',async function(e){var b=e.target.closest('button.gmvp');if(!b)return;var dest=decodeURIComponent(b.getAttribute('data-n'));var mode=mvMode,files=mvFiles.slice(),tiles=mvTiles.slice();closeMv();if(!files.length)return;"
-          "try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ,dest:dest,mode:mode})})).json();"
-          "if(r&&r.ok){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var n=r.done||files.length;var verb=mode==='copy'?'copiada':'movida';gt((n>1?n+' '+verb+'s':'1 '+verb)+' a '+(b.textContent||'').trim()+' ✓');if(selMode)exitSel();}else gt((r&&r.error)||'No se pudo');}catch(x){gt('No se pudo');}});"
+          "function updCount(){var c=document.querySelector('.count');if(c)c.textContent=document.querySelectorAll('.tile').length+' imágenes';"
+          "[].slice.call(document.querySelectorAll('.ggroup')).forEach(function(s){var n=s.querySelectorAll('.tile').length,cc=s.querySelector('.ggroupcount');if(cc)cc.textContent=n;});}"
+          "mv.addEventListener('click',async function(e){var b=e.target.closest('button.gmvp');if(!b)return;var tgt=MOVES[+b.getAttribute('data-i')]||{name:'',sub:''};var dest=tgt.name,destSub=tgt.sub||'';var mode=mvMode,files=mvFiles.slice(),tiles=mvTiles.slice();closeMv();if(!files.length)return;"
+          # agrupar por subproyecto de origen (en multi-grupo la selección puede mezclar subs)
+          "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:subOf(files[i]))||'';(byS[s]=byS[s]||[]).push(files[i]);}"
+          "var done=0,err='';"
+          "for(var sk in byS){try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk,dest:dest,dest_sub:destSub,mode:mode})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo';}}"
+          "if(done){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var verb=mode==='copy'?'copiada':'movida';gt((done>1?done+' '+verb+'s':'1 '+verb)+' a '+(b.textContent||'').trim()+' ✓');if(selMode)exitSel();}else gt(err||'No se pudo');});"
           "var glbMove=document.getElementById('glbMove');"
           "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
           # --- selección en lote ---
           "var selMode=false,selSet={},lastSelIdx=null;"
           # marquee: arrastrar un recuadro para seleccionar varias
           "var marq=null,mqStart=null,mqMoved=false;"
-          "if(g)g.addEventListener('pointerdown',function(e){if(!selMode)return;if(e.button!==0)return;if(e.target.closest('a,button'))return;e.preventDefault();mqStart={x:e.clientX,y:e.clientY};mqMoved=false;});"
-          "if(g)g.addEventListener('pointermove',function(e){if(!selMode||!mqStart)return;var dx=e.clientX-mqStart.x,dy=e.clientY-mqStart.y;if(!mqMoved&&Math.abs(dx)+Math.abs(dy)<6)return;mqMoved=true;"
+          "GRIDS.forEach(function(g){"
+          "g.addEventListener('pointerdown',function(e){if(!selMode)return;if(e.button!==0)return;if(e.target.closest('a,button'))return;e.preventDefault();mqStart={x:e.clientX,y:e.clientY};mqMoved=false;});"
+          "g.addEventListener('pointermove',function(e){if(!selMode||!mqStart)return;var dx=e.clientX-mqStart.x,dy=e.clientY-mqStart.y;if(!mqMoved&&Math.abs(dx)+Math.abs(dy)<6)return;mqMoved=true;"
           "if(!marq){marq=document.createElement('div');marq.className='gmarq';document.body.appendChild(marq);}"
           "var x1=Math.min(e.clientX,mqStart.x),y1=Math.min(e.clientY,mqStart.y),x2=Math.max(e.clientX,mqStart.x),y2=Math.max(e.clientY,mqStart.y);"
           "marq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';"
-          "[].slice.call(g.querySelectorAll('.tile')).forEach(function(t){var r=t.getBoundingClientRect();var hit=!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2);if(hit&&!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel');}});updSel();});"
+          "allTiles().forEach(function(t){var r=t.getBoundingClientRect();var hit=!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2);if(hit&&!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel');}});updSel();});"
+          "g.addEventListener('pointerup',endMarq);g.addEventListener('pointercancel',endMarq);"
+          "});"
           "function endMarq(){if(!mqStart)return;if(marq){marq.remove();marq=null;}if(mqMoved)window.__marqueed=true;mqStart=null;mqMoved=false;}"
-          "if(g){g.addEventListener('pointerup',endMarq);g.addEventListener('pointercancel',endMarq);}"
           "var selbtn=document.getElementById('gselbtn'),selbar=document.getElementById('gselbar'),seln=document.getElementById('gseln');"
           "function selFiles(){return Object.keys(selSet);}"
           "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
@@ -3975,20 +4301,22 @@ def gallery_html(src, fav=False, proj=""):
           "var gseldel=document.getElementById('gseldel');"
           "if(gseldel)gseldel.onclick=async function(){var files=selFiles(),tiles=selTiles();if(!files.length){gt('Selecciona imágenes primero');return;}"
           "if(!confirm('¿Eliminar '+files.length+(files.length===1?' imagen':' imágenes')+'? Se quita la copia interna (las copias en tu carpeta se conservan).'))return;"
-          "try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ})})).json();"
-          "if(r&&r.ok){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt((r.done||files.length)+(((r.done||files.length)===1)?' eliminada ✓':' eliminadas ✓'));}else gt((r&&r.error)||'No se pudo eliminar');}catch(x){gt('No se pudo eliminar');}};"
+          # agrupar por subproyecto de origen
+          "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:'')||'';(byS[s]=byS[s]||[]).push(files[i]);}"
+          "var done=0,err='';for(var sk in byS){try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo eliminar';}}"
+          "if(done){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt(done+((done===1)?' eliminada ✓':' eliminadas ✓'));}else gt(err||'No se pudo eliminar');};"
           # --- soltar imágenes externas (Finder/escritorio/otra app) en Mis imágenes ---
           "if(SRC==='shelf'){"
           "window.addEventListener('dragover',function(e){if(e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0){e.preventDefault();document.body.classList.add('gdrop');}});"
           "window.addEventListener('dragleave',function(e){if(!e.relatedTarget)document.body.classList.remove('gdrop');});"
           "window.addEventListener('drop',async function(e){document.body.classList.remove('gdrop');if(selMode)return;var fs=[].slice.call((e.dataTransfer&&e.dataTransfer.files)||[]).filter(function(f){return f.type&&f.type.indexOf('image/')===0;});if(!fs.length)return;e.preventDefault();"
           "gt('Subiendo '+fs.length+' imagen'+(fs.length>1?'es':'')+'…');var imgs=[];for(var i=0;i<fs.length;i++){imgs.push({name:fs[i].name,b64:await new Promise(function(res){var rd=new FileReader();rd.onload=function(){res(String(rd.result).split(',')[1]);};rd.readAsDataURL(fs[i]);})});}"
-          "try{var rr=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:PROJ})})).json();if(rr&&rr.ok){gt(fs.length+' añadida'+(fs.length>1?'s':'')+' a Mis imágenes ✓');setTimeout(function(){location.reload();},650);}else gt((rr&&rr.error)||'No se pudo subir');}catch(x){gt('No se pudo subir');}});"
+          "try{var rr=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:PROJ,sub:SUB})})).json();if(rr&&rr.ok){gt(fs.length+' añadida'+(fs.length>1?'s':'')+' a Mis imágenes ✓');setTimeout(function(){location.reload();},650);}else gt((rr&&rr.error)||'No se pudo subir');}catch(x){gt('No se pudo subir');}});"
           "}")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
-            '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
+            '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(total_tiles) + ' imágenes</span>'
             '<span class="gfolder" title="Carpeta donde se guardan estas imágenes">'
             '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
             'Carpeta: <b id="gfdir">' + _h.escape(folder) + '</b>'
@@ -3997,7 +4325,8 @@ def gallery_html(src, fav=False, proj=""):
             + ('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover, copiar o eliminar">'
                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Seleccionar</button>')
             + '</header>'
-            '<main class="grid">' + grid + '</main>'
+            + chips_html
+            + (('<main class="groups">' + grid + '</main>') if multi else ('<main class="grid">' + grid + '</main>'))
             + ('<div class="gselbar" id="gselbar">'
                '<span class="gselcount"><b id="gseln">0</b>seleccionadas</span>'
                '<span class="gseldiv"></span>'
@@ -4515,6 +4844,13 @@ class H(BaseHTTPRequestHandler):
         q = parse_qs(urlparse(self.path).query, keep_blank_values=True).get("project")
         return q[0] if q is not None else ACTIVE_PROJ
 
+    def _sub(self, b=None):
+        # subproyecto de la petición: body.sub → query ?sub= (incl. vacío=raíz) → subproyecto activo
+        if b is not None and "sub" in b:
+            return b.get("sub") or ""
+        q = parse_qs(urlparse(self.path).query, keep_blank_values=True).get("sub")
+        return q[0] if q is not None else ACTIVE_SUB
+
     # ---- streaming (imágenes parciales / preview en vivo) ----
     def _stream_open(self):
         self.send_response(200)
@@ -4581,26 +4917,38 @@ class H(BaseHTTPRequestHandler):
                 data_ok = False
             return self._json({"ok": bool(key()), "data_ok": data_ok})
         if urlparse(self.path).path == "/history":
-            return self._json(load_json(phist_json(self._proj()), []))
+            return self._json(load_json(phist_json(self._proj(), self._sub()), []))
         if self.path == "/projects":
-            return self._json(load_projects())
+            data = load_projects()
+            subs = {k: list_subs(k) for k in data.keys()}   # k="" es General
+            return self._json({"projects": data, "subs": subs})
         if self.path == "/projectcards":
             glabel = (load_json(CONF_JSON, {}).get("general_label") or "General")
+
+            def _count_cover(n, sk=""):
+                items = load_json(phist_json(n, sk), [])
+                imgs = [it for it in items if it.get("kind") not in ("tts", "stt", "sfx", "vid") and it.get("file")]
+                return len(imgs), (imgs[0]["file"] if imgs else "")
+
             cards = []
             for n in [""] + [k for k in load_projects().keys() if k]:
-                items = load_json(phist_json(n), [])
-                imgs = [it for it in items if it.get("kind") not in ("tts", "stt", "sfx", "vid") and it.get("file")]
-                cards.append({"name": n, "label": (glabel if n == "" else n), "count": len(imgs),
-                              "cover": imgs[0]["file"] if imgs else ""})
+                cnt, cov = _count_cover(n)
+                subs = []
+                for s in list_subs(n):
+                    sc, scov = _count_cover(n, s["key"])
+                    subs.append({"key": s["key"], "label": s["label"], "count": sc, "cover": scov})
+                cards.append({"name": n, "label": (glabel if n == "" else n), "count": cnt,
+                              "cover": cov, "subs": subs})
             return self._json({"cards": cards})
         if urlparse(self.path).path == "/config":
             conf = load_json(CONF_JSON, {})
             pr = self._proj()   # proyecto activo (o ?project=): sus carpetas
+            sb = self._sub()    # subproyecto activo (o ?sub=)
             glabel = conf.get("general_label", "") or "General"
             return self._json({"save_dir": conf.get("save_dir", ""),
-                               "effective": str(save_dir(pr)).replace(str(HOME), "~"),
-                               "shelf_effective": str(shelf_dir(pr)).replace(str(HOME), "~"),
-                               "project": pr, "project_label": (glabel if is_general(pr) else pr),
+                               "effective": str(save_dir_sub(pr, sb)).replace(str(HOME), "~"),
+                               "shelf_effective": str(shelf_dir_sub(pr, sb)).replace(str(HOME), "~"),
+                               "project": pr, "sub": sb, "project_label": (glabel if is_general(pr) else pr),
                                "general_label": glabel,
                                "voice_styles": conf.get("voice_styles", [])})
         if self.path == "/backupstatus":
@@ -4653,7 +5001,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"voices": [], "error": str(e)})
         if self.path.startswith("/file?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
-            fp = phist_dir(self._proj()) / os.path.basename(name)
+            fp = phist_dir(self._proj(), self._sub()) / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
@@ -4663,8 +5011,9 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
         if urlparse(self.path).path == "/shelf":
             pr = self._proj()
-            shdir = shelf_dir(pr)
-            return self._json({"items": load_json(pshelf_json(pr), []),
+            sb = self._sub()
+            shdir = shelf_dir_sub(pr, sb)
+            return self._json({"items": load_json(pshelf_json(pr, sb), []),
                                "dir": str(shdir).replace(str(HOME), "~")})
         if self.path == "/pickfolder":
             # diálogo nativo de macOS para elegir carpeta (la app corre local)
@@ -4680,7 +5029,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": f"No pude abrir el selector: {e}"})
         if self.path.startswith("/shelffile?"):
             name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
-            fp = pshelf_dir(self._proj()) / os.path.basename(name)
+            fp = pshelf_dir(self._proj(), self._sub()) / os.path.basename(name)
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path == "/stage":
@@ -4708,7 +5057,9 @@ class H(BaseHTTPRequestHandler):
             src = q.get("src", ["history"])[0]
             fav = q.get("fav", ["0"])[0] == "1"
             proj = q.get("project", [ACTIVE_PROJ])[0]
-            return self._send(200, gallery_html(src, fav, proj), "text/html; charset=utf-8",
+            sub = q.get("sub", [""])[0]
+            subs_filter = q.get("subs", [""])[0]
+            return self._send(200, gallery_html(src, fav, proj, sub, subs_filter), "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
         return self._send(404, "not found", "text/plain")
 
@@ -4733,7 +5084,9 @@ class H(BaseHTTPRequestHandler):
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
-                 "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
+                 "/stage": self.h_stage, "/setproject": self.h_setproject,
+                 "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
+                 "/subdel": self.h_subdel, "/subconvert": self.h_subconvert}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -4884,6 +5237,110 @@ class H(BaseHTTPRequestHandler):
                 save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
 
+    def h_subcreate(self):
+        b = self._body()
+        proj = b.get("project", "") or ""
+        name = (b.get("name") or "").strip()
+        if not name:
+            return self._json({"error": "Falta el nombre del subproyecto"})
+        key = safe(name)
+        with LOCK:
+            base = psub_base(proj, key)
+            if base.exists():
+                return self._json({"error": "Ya existe un subproyecto con ese nombre"})
+            base.mkdir(parents=True, exist_ok=True)
+            try:
+                (base / "label.txt").write_text(name)
+            except Exception:
+                pass
+        return self._json({"ok": True, "key": key, "label": name})
+
+    def h_subrename(self):
+        b = self._body()
+        proj = b.get("project", "") or ""
+        key = _sub_safe(b.get("key", ""))
+        new = (b.get("new") or "").strip()
+        if not key or not new:
+            return self._json({"error": "Faltan datos"})
+        with LOCK:
+            base = psub_base(proj, key)
+            if not base.is_dir():
+                return self._json({"error": "Subproyecto no encontrado"})
+            newkey = safe(new)
+            if newkey != key:
+                nb = psub_base(proj, newkey)
+                if nb.exists():
+                    return self._json({"error": "Ya existe un subproyecto con ese nombre"})
+                base.rename(nb)
+                base = nb
+            try:
+                (base / "label.txt").write_text(new)
+            except Exception:
+                pass
+            try:   # reetiquetar metadatos del historial del sub
+                jp = base / "historial.json"
+                h = load_json(jp, [])
+                for it in h:
+                    it["project"] = proj
+                    it["sub"] = newkey
+                save_json(jp, h)
+            except Exception:
+                pass
+        return self._json({"ok": True, "key": newkey, "label": new})
+
+    def h_subdel(self):
+        b = self._body()
+        proj = b.get("project", "") or ""
+        key = _sub_safe(b.get("key", ""))
+        if not key:
+            return self._json({"error": "Falta el subproyecto"})
+        with LOCK:
+            try:
+                shutil.rmtree(psub_base(proj, key))
+            except Exception:
+                pass
+        return self._json({"ok": True})
+
+    def h_subconvert(self):
+        # CONVERTIR un proyecto existente en subproyecto de otro (migración: mueve la carpeta)
+        b = self._body()
+        src = (b.get("src") or "").strip()          # proyecto a convertir (no General)
+        dest = b.get("dest", "") or ""              # proyecto destino (puede ser General)
+        if is_general(src):
+            return self._json({"error": "No se puede convertir «General»"})
+        if proj_key(src) == proj_key(dest):
+            return self._json({"error": "Destino inválido"})
+        key = safe(src)
+        srcf = PROJ_DIR / safe(src)
+        if not srcf.is_dir():
+            return self._json({"error": "Proyecto origen no encontrado"})
+        subf = srcf / "sub"
+        if subf.is_dir() and any(p.is_dir() for p in subf.iterdir()):
+            return self._json({"error": "Ese proyecto tiene subproyectos; vacíalos antes de convertirlo"})
+        with LOCK:
+            target = psub_base(dest, key)
+            if target.exists():
+                return self._json({"error": "Ya hay un subproyecto con ese nombre en el destino"})
+            target.parent.mkdir(parents=True, exist_ok=True)
+            srcf.rename(target)
+            try:
+                (target / "label.txt").write_text(src)
+            except Exception:
+                pass
+            pr = load_json(PROJ_JSON, {})   # quitar el proyecto del índice
+            pr.pop(proj_key(src), None)
+            save_json(PROJ_JSON, pr)
+            try:   # reetiquetar su historial
+                jp = target / "historial.json"
+                h = load_json(jp, [])
+                for it in h:
+                    it["project"] = dest
+                    it["sub"] = key
+                save_json(jp, h)
+            except Exception:
+                pass
+        return self._json({"ok": True, "dest": dest, "key": key, "label": src})
+
     def h_config(self):
         b = self._body()
         with LOCK:
@@ -4892,6 +5349,7 @@ class H(BaseHTTPRequestHandler):
     def _config_locked(self, b):
         conf = load_json(CONF_JSON, {})
         prn = b.get("project", ACTIVE_PROJ)   # las carpetas son por proyecto
+        sbn = b.get("sub", ACTIVE_SUB)        # el subproyecto solo afecta al effective mostrado
         pk = proj_key(prn)
 
         def _checkdir(raw):
@@ -4922,8 +5380,8 @@ class H(BaseHTTPRequestHandler):
         if "voice_styles" in b and isinstance(b["voice_styles"], list):
             conf["voice_styles"] = b["voice_styles"][:50]
         save_json(CONF_JSON, conf)
-        return self._json({"ok": True, "effective": str(save_dir(prn)).replace(str(HOME), "~"),
-                           "shelf_effective": str(shelf_dir(prn)).replace(str(HOME), "~")})
+        return self._json({"ok": True, "effective": str(save_dir_sub(prn, sbn)).replace(str(HOME), "~"),
+                           "shelf_effective": str(shelf_dir_sub(prn, sbn)).replace(str(HOME), "~")})
 
     def h_historydel(self):
         b = self._body()
@@ -4931,12 +5389,13 @@ class H(BaseHTTPRequestHandler):
         if not f:
             return self._json({"error": "Falta el archivo"})
         pr = self._proj(b)
+        sb = self._sub(b)
         with LOCK:
-            jp = phist_json(pr)
+            jp = phist_json(pr, sb)
             h = load_json(jp, [])
             save_json(jp, [x for x in h if x.get("file") != f])
         try:
-            (phist_dir(pr) / f).unlink()
+            (phist_dir(pr, sb) / f).unlink()
         except Exception:
             pass
         return self._json({"ok": True})
@@ -4947,12 +5406,13 @@ class H(BaseHTTPRequestHandler):
         if not imgs:
             return self._json({"error": "Sin imágenes"})
         pr = self._proj(b)
-        sdir = pshelf_dir(pr)
-        ext_dir = shelf_dir(pr)   # carpeta externa configurable de este proyecto (o la interna)
+        sb = self._sub(b)
+        sdir = pshelf_dir(pr, sb)
+        ext_dir = shelf_dir_sub(pr, sb)   # carpeta externa configurable de este proyecto/sub (o la interna)
         mirror = ext_dir.resolve() != sdir.resolve()
         skipped = []
         with LOCK:
-            sj = pshelf_json(pr)
+            sj = pshelf_json(pr, sb)
             items = load_json(sj, [])
             for im in imgs[:IMG_MAX_COUNT]:
                 try:
@@ -4985,12 +5445,13 @@ class H(BaseHTTPRequestHandler):
         if not f:
             return self._json({"error": "Falta el archivo"})
         pr = self._proj(b)
+        sb = self._sub(b)
         with LOCK:
-            sj = pshelf_json(pr)
+            sj = pshelf_json(pr, sb)
             items = load_json(sj, [])
             save_json(sj, [x for x in items if x.get("file") != f])
         try:
-            (pshelf_dir(pr) / f).unlink()   # solo la copia interna; las copias en tu carpeta se conservan
+            (pshelf_dir(pr, sb) / f).unlink()   # solo la copia interna; las copias en tu carpeta se conservan
         except Exception:
             pass
         return self._json({"ok": True})
@@ -5006,6 +5467,8 @@ class H(BaseHTTPRequestHandler):
         files = [os.path.basename(x) for x in files if x]
         srcp = b.get("project", "") or ""
         dest = b.get("dest", "") or ""
+        src_sub = b.get("sub", "") or ""
+        dest_sub = b.get("dest_sub", "") or ""
         mode = b.get("mode", "move")
         if mode not in ("move", "copy"):
             mode = "move"
@@ -5013,19 +5476,19 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Faltan archivos"})
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
-        if proj_key(srcp) == proj_key(dest):
-            return self._json({"error": "Ya está en ese proyecto"})
+        if proj_key(srcp) == proj_key(dest) and _sub_safe(src_sub) == _sub_safe(dest_sub):
+            return self._json({"error": "Ya está en ese lugar"})
         done = 0
         errors = []
         with LOCK:
             if src == "history":
-                sj, dj = phist_json(srcp), phist_json(dest)
-                sdir, ddir = phist_dir(srcp), phist_dir(dest)
-                ext_dest = save_dir(dest)
+                sj, dj = phist_json(srcp, src_sub), phist_json(dest, dest_sub)
+                sdir, ddir = phist_dir(srcp, src_sub), phist_dir(dest, dest_sub)
+                ext_dest = save_dir_sub(dest, dest_sub)
             else:
-                sj, dj = pshelf_json(srcp), pshelf_json(dest)
-                sdir, ddir = pshelf_dir(srcp), pshelf_dir(dest)
-                ext_dest = shelf_dir(dest)
+                sj, dj = pshelf_json(srcp, src_sub), pshelf_json(dest, dest_sub)
+                sdir, ddir = pshelf_dir(srcp, src_sub), pshelf_dir(dest, dest_sub)
+                ext_dest = shelf_dir_sub(dest, dest_sub)
             items = load_json(sj, [])
             ditems = load_json(dj, [])
             moved_files = set()
@@ -5059,6 +5522,7 @@ class H(BaseHTTPRequestHandler):
                 new_entry["file"] = target
                 if src == "history":
                     new_entry["project"] = dest
+                    new_entry["sub"] = dest_sub
                 ditems.insert(0, new_entry)
                 if mode == "move":
                     moved_files.add(f)
@@ -5067,7 +5531,7 @@ class H(BaseHTTPRequestHandler):
                 save_json(sj, [x for x in items if x.get("file") not in moved_files])
             if done:
                 save_json(dj, ditems)
-        return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "errors": errors})
+        return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "dest_sub": dest_sub, "errors": errors})
 
     def h_deleteitems(self):
         # borra en lote del historial o estante (solo la copia interna; las copias externas se conservan)
@@ -5079,15 +5543,16 @@ class H(BaseHTTPRequestHandler):
             files = [one] if one else []
         files = [os.path.basename(x) for x in files if x]
         pr = b.get("project", "") or ""
+        sb = b.get("sub", "") or ""
         if not files:
             return self._json({"error": "Faltan archivos"})
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
         with LOCK:
             if src == "history":
-                jp, d = phist_json(pr), phist_dir(pr)
+                jp, d = phist_json(pr, sb), phist_dir(pr, sb)
             else:
-                jp, d = pshelf_json(pr), pshelf_dir(pr)
+                jp, d = pshelf_json(pr, sb), pshelf_dir(pr, sb)
             items = load_json(jp, [])
             fset = set(files)
             save_json(jp, [x for x in items if x.get("file") not in fset])
@@ -5140,17 +5605,18 @@ class H(BaseHTTPRequestHandler):
                                      ("studio", json.dumps({"size": meta.get("size"), "quality": meta.get("quality"), "mode": meta.get("mode")}, ensure_ascii=False))])
                 b64 = base64.b64encode(raw).decode()
             name = f"img_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
-            (phist_dir(meta.get("project", "")) / name).write_bytes(raw)
+            (phist_dir(meta.get("project", ""), meta.get("sub", "")) / name).write_bytes(raw)
             if meta.get("save_desktop", True):
                 try:
-                    dst = save_dir(meta.get("project", ""))
+                    dst = save_dir_sub(meta.get("project", ""), meta.get("sub", ""))
                     dst.mkdir(parents=True, exist_ok=True)
                     (dst / name).write_bytes(raw)
                 except Exception:
                     pass
             add_history({"file": name, "prompt": meta["prompt"], "size": meta["size"],
                          "quality": meta["quality"], "mode": meta["mode"], "cost": per,
-                         "output_tokens": out_t, "ts": time.strftime("%Y-%m-%d %H:%M"), "project": meta.get("project", "")})
+                         "output_tokens": out_t, "ts": time.strftime("%Y-%m-%d %H:%M"),
+                         "project": meta.get("project", ""), "sub": meta.get("sub", "")})
             images.append({"image": f"data:{mime};base64," + b64, "file": name, "cost": per})
         first = images[0]["image"] if images else ""
         return {"images": images, "image": first, "cost": total, "output_tokens": out_t,
@@ -5175,7 +5641,7 @@ class H(BaseHTTPRequestHandler):
             payload["output_compression"] = b["output_compression"]
         meta = {"prompt": b.get("prompt", ""), "size": size, "quality": quality,
                 "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
-                "save_desktop": b.get("save_desktop", True)}
+                "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
         if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
             payload["stream"] = True
@@ -5255,7 +5721,7 @@ class H(BaseHTTPRequestHandler):
             filepart("mask", b["mask"].get("name", "mask.png"), base64.b64decode(b["mask"]["b64"]))
         meta = {"prompt": b.get("prompt", ""), "size": size, "quality": b.get("quality", "auto"),
                 "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
-                "save_desktop": b.get("save_desktop", True)}
+                "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
         stream = partial > 0 and int(b.get("n", 1)) == 1
         if stream:
@@ -5311,17 +5777,17 @@ class H(BaseHTTPRequestHandler):
         if b.get("preview"):
             return self._json({"audio": data_url, "cost": cost})
         name = f"voz_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{fmt}"
-        (phist_dir(b.get("project", "")) / name).write_bytes(raw)
+        (phist_dir(b.get("project", ""), b.get("sub", "")) / name).write_bytes(raw)
         if b.get("save_desktop", True):
             try:
-                d = save_dir(b.get("project", ""))
+                d = save_dir_sub(b.get("project", ""), b.get("sub", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(raw)
             except Exception:
                 pass
         add_history({"file": name, "kind": "tts", "prompt": text[:160], "voice": voice, "model": model,
                      "size": fmt, "quality": "", "mode": "audio", "cost": cost, "output_tokens": 0,
-                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")})
+                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", ""), "sub": b.get("sub", "")})
         return self._json({"file": name, "audio": data_url, "cost": cost})
 
     def h_transcribe(self):
@@ -5374,17 +5840,17 @@ class H(BaseHTTPRequestHandler):
         cost = round(dur * STT_PRICE.get(model, 0.006), 5)
         ext = {"text": "txt", "json": "json", "verbose_json": "json", "srt": "srt", "vtt": "vtt"}.get(fmt, "txt")
         name = f"tx_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
-        (phist_dir(b.get("project", "")) / name).write_text(raw)
+        (phist_dir(b.get("project", ""), b.get("sub", "")) / name).write_text(raw)
         if b.get("save_desktop", True):
             try:
-                d = save_dir(b.get("project", ""))
+                d = save_dir_sub(b.get("project", ""), b.get("sub", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_text(raw)
             except Exception:
                 pass
         add_history({"file": name, "kind": "stt", "prompt": (text or "")[:160], "model": model,
                      "size": ext, "quality": "", "mode": "audio", "cost": cost, "output_tokens": 0,
-                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")})
+                     "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", ""), "sub": b.get("sub", "")})
         return self._json({"text": text if fmt in ("json", "verbose_json", "text") else raw,
                            "file": name, "cost": cost, "model_used": model})
 
@@ -5399,10 +5865,10 @@ class H(BaseHTTPRequestHandler):
 
     def _save_audio(self, raw, prefix, ext, hist_item, save_desktop):
         name = f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}.{ext}"
-        (phist_dir(hist_item.get("project", "")) / name).write_bytes(raw)
+        (phist_dir(hist_item.get("project", ""), hist_item.get("sub", "")) / name).write_bytes(raw)
         if save_desktop:
             try:
-                d = save_dir(hist_item.get("project", ""))
+                d = save_dir_sub(hist_item.get("project", ""), hist_item.get("sub", ""))
                 d.mkdir(parents=True, exist_ok=True)
                 (d / name).write_bytes(raw)
             except Exception:
@@ -5512,7 +5978,7 @@ class H(BaseHTTPRequestHandler):
         name = self._save_audio(raw, "el", ext,
             {"kind": "tts", "prompt": text[:160], "voice": b.get("voice_name", ""), "model": model,
              "size": ext, "quality": "", "mode": "audio", "cost": 0, "credits": credits, "output_tokens": 0,
-             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", ""), "sub": b.get("sub", "")},
             b.get("save_desktop", True))
         return self._json({"file": name, "audio": data_url, "credits": credits})
 
@@ -5541,7 +6007,7 @@ class H(BaseHTTPRequestHandler):
         name = self._save_audio(raw, "sfx", "mp3",
             {"kind": "sfx", "prompt": text[:160], "voice": "SFX", "model": "sound-generation",
              "size": "mp3", "quality": "", "mode": "audio", "cost": 0, "output_tokens": 0,
-             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", ""), "sub": b.get("sub", "")},
             b.get("save_desktop", True))
         return self._json({"file": name, "audio": data_url})
 
@@ -5612,7 +6078,9 @@ class H(BaseHTTPRequestHandler):
     def _audio_b64(self, aud):
         """{b64} directo o {hist_file} del historial → (b64, mime) o None"""
         if aud and aud.get("hist_file"):
-            fp = phist_dir(ACTIVE_PROJ) / os.path.basename(aud["hist_file"])
+            fp = phist_dir(ACTIVE_PROJ, ACTIVE_SUB) / os.path.basename(aud["hist_file"])
+            if not fp.is_file():
+                fp = phist_dir(ACTIVE_PROJ) / os.path.basename(aud["hist_file"])
             if not fp.is_file():
                 fp = HIST_DIR / os.path.basename(aud["hist_file"])
             if not fp.is_file():
@@ -5737,6 +6205,7 @@ class H(BaseHTTPRequestHandler):
                                    "meta": {"prompt": prompt or "avatar con audio", "model": model,
                                             "cost": float(b.get("cost_est") or 0),
                                             "project": b.get("project", ""),
+                                            "sub": b.get("sub", ""),
                                             "save_desktop": b.get("save_desktop", True)}}
             save_jobs()
         return self._json({"id": rid})
@@ -5781,7 +6250,7 @@ class H(BaseHTTPRequestHandler):
         name = self._save_audio(raw, "vid", "mp4",
             {"kind": "vid", "prompt": m["prompt"][:160], "voice": "", "model": m["model"],
              "size": "mp4", "quality": "", "mode": "video", "cost": cost, "output_tokens": 0,
-             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": m.get("project", "")},
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": m.get("project", ""), "sub": m.get("sub", "")},
             m.get("save_desktop", True))
         with LOCK:
             PENDING_VIDEOS.pop(rid, None); save_jobs()
@@ -5790,7 +6259,7 @@ class H(BaseHTTPRequestHandler):
     def h_histfav(self):
         b = self._body()
         f = os.path.basename(b.get("file", ""))
-        jp = phist_json(self._proj(b))
+        jp = phist_json(self._proj(b), self._sub(b))
         with LOCK:
             h = load_json(jp, [])
             for it in h:
@@ -5800,9 +6269,12 @@ class H(BaseHTTPRequestHandler):
         return self._json({"ok": True})
 
     def h_setproject(self):
-        global ACTIVE_PROJ
-        ACTIVE_PROJ = (self._body().get("project") or "").strip()
-        return self._json({"ok": True, "project": ACTIVE_PROJ})
+        global ACTIVE_PROJ, ACTIVE_SUB
+        b = self._body()
+        ACTIVE_PROJ = (b.get("project") or "").strip()
+        sub = (b.get("sub") or "").strip()
+        ACTIVE_SUB = sub if sub and any(s["key"] == sub for s in list_subs(ACTIVE_PROJ)) else ""
+        return self._json({"ok": True, "project": ACTIVE_PROJ, "sub": ACTIVE_SUB})
 
     def h_promptlib(self):
         # guarda la biblioteca completa (la ventana la administra en memoria y persiste el objeto entero)
@@ -5846,11 +6318,12 @@ class H(BaseHTTPRequestHandler):
         if not f:
             return self._json({"error": "sin archivo"}, 400)
         pr = self._proj(b)
-        base = pshelf_dir(pr) if src == "shelf" else phist_dir(pr)
+        sb = self._sub(b)
+        base = pshelf_dir(pr, sb) if src == "shelf" else phist_dir(pr, sb)
         if not (base / f).is_file():
             return self._json({"error": "la imagen no existe"}, 404)
         with STAGE_LOCK:
-            STAGE.append({"src": src, "file": f, "project": pr})
+            STAGE.append({"src": src, "file": f, "project": pr, "sub": sb})
             if len(STAGE) > 50:
                 del STAGE[:-50]
         return self._json({"ok": True})
@@ -5959,9 +6432,10 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
         f = os.path.basename(b.get("file", ""))
         pr = self._proj(b)
-        fp = phist_dir(pr) / f                  # imágenes del historial...
+        sb = self._sub(b)
+        fp = phist_dir(pr, sb) / f              # imágenes del historial...
         if not fp.is_file():
-            fp = pshelf_dir(pr) / f             # ...o del estante (Mis imágenes)
+            fp = pshelf_dir(pr, sb) / f         # ...o del estante (Mis imágenes)
         if not fp.is_file():
             return self._json({"error": "No encuentro esa imagen."})
         # detalle de visión: high = lectura fiel (gpt-4o-mini soporta low/high/auto, no 'original')
@@ -6000,7 +6474,8 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Conecta tu API de OpenAI (botón API)."})
         f = os.path.basename(b.get("file", ""))
         pr = self._proj(b)
-        fp = phist_dir(pr) / f
+        sb = self._sub(b)
+        fp = phist_dir(pr, sb) / f
         if not fp.is_file():
             return self._json({"error": "No encuentro esa imagen."})
         raw0 = fp.read_bytes()
@@ -6038,7 +6513,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": f"Sin conexión con OpenAI: {e.reason}"})
         meta = {"prompt": "[mejorada 2×] " + (orig.get("prompt") or ""), "size": size,
                 "quality": "high", "mode": "upscale", "output_format": "png",
-                "project": pr, "save_desktop": b.get("save_desktop", True)}
+                "project": pr, "sub": sb, "save_desktop": b.get("save_desktop", True)}
         res = self._save_results(data, meta, model_used="gpt-image-2")
         imgs = res.get("images", [])
         if not imgs:
@@ -6103,7 +6578,7 @@ class H(BaseHTTPRequestHandler):
         name = self._save_audio(raw, "mus", ext,
             {"kind": "music", "prompt": prompt[:160], "voice": label, "model": mid.split("/")[-1],
              "size": ext, "quality": "", "mode": "audio", "cost": 0, "output_tokens": 0,
-             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", "")},
+             "ts": time.strftime("%Y-%m-%d %H:%M"), "project": b.get("project", ""), "sub": b.get("sub", "")},
             b.get("save_desktop", True))
         return self._json({"file": name})
 
@@ -6114,7 +6589,10 @@ class H(BaseHTTPRequestHandler):
         vid = b.get("video")
         if vid and vid.get("hist_file"):
             pr = self._proj(b)
-            fp = phist_dir(pr) / os.path.basename(vid["hist_file"])
+            sb = self._sub(b)
+            fp = phist_dir(pr, sb) / os.path.basename(vid["hist_file"])
+            if not fp.is_file():
+                fp = phist_dir(pr) / os.path.basename(vid["hist_file"])
             if not fp.is_file():
                 fp = HIST_DIR / os.path.basename(vid["hist_file"])
             if not fp.is_file():
@@ -6148,6 +6626,7 @@ class H(BaseHTTPRequestHandler):
                                    "meta": {"prompt": "[lip-sync] " + (b.get("label") or ""),
                                             "model": "latentsync", "cost": 0,
                                             "project": b.get("project", ""),
+                                            "sub": b.get("sub", ""),
                                             "save_desktop": b.get("save_desktop", True)}}
             save_jobs()
         return self._json({"id": rid})
