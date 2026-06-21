@@ -6,7 +6,7 @@ proyecto, historial con filtro y borrado, estimador de precio, moderación,
 presets completos incl. anamórficos, editor de máscara integrado, pegado desde
 portapapeles, atajos de teclado, resultados múltiples. Sin dependencias: solo Python 3.
 """
-import io, json, base64, os, re, shutil, struct, subprocess, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib
+import io, json, base64, os, re, shutil, struct, subprocess, threading, time, uuid, urllib.request, urllib.error, zipfile, zlib, hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -5754,7 +5754,15 @@ class H(BaseHTTPRequestHandler):
                 ext = shelf_dir_sub(pr, sk)
                 mirror = ext.resolve() != sdir.resolve()
                 items = load_json(sj, [])
-                already = set(x.get("name", "") for x in items)   # no recopiar lo ya copiado (por nombre de origen)
+                already = set(x.get("name", "") for x in items)   # rápido: por nombre de origen
+                have_hashes = set()                                # robusto: por CONTENIDO (cubre renombrados al mover)
+                for x in items:
+                    p = sdir / x.get("file", "")
+                    if p.is_file():
+                        try:
+                            have_hashes.add(hashlib.md5(p.read_bytes()).hexdigest())
+                        except Exception:
+                            pass
                 for it in hist:
                     f = it.get("file", "")
                     if not f or it.get("kind") in ("tts", "stt", "sfx", "vid") or f in already:
@@ -5766,6 +5774,10 @@ class H(BaseHTTPRequestHandler):
                     ie = sniff_image(raw)
                     if not ie:
                         continue
+                    h = hashlib.md5(raw).hexdigest()
+                    if h in have_hashes:
+                        continue   # ya está en el estante aunque con otro nombre (tras moverlo)
+                    have_hashes.add(h)
                     fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}.{ie}"
                     (sdir / fn).write_bytes(raw)
                     if mirror:
