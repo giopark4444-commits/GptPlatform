@@ -466,7 +466,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subchip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 .histgroup{margin:0 0 10px}
 .histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
-.movepop{position:fixed;z-index:60;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
+.movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
 .movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
 .movepop button.mpopt{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--txt);font-size:13px;font-family:var(--ui);padding:7px 10px;border-radius:8px;cursor:pointer}
 .movepop button.mpopt:hover{background:var(--accent-dim);color:var(--accent)}
@@ -760,11 +760,19 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
 .gal.selmode .gcard.sel::after{background:var(--accent);border-color:var(--accent);content:'✓';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .gal.selmode .gcard.sel{outline:2px solid var(--accent);outline-offset:-2px}
-.galbulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;font-size:12.5px}
-.galbulk .gbcount{font-weight:600;margin-right:auto}
-.galbulk button{border:1px solid var(--line2);background:var(--surface);color:var(--txt);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px}
-.galbulk button:hover{border-color:var(--mut)}
-.galbulk button.bdel.arm{border-color:var(--bad);color:var(--bad)}
+.galbulk{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:6px;
+ padding:9px 12px;background:var(--surface);border:1px solid var(--line2);border-radius:16px;
+ box-shadow:0 18px 44px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.14);font-size:12.5px;
+ backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);max-width:94vw}
+.galbulk.hide{display:none}
+.galbulk .gbcount{font-weight:600;color:var(--accent);white-space:nowrap;margin:0 6px 0 6px}
+.galbulk button{border:0;background:none;color:var(--txt);border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:background .14s,color .14s}
+.galbulk button:hover{background:var(--accent-dim);color:var(--accent)}
+.galbulk button svg{width:15px;height:15px}
+.galbulk button.bdel{color:var(--bad)}
+.galbulk button.bdel:hover{background:rgba(180,69,47,.1);color:var(--bad)}
+.galbulk button.bdel.arm{background:var(--bad);color:#fff}
+#bulkExit{color:var(--mut)}
 .galeye{flex-wrap:wrap;row-gap:7px}
 .galeye #galCount{margin-left:6px}
 .galactions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
@@ -1801,7 +1809,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
+      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <div class="subchips" id="galSubChips"></div>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
@@ -2492,6 +2500,12 @@ function curProj(){return $('projSel')?($('projSel').value||''):''}
 $('galAll').onclick=()=>{const p=encodeURIComponent(curProj()),fav=$('galFavBtn').classList.contains('on');
  const sp=galSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...galSubs].join(',')));
  window.open('/galeria?'+(fav?'fav=1&':'')+'project='+p+sp,'_blank','noopener');};
+$('galCopyShelf').onclick=async()=>{
+ const body=activeSub?{project:curProj(),sub:activeSub}:{project:curProj(),allsubs:true};
+ const scope=activeSub?('«'+activeSub+'»'):('todo «'+(curProj()||genLabel)+'» (incluye subproyectos)');
+ if(!confirm('¿Copiar todas las imágenes del historial de '+scope+' a Mis imágenes?'))return;
+ try{const r=await(await fetch('/shelfcopyall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(r&&r.ok){toast(r.added>0?(r.added+' copiada(s) a Mis imágenes'):'Ya estaban todas en Mis imágenes');loadShelf();}else toast((r&&r.error)||'No se pudo copiar','bad');}catch(e){toast('No se pudo copiar','bad')}};
 // las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
 async function addRefFromServer(src,file,project){try{
  const pq='&project='+encodeURIComponent(project||'');
@@ -2591,9 +2605,12 @@ function openMovePop(anchor){closeMovePop();
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
  pop.innerHTML='<div class="mphdr">Mover a…</div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
  document.body.appendChild(pop);
- const r=anchor.getBoundingClientRect();pop.style.left=Math.min(r.left,window.innerWidth-pop.offsetWidth-12)+'px';pop.style.top=(r.bottom+6)+'px';
+ const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
+ let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
+ pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
  pop.onclick=e=>{const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub)}}
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
+ if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
  bar.innerHTML='<span class="gbcount">'+selFiles.size+' seleccionada'+(selFiles.size===1?'':'s')+'</span>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
@@ -4311,6 +4328,10 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
           "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
+          "var gcopyall=document.getElementById('gcopyall');"
+          "if(gcopyall)gcopyall.onclick=async function(){if(!confirm('¿Copiar todas las imágenes del historial de este proyecto (incluye subproyectos) a Mis imágenes?'))return;"
+          "try{var r=await(await fetch('/shelfcopyall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:PROJ,allsubs:true})})).json();"
+          "if(r&&r.ok){gt(r.added>0?(r.added+' copiada(s) a Mis imágenes ✓'):'Ya estaban todas en Mis imágenes');}else gt((r&&r.error)||'No se pudo copiar');}catch(x){gt('No se pudo copiar');}};"
           "var gselmove=document.getElementById('gselmove'),gselcopy=document.getElementById('gselcopy'),gselcancel=document.getElementById('gselcancel');"
           "if(gselmove)gselmove.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('move');openMenu(gselmove,selFiles(),selTiles());};"
           "if(gselcopy)gselcopy.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('copy');openMenu(gselcopy,selFiles(),selTiles());};"
@@ -4341,6 +4362,8 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink
             + ('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover, copiar o eliminar">'
                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Seleccionar</button>')
+            + (('<button class="favtog" id="gcopyall" title="Copiar todas las imágenes de este historial a Mis imágenes">'
+                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button>') if not is_shelf else '')
             + '</header>'
             + chips_html
             + (('<main class="groups">' + grid + '</main>') if multi else ('<main class="grid">' + grid + '</main>'))
@@ -5099,6 +5122,7 @@ class H(BaseHTTPRequestHandler):
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
+                 "/shelfcopyall": self.h_shelfcopyall,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
                  "/stage": self.h_stage, "/setproject": self.h_setproject,
@@ -5582,6 +5606,55 @@ class H(BaseHTTPRequestHandler):
             except Exception:
                 pass
         return self._json({"ok": True, "done": len(files)})
+
+    def h_shelfcopyall(self):
+        # copia TODAS las imágenes del historial a Mis imágenes del MISMO ámbito.
+        # sub -> ese subproyecto; sin sub y allsubs -> raíz + todos los subs; sin sub -> solo raíz.
+        b = self._body()
+        pr = b.get("project", "") or ""
+        sub = b.get("sub", "") or ""
+        if sub:
+            scopes = [sub]
+        elif b.get("allsubs"):
+            scopes = [""] + [s["key"] for s in list_subs(pr)]
+        else:
+            scopes = [""]
+        added = 0
+        with LOCK:
+            for sk in scopes:
+                hist = load_json(phist_json(pr, sk), [])
+                if not hist:
+                    continue
+                hdir = phist_dir(pr, sk)
+                sdir = pshelf_dir(pr, sk)
+                sj = pshelf_json(pr, sk)
+                ext = shelf_dir_sub(pr, sk)
+                mirror = ext.resolve() != sdir.resolve()
+                items = load_json(sj, [])
+                already = set(x.get("name", "") for x in items)   # no recopiar lo ya copiado (por nombre de origen)
+                for it in hist:
+                    f = it.get("file", "")
+                    if not f or it.get("kind") in ("tts", "stt", "sfx", "vid") or f in already:
+                        continue
+                    src = hdir / f
+                    if not src.is_file():
+                        continue
+                    raw = src.read_bytes()
+                    ie = sniff_image(raw)
+                    if not ie:
+                        continue
+                    fn = f"shelf_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}.{ie}"
+                    (sdir / fn).write_bytes(raw)
+                    if mirror:
+                        try:
+                            ext.mkdir(parents=True, exist_ok=True)
+                            (ext / fn).write_bytes(raw)
+                        except Exception:
+                            pass
+                    items.insert(0, {"file": fn, "name": f, "ts": time.strftime("%Y-%m-%d %H:%M")})
+                    added += 1
+                save_json(sj, items)
+        return self._json({"ok": True, "added": added})
 
     def _style_prefix(self, project):
         if not project:
