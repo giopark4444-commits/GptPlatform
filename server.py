@@ -3727,15 +3727,23 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .tile.gsel::after{content:"✓";position:absolute;top:8px;left:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#1f6b54;color:#fff;border-radius:50%;font-size:14px;font-weight:700;z-index:3}
 body.selmode .tile{cursor:pointer}
 body.selmode .acts{display:none!important}
-.gselbar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);z-index:40;display:none;align-items:center;gap:10px;background:#faf6ec;border:1px solid #cfc4ac;border-radius:14px;box-shadow:0 10px 32px rgba(0,0,0,.22);padding:10px 14px;opacity:0;transition:.18s}
-.gselbar.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
-.gselbar #gseln{font-size:13px;color:#2a2620;font-weight:600;margin-right:4px}
-.gselbar button{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;border:1px solid #cfc4ac;background:#fff;color:#2a2620;border-radius:9px;padding:7px 12px;cursor:pointer}
-.gselbar button:hover{border-color:#1f6b54;color:#1f6b54}
-.gselbar button svg{width:15px;height:15px}
-.gselbar .gselx{border-color:transparent;color:#8a8170}
-.gselbar .gseldel{color:#b4452f;border-color:#e3c9c0}
-.gselbar .gseldel:hover{border-color:#b4452f;color:#b4452f;background:rgba(180,69,47,.07)}
+.gselbar{position:fixed;left:50%;bottom:24px;z-index:40;display:none;align-items:center;gap:6px;
+ background:rgba(250,246,236,.9);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
+ border:1px solid #e3dccb;border-radius:18px;box-shadow:0 18px 44px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.07);
+ padding:8px 10px;opacity:0;transform:translateX(-50%) translateY(24px) scale(.97)}
+.gselbar.show{display:flex;animation:gselin .24s cubic-bezier(.2,.85,.3,1) forwards}
+@keyframes gselin{to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+.gselcount{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#6b665a;font-weight:500;padding:0 8px 0 6px}
+.gselcount b{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;background:#1f6b54;color:#fff;border-radius:12px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.gseldiv{width:1px;height:26px;background:#e3dccb;margin:0 2px}
+.gselact{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:500;border:0;background:none;color:#2a2620;border-radius:11px;padding:8px 13px;cursor:pointer;transition:background .14s,color .14s}
+.gselact:hover{background:rgba(31,107,84,.12);color:#1f6b54}
+.gselact svg{width:16px;height:16px;stroke-width:1.9}
+.gselbar .gseldel{color:#b4452f}
+.gselbar .gseldel:hover{background:rgba(180,69,47,.1);color:#b4452f}
+.gselx{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;background:none;color:#8a8170;border-radius:50%;cursor:pointer;transition:.14s}
+.gselx:hover{background:rgba(0,0,0,.06);color:#2a2620}
+.gselx svg{width:16px;height:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3790,13 +3798,16 @@ body.selmode .acts{display:none!important}
  .gmvtabs button.on,.gmvtabs button.on:hover{background:#e0a571;color:#1c1812}
  .tile.gsel{outline-color:#e0a571}
  .tile.gsel::after{background:#e0a571;color:#1c1812}
- .gselbar{background:#1c1812;border-color:#3a3322;box-shadow:0 10px 32px rgba(0,0,0,.55)}
- .gselbar #gseln{color:#ece6d8}
- .gselbar button{background:#231f1c;border-color:#3a3322;color:#ece6d8}
- .gselbar button:hover{border-color:#e0a571;color:#e0a571}
- .gselbar .gselx{border-color:transparent;color:#9a8f78}
- .gselbar .gseldel{color:#e07a6b;border-color:#5a2a22}
- .gselbar .gseldel:hover{border-color:#e07a6b;color:#e07a6b;background:rgba(224,122,107,.12)}
+ .gselbar{background:rgba(28,24,18,.9);border-color:#3a3322;box-shadow:0 18px 44px rgba(0,0,0,.55)}
+ .gselcount{color:#9a8f78}
+ .gselcount b{background:#e0a571;color:#1c1812}
+ .gseldiv{background:#3a3322}
+ .gselact{color:#ece6d8}
+ .gselact:hover{background:rgba(224,165,113,.16);color:#e0a571}
+ .gselbar .gseldel{color:#e07a6b}
+ .gselbar .gseldel:hover{background:rgba(224,122,107,.16);color:#e07a6b}
+ .gselx{color:#9a8f78}
+ .gselx:hover{background:rgba(255,255,255,.08);color:#ece6d8}
 }
 """
 
@@ -3880,7 +3891,7 @@ def gallery_html(src, fav=False, proj=""):
           "if(act==='ref'){stageRef(file);}"
           "else if(act==='open'){openLb(file,tile.dataset.prompt);}"
           "else if(act==='prompt'){copyP(tile.dataset.prompt);}"
-          "else if(act==='move'){openMove(b,file,tile);}"
+          "else if(act==='move'){setMode('move');openMenu(b,[file],[tile]);}"
           "else if(act==='lib'){stageP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ})});}catch(x){}"
@@ -3889,7 +3900,7 @@ def gallery_html(src, fav=False, proj=""):
           "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt);"
           "});"
           "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
-          "document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});"
+          "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(selMode){exitSel();}else{closeLb();}}});"
           "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
           "glbCopy.onclick=function(){copyP(curPrompt);};"
           "var gfdir=document.getElementById('gfdir'),gfpick=document.getElementById('gfpick');"
@@ -3923,7 +3934,7 @@ def gallery_html(src, fav=False, proj=""):
           "var selbtn=document.getElementById('gselbtn'),selbar=document.getElementById('gselbar'),seln=document.getElementById('gseln');"
           "function selFiles(){return Object.keys(selSet);}"
           "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
-          "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n+(n===1?' seleccionada':' seleccionadas');if(selbar)selbar.classList.toggle('show',selMode);}"
+          "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n;if(selbar)selbar.classList.toggle('show',selMode);}"
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
           "function exitSel(){selMode=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
@@ -3946,14 +3957,17 @@ def gallery_html(src, fav=False, proj=""):
             '<button class="gfbtn" id="gfpick">cambiar</button></span>'
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink
             + ('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover, copiar o eliminar">'
-               '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>')
+               '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Seleccionar</button>')
             + '</header>'
             '<main class="grid">' + grid + '</main>'
-            + ('<div class="gselbar" id="gselbar"><span id="gseln">0 seleccionadas</span>'
-               + (('<button id="gselmove">' + GMV + 'Mover a…</button>'
-                   '<button id="gselcopy">' + GCP + 'Copiar a…</button>') if move_targets else '')
-               + '<button class="gseldel" id="gseldel"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Eliminar</button>'
-               '<button class="gselx" id="gselcancel">Cancelar</button></div>')
+            + ('<div class="gselbar" id="gselbar">'
+               '<span class="gselcount"><b id="gseln">0</b>seleccionadas</span>'
+               '<span class="gseldiv"></span>'
+               + (('<button class="gselact" id="gselmove">' + GMV + 'Mover</button>'
+                   '<button class="gselact" id="gselcopy">' + GCP + 'Copiar</button>') if move_targets else '')
+               + '<button class="gselact gseldel" id="gseldel"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>Eliminar</button>'
+               '<span class="gseldiv"></span>'
+               '<button class="gselx" id="gselcancel" title="Salir de selección (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>')
             + '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
             '<img id="glbImg" alt="">'
             '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
