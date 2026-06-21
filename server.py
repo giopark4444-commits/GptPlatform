@@ -219,46 +219,78 @@ def list_subs(proj):
     return out
 
 
-def trash_put(src_path):
-    # mueve un archivo a la papelera; devuelve un token para restaurarlo (o "" si no existía)
+TRASH_INDEX = TRASH_DIR / "_index.json"
+TRASH_LOCK = threading.Lock()
+
+
+def _trash_index_remove(token):
+    with TRASH_LOCK:
+        idx = load_json(TRASH_INDEX, [])
+        save_json(TRASH_INDEX, [r for r in idx if r.get("token") != token])
+
+
+def trash_put(src_path, kind="", project="", sub="", entry=None):
+    # mueve un archivo a la papelera y lo registra en el índice; devuelve token (o "" si no existía)
     if not src_path.is_file():
         return ""
     token = uuid.uuid4().hex + "__" + src_path.name
     try:
         src_path.rename(TRASH_DIR / token)
-        return token
     except Exception:
         return ""
+    try:
+        ent = entry or {}
+        name = ent.get("name") or (str(ent.get("prompt", "")).strip()[:80]) or src_path.name
+        with TRASH_LOCK:
+            idx = load_json(TRASH_INDEX, [])
+            idx.insert(0, {"token": token, "kind": kind, "project": project, "sub": sub,
+                           "entry": ent, "name": name, "ts": time.time()})
+            save_json(TRASH_INDEX, idx)
+    except Exception:
+        pass
+    return token
 
 
 def trash_restore(token, dest_path):
     # devuelve un archivo de la papelera a su sitio (con contención de ruta como defensa)
     t = TRASH_DIR / os.path.basename(token or "")
     if not token or not t.is_file():
+        _trash_index_remove(token)
         return False
     try:
-        base = TRASH_DIR.resolve()
-        if base != t.resolve().parent:
+        if TRASH_DIR.resolve() != t.resolve().parent:
             return False
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         t.rename(dest_path)
+        _trash_index_remove(token)
         return True
     except Exception:
         return False
 
 
 def trash_purge(days=14):
-    # vacía de verdad lo que lleve más de N días en la papelera (evita que crezca sin límite)
+    # vacía de verdad lo que lleve más de N días (evita que la papelera crezca sin límite)
     cutoff = time.time() - days * 86400
+    idx = load_json(TRASH_INDEX, [])
+    by_token = {r.get("token"): r for r in idx}
+    alive = set()
     try:
         for p in TRASH_DIR.iterdir():
+            if p.name == "_index.json":
+                continue
             try:
-                if p.is_file() and p.stat().st_mtime < cutoff:
-                    p.unlink()
+                rec = by_token.get(p.name)
+                ts = rec.get("ts") if rec else p.stat().st_mtime
+                if ts < cutoff:
+                    p.unlink() if p.is_file() else shutil.rmtree(p, ignore_errors=True)
+                else:
+                    alive.add(p.name)
             except Exception:
                 pass
     except Exception:
         pass
+    with TRASH_LOCK:
+        save_json(TRASH_INDEX, [r for r in idx if r.get("token") in alive])
 
 
 def phist_dir(proj, sub=""):
@@ -530,6 +562,19 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .movepop button.mpopt:hover{background:var(--accent-dim);color:var(--accent)}
 /* modal de proyectos */
 .modal.projmodal{max-width:min(1180px,96vw);width:96%}
+.modal.trashmodal{max-width:min(960px,96vw);width:96%;max-height:88vh;overflow:auto}
+.trashbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px}
+.trashgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface2);display:flex;flex-direction:column}
+.tcard img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--elev)}
+.tcard .tnm{font-size:11.5px;padding:6px 8px 0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tcard .tpl{font-size:10.5px;color:var(--mut);padding:1px 8px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tcard .tacts{display:flex;gap:6px;padding:0 8px 8px;margin-top:auto;align-items:center}
+.tcard .trest{flex:1;font:inherit;font-size:12px;border:1px solid var(--line2);background:var(--surface);color:var(--accent);border-radius:8px;padding:6px;cursor:pointer}
+.tcard .trest:hover{border-color:var(--accent);background:var(--accent-dim)}
+.tcard .tdelp{flex:none;width:30px;height:30px;border:1px solid var(--line2);background:var(--surface);color:var(--mut);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tcard .tdelp:hover,.tcard .tdelp.arm{color:#fff;background:var(--bad);border-color:var(--bad)}
+.tcard .tdelp svg{width:14px;height:14px}
 .modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
 .projgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;max-height:60vh;overflow-y:auto;padding:2px}
 .projitem{display:flex;flex-direction:column;gap:8px}
@@ -1342,6 +1387,7 @@ html,body{overflow-x:hidden}
   </div>
   <div class="right">
     <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">$0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
+    <button class="ghost" id="trashBtn" title="Papelera — restaurar imágenes borradas"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>Papelera</button>
     <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
     <button class="ghost" id="setBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes</button>
     <button class="ghost" id="cfgBtn"><span class="kdot" id="kdot"></span>API</button>
@@ -1892,6 +1938,14 @@ html,body{overflow-x:hidden}
   <input type="range" id="cmpSlider" min="0" max="100" value="50">
 </div>
 
+<div class="overlay hide" id="trashModal"><div class="modal trashmodal">
+  <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  <h2>Papelera</h2>
+  <p class="modsub">Imágenes que borraste (del historial y de Mis imágenes). Se vacía sola a los 14 días. Restáuralas a su sitio o bórralas para siempre.</p>
+  <div class="trashbar"><span id="trashCount" class="mut"></span><button class="ghost sm bdel" id="trashEmpty">Vaciar papelera</button></div>
+  <div class="trashgrid" id="trashGrid"></div>
+</div></div>
+
 <div class="lightbox hide" id="lightbox">
   <button class="mclose" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   <button class="lbnav prev" id="lbPrev" title="Anterior (←)"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
@@ -2102,6 +2156,20 @@ $('dirPick').onclick=async()=>{toast('Abriendo selector de carpeta…');
 
 function fileToB64(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(f)})}
 function xicon(){return '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>'}
+// ===== Papelera =====
+async function tpost(u,b){return (await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();}
+function trashClose(){$('trashModal').classList.add('hide')}
+async function openTrash(){$('trashModal').classList.remove('hide');await renderTrash()}
+async function renderTrash(){let r;try{r=await(await fetch('/trash')).json()}catch(e){r={items:[]}}
+ const items=r.items||[];$('trashCount').textContent=items.length?(items.length+(items.length>1?' elementos':' elemento')):'Vacía';
+ $('trashGrid').innerHTML=items.map(it=>'<div class="tcard"><img src="/trashfile?token='+encodeURIComponent(it.token)+'" alt="" loading="lazy"><div class="tnm" title="'+esc(it.name||'')+'">'+esc(it.name||it.token)+'</div><div class="tpl">'+esc(it.plabel||'')+' · '+(it.kind==='shelf'?'Mis imágenes':'Historial')+'</div><div class="tacts"><button class="trest" data-t="'+esc(it.token)+'">Restaurar</button><button class="tdelp bdel" data-t="'+esc(it.token)+'" title="Borrar para siempre">'+xicon()+'</button></div></div>').join('')||'<div class="hint" style="grid-column:1/-1">La papelera está vacía.</div>';}
+$('trashBtn').onclick=openTrash;
+$('trashModal').querySelector('.mclose').onclick=trashClose;
+$('trashModal').addEventListener('click',e=>{if(e.target===$('trashModal'))trashClose()});
+$('trashGrid').onclick=async e=>{const rest=e.target.closest('.trest'),del=e.target.closest('.tdelp');
+ if(rest){const t=rest.dataset.t;const r=await tpost('/trashrestore',{token:t});if(r&&r.ok){toast('Restaurada ✓');if(typeof loadGal==='function')loadGal();if(typeof loadShelf==='function')loadShelf();renderTrash()}else toast((r&&r.error)||'No se pudo restaurar','bad');return}
+ if(del){const t=del.dataset.t;if(!del.classList.contains('arm')){del.classList.add('arm');toast('Clic otra vez para borrar para siempre','bad');setTimeout(()=>del.classList.remove('arm'),2500);return}await tpost('/trashdelete',{token:t});renderTrash();return}};
+$('trashEmpty').onclick=async()=>{const b=$('trashEmpty');if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='¿Vaciar todo?';setTimeout(()=>{b.classList.remove('arm');b.textContent='Vaciar papelera'},2500);return}await tpost('/trashdelete',{all:true});b.classList.remove('arm');b.textContent='Vaciar papelera';renderTrash();toast('Papelera vaciada')};
 function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" data-i="${i}"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
 // formatos que acepta OpenAI para entrada de imagen
 const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
@@ -3816,6 +3884,7 @@ document.addEventListener('keydown',e=>{
   if(!$('maskModal').classList.contains('hide')){$('maskModal').classList.add('hide');return}
   if(!$('keyModal').classList.contains('hide')){$('keyModal').classList.add('hide');return}
   if(!$('poseModal').classList.contains('hide')){$('poseModal').classList.add('hide');return}
+  if(!$('trashModal').classList.contains('hide')){$('trashModal').classList.add('hide');return}
   if(!$('tutModal').classList.contains('hide')){$('tutModal').classList.add('hide');return}
   if(!$('setModal').classList.contains('hide')){$('setModal').classList.add('hide');return}
   if(!$('projModal').classList.contains('hide')){$('projModal').classList.add('hide');return}
@@ -5159,6 +5228,22 @@ class H(BaseHTTPRequestHandler):
             fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
+        if self.path == "/trash":
+            idx = load_json(TRASH_INDEX, [])
+            items = [r for r in idx if (TRASH_DIR / os.path.basename(r.get("token", ""))).is_file()]
+            glabel = load_json(CONF_JSON, {}).get("general_label") or "General"
+            for r in items:
+                p = r.get("project", "")
+                r["plabel"] = (glabel if is_general(p) else p) + ((" › " + r.get("sub")) if r.get("sub") else "")
+            return self._json({"items": items})
+        if self.path.startswith("/trashfile?"):
+            tok = os.path.basename(parse_qs(urlparse(self.path).query).get("token", [""])[0])
+            fp = TRASH_DIR / tok
+            if not tok or not fp.is_file() or TRASH_DIR.resolve() != fp.resolve().parent:
+                return self._send(404, "no", "text/plain")
+            nm = tok.split("__", 1)[1] if "__" in tok else tok
+            ctype = MIME.get(os.path.splitext(nm)[1].lstrip(".").lower(), "application/octet-stream")
+            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=60"})
         if urlparse(self.path).path == "/shelf":
             pr = self._proj()
             sb = self._sub()
@@ -5233,6 +5318,7 @@ class H(BaseHTTPRequestHandler):
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
                  "/restoreitems": self.h_restoreitems,
+                 "/trashrestore": self.h_trashrestore, "/trashdelete": self.h_trashdelete,
                  "/shelfcopyall": self.h_shelfcopyall,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
@@ -5571,7 +5657,7 @@ class H(BaseHTTPRequestHandler):
             jp = phist_json(pr, sb)
             h = load_json(jp, [])
             entry = next((x for x in h if x.get("file") == f), None)
-            token = trash_put(phist_dir(pr, sb) / f)   # a la papelera (deshacer), dentro del lock (atómico)
+            token = trash_put(phist_dir(pr, sb) / f, "history", pr, sb, entry)   # a la papelera (deshacer), dentro del lock
             save_json(jp, [x for x in h if x.get("file") != f])
         return self._json({"ok": True, "token": token, "entry": entry})
 
@@ -5625,7 +5711,7 @@ class H(BaseHTTPRequestHandler):
             sj = pshelf_json(pr, sb)
             items = load_json(sj, [])
             entry = next((x for x in items if x.get("file") == f), None)
-            token = trash_put(pshelf_dir(pr, sb) / f)   # papelera (deshacer), dentro del lock; copias externas se conservan
+            token = trash_put(pshelf_dir(pr, sb) / f, "shelf", pr, sb, entry)   # papelera (deshacer), dentro del lock
             save_json(sj, [x for x in items if x.get("file") != f])
         return self._json({"ok": True, "token": token, "entry": entry})
 
@@ -5739,7 +5825,7 @@ class H(BaseHTTPRequestHandler):
             fset = set(files)
             for x in items:
                 if x.get("file") in fset:
-                    tok = trash_put(d / x.get("file", ""))   # a la papelera (deshacer), dentro del lock
+                    tok = trash_put(d / x.get("file", ""), src, pr, sb, x)   # a la papelera (deshacer), dentro del lock
                     undo.append({"entry": x, "token": tok})
             save_json(jp, [x for x in items if x.get("file") not in fset])
         return self._json({"ok": True, "done": len(undo), "undo": undo})
@@ -5773,6 +5859,60 @@ class H(BaseHTTPRequestHandler):
                     restored += 1
             save_json(jp, items)
         return self._json({"ok": True, "restored": restored})
+
+    def h_trashrestore(self):
+        # restaura un elemento desde la Papelera (usa el índice para saber su origen)
+        tok = os.path.basename(self._body().get("token") or "")
+        if not tok:
+            return self._json({"error": "Falta el token"})
+        rec = next((r for r in load_json(TRASH_INDEX, []) if r.get("token") == tok), None)
+        if not rec:
+            return self._json({"error": "No está en la papelera"})
+        kind = rec.get("kind", "history")
+        pr = rec.get("project", "") or ""
+        sb = rec.get("sub", "") or ""
+        entry = rec.get("entry") or {}
+        f = os.path.basename(entry.get("file", "") or (tok.split("__", 1)[1] if "__" in tok else tok))
+        if not f or os.path.basename(f) != f or f.startswith("."):
+            return self._json({"error": "Nombre inválido"})
+        with LOCK:
+            jp, d = (pshelf_json(pr, sb), pshelf_dir(pr, sb)) if kind == "shelf" else (phist_json(pr, sb), phist_dir(pr, sb))
+            ok = trash_restore(tok, d / f)
+            if ok:
+                items = load_json(jp, [])
+                if not any(x.get("file") == f for x in items):
+                    items.insert(0, entry if entry.get("file") else {"file": f})
+                    save_json(jp, items)
+        return self._json({"ok": True}) if ok else self._json({"error": "No se pudo restaurar"})
+
+    def h_trashdelete(self):
+        # borra definitivamente uno (token) o vacía toda la papelera (all)
+        b = self._body()
+        if b.get("all"):
+            try:
+                for p in TRASH_DIR.iterdir():
+                    if p.name == "_index.json":
+                        continue
+                    try:
+                        p.unlink() if p.is_file() else shutil.rmtree(p, ignore_errors=True)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            with TRASH_LOCK:
+                save_json(TRASH_INDEX, [])
+            return self._json({"ok": True})
+        tok = os.path.basename(b.get("token") or "")
+        if not tok:
+            return self._json({"error": "Falta el token"})
+        fp = TRASH_DIR / tok
+        if fp.exists() and TRASH_DIR.resolve() == fp.resolve().parent:
+            try:
+                fp.unlink() if fp.is_file() else shutil.rmtree(fp, ignore_errors=True)
+            except Exception:
+                pass
+        _trash_index_remove(tok)
+        return self._json({"ok": True})
 
     def h_shelfcopyall(self):
         # copia TODAS las imágenes del historial a Mis imágenes del MISMO ámbito.
