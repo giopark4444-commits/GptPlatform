@@ -2165,8 +2165,9 @@ async function tpost(u,b){return (await fetch(u,{method:'POST',headers:{'Content
 function trashClose(){$('trashModal').classList.add('hide')}
 async function openTrash(){$('trashModal').classList.remove('hide');await renderTrash()}
 async function renderTrash(){let r;try{r=await(await fetch('/trash')).json()}catch(e){r={items:[]}}
- const items=r.items||[];$('trashCount').textContent=items.length?(items.length+(items.length>1?' elementos':' elemento')):'Vacía';
- $('trashGrid').innerHTML=items.map(it=>'<div class="tcard"><img src="/trashfile?token='+encodeURIComponent(it.token)+'" alt="" loading="lazy"><div class="tnm" title="'+esc(it.name||'')+'">'+esc(it.name||it.token)+'</div><div class="tpl">'+esc(it.plabel||'')+' · '+(it.kind==='shelf'?'Mis imágenes':'Historial')+'</div><div class="tacts"><button class="trest" data-t="'+esc(it.token)+'">Restaurar</button><button class="tdelp bdel" data-t="'+esc(it.token)+'" title="Borrar para siempre">'+xicon()+'</button></div></div>').join('')||'<div class="hint" style="grid-column:1/-1">La papelera está vacía.</div>';}
+ const items=r.items||[];$('trashCount').textContent=items.length?(items.length+(items.length>1?' elementos':' elemento')):trVal('Vacía',LANG);
+ const tMis=trVal('Mis imágenes',LANG),tHist=trVal('Historial',LANG),tRest=trVal('Restaurar',LANG),tDel=trVal('Borrar para siempre',LANG);
+ $('trashGrid').innerHTML=items.map(it=>'<div class="tcard"><img src="/trashfile?token='+encodeURIComponent(it.token)+'" alt="" loading="lazy"><div class="tnm" title="'+esc(it.name||'')+'">'+esc(it.name||it.token)+'</div><div class="tpl">'+esc(it.plabel||'')+' · '+(it.kind==='shelf'?tMis:tHist)+'</div><div class="tacts"><button class="trest" data-t="'+esc(it.token)+'">'+tRest+'</button><button class="tdelp bdel" data-t="'+esc(it.token)+'" title="'+tDel+'">'+xicon()+'</button></div></div>').join('')||'<div class="hint" style="grid-column:1/-1">'+trVal('La papelera está vacía.',LANG)+'</div>';}
 $('trashBtn').onclick=openTrash;
 $('trashModal').querySelector('.mclose').onclick=trashClose;
 $('trashModal').addEventListener('click',e=>{if(e.target===$('trashModal'))trashClose()});
@@ -2434,6 +2435,7 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
  $('maskModal').classList.add('hide');if(mode!=='editar')setMode('editar');
  toast('Listo: '+made.join(' + ')+(annoOps>0||pins.length?' · instrucciones añadidas al prompt':''))};
 
+let LANG=localStorage.getItem('studio_lang')||'es';
 let activeSub=localStorage.getItem('studio_sub')||'';
 function curSubs(){return (window.SUBS&&window.SUBS[curProj()])||[]}
 function pj(extra){return Object.assign({project:$('projSel').value,sub:activeSub},extra||{})}
@@ -2758,7 +2760,7 @@ async function bulkMoveTo(dest,dest_sub,destSrc){destSrc=destSrc||'history';
 function openMovePop(anchor){closeMovePop();
  const tgts=moveTargets();let pdest='history';
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
- pop.innerHTML='<div class="mphdr">Mover a…</div><div class="mpdest"><button data-d="history" class="on">Historial</button><button data-d="shelf">Mis imágenes</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ pop.innerHTML='<div class="mphdr">'+trVal('Mover a…',LANG)+'</div><div class="mpdest"><button data-d="history" class="on">'+trVal('Historial',LANG)+'</button><button data-d="shelf">'+trVal('Mis imágenes',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
  document.body.appendChild(pop);
  const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
@@ -2806,7 +2808,7 @@ let galSubs=new Set(['all']),histGroups=[];
 function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${galSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
- c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all','Todos')}
+ c.innerHTML=chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all',trVal('Todos',LANG))}
 $('galSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
  if(k==='all'){galSubs=new Set(['all'])}else{galSubs.delete('all');if(galSubs.has(k))galSubs.delete(k);else galSubs.add(k);if(!galSubs.size)galSubs.add('')}
  renderGalChips();loadGal()};
@@ -3922,7 +3924,7 @@ function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf
 function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${shelfSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
- c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all','Todos')}
+ c.innerHTML=chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all',trVal('Todos',LANG))}
 function wireSubReorder(cid){const c=$(cid);if(!c)return;
  c.addEventListener('dragstart',e=>{const b=e.target.closest('.subdrag');if(!b)return;e.dataTransfer.setData('text/x-subk',b.dataset.k);e.dataTransfer.effectAllowed='move';window.__subck=b.dataset.k;b.classList.add('chipdrag')});
  c.addEventListener('dragend',()=>{[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdrag','chipdropt'))});
@@ -4054,7 +4056,6 @@ function applyTheme(t,save){if(!THEMES.includes(t))t='crema';
  if(t==='carbon')document.body.removeAttribute('data-theme');else document.body.dataset.theme=t;
  if(save)localStorage.setItem('studio_theme',t);
  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('on',s.dataset.theme===t));}
-let LANG=localStorage.getItem('studio_lang')||'es';
 let _i18nTxt=[],_i18nAttr=[],_i18nHtml=[];
 function trVal(key,lang){const e=(window.I18N||{})[key];return lang==='es'||!e?key:(e[lang]||key);}
 function i18nSnapshot(){const I=window.I18N||{};
@@ -4072,7 +4073,8 @@ function applyLang(lang){LANG=lang;localStorage.setItem('studio_lang',lang);docu
  _i18nHtml.forEach(o=>{o.el.innerHTML=lang==='es'?o.orig:trVal(o.orig.trim(),lang);});
  _i18nTxt.forEach(o=>{const k=o.orig.trim();o.node.nodeValue=lang==='es'?o.orig:o.orig.replace(k,()=>trVal(k,lang));});
  _i18nAttr.forEach(o=>{o.el.setAttribute(o.attr,lang==='es'?o.orig:trVal(o.orig.trim(),lang));});
- document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));}
+ document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));
+ try{if(typeof renderGalChips==='function')renderGalChips();if(typeof renderShelfChips==='function')renderShelfChips();if($('trashModal')&&!$('trashModal').classList.contains('hide'))renderTrash();}catch(e){}}
 // === tamaño de texto ajustable (reescala las tipografías del estudio) ===
 const FS_GEN=[['body',14],['textarea,select,input[type=text],input[type=password]',14],['.btnrow button',11.5],['.resbar a,.resbar .acts button',12.5],['.lbprompt',12.5]];
 const FS_SMALL=[['label',10],['.hint',11],['.eyebrow',10],['.chip',11],['.pgroup',9],['.preslegend',10]];
