@@ -506,6 +506,11 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subadd{flex:none;font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--line2);border-radius:20px;padding:3px 10px;cursor:pointer;font-family:inherit}
 .subadd:hover{border-color:var(--accent);background:var(--accent-dim)}
 .subconv{flex:none;font-size:11px;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:3px 6px;cursor:pointer;font-family:inherit;max-width:150px}
+.projitem[draggable="true"]{cursor:grab}
+.projitem.pdrag{opacity:.45}
+.projitem{position:relative}
+.projitem.dropt .projcard{outline:2px dashed var(--accent);outline-offset:3px}
+.projitem.dropt::after{content:"➜ subproyecto de aquí";position:absolute;top:0;left:0;right:0;text-align:center;font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:14px 14px 0 0;padding:4px;pointer-events:none;z-index:2}
 .projfoot .pedit svg,.projfoot .pdel svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
 .prename{width:100%;font-size:13px;padding:5px 8px;margin:0}
 .projnewrow{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
@@ -2366,7 +2371,7 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
-  return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}">
+  return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}" draggable="${c.name?'true':'false'}" title="${c.name?'Arrástrame sobre otro proyecto para volverme subproyecto':''}">
    <div class="projcard">${cov}</div>
    <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div>${subrow}</div>`}).join('');}
 async function renameProject(old,nw){nw=(nw||'').trim();
@@ -2417,6 +2422,18 @@ $('projGrid').addEventListener('change',async e=>{const sc=e.target.closest('.su
  const r=await(await fetch('/subconvert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:src,dest:dest})})).json();
  if(r&&r.error){toast(r.error,'bad');sc.value='';return}
  const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('Convertido en subproyecto de "'+dest+'" ✓')});
+// arrastrar una tarjeta de proyecto sobre otra → convertir en subproyecto
+$('projGrid').addEventListener('dragstart',e=>{const it=e.target.closest('.projitem');if(!it||!it.dataset.name)return;
+ if(e.target.closest('button,select,input,.subrow')){e.preventDefault();return}
+ e.dataTransfer.setData('text/x-studio-proj',it.dataset.name);e.dataTransfer.effectAllowed='move';it.classList.add('pdrag')});
+$('projGrid').addEventListener('dragend',()=>{[...$('projGrid').querySelectorAll('.pdrag,.dropt')].forEach(x=>x.classList.remove('pdrag','dropt'))});
+$('projGrid').addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-studio-proj')<0)return;const it=e.target.closest('.projitem');if(!it)return;const src=e.dataTransfer.getData('text/x-studio-proj');e.preventDefault();[...$('projGrid').querySelectorAll('.dropt')].forEach(x=>x.classList.remove('dropt'));if(it.dataset.name!==src||it.classList.contains('pdrag'))it.classList.toggle('dropt',!it.classList.contains('pdrag'))});
+$('projGrid').addEventListener('dragleave',e=>{const it=e.target.closest('.projitem');if(it&&!it.contains(e.relatedTarget))it.classList.remove('dropt')});
+$('projGrid').addEventListener('drop',async e=>{const src=e.dataTransfer.getData('text/x-studio-proj');if(!src)return;e.preventDefault();const it=e.target.closest('.projitem');[...$('projGrid').querySelectorAll('.dropt,.pdrag')].forEach(x=>x.classList.remove('dropt','pdrag'));if(!it)return;const dest=it.dataset.name;if(dest===src)return;
+ if(!confirm('¿Convertir "'+src+'" en subproyecto de "'+(dest||genLabel)+'"? Se moverá su carpeta y su contenido.'))return;
+ const r=await(await fetch('/subconvert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:src,dest:dest})})).json();
+ if(r&&r.error){toast(r.error,'bad');return}
+ const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('"'+src+'" → subproyecto de "'+(dest||genLabel)+'" ✓')});
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!projects[n])return;
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
@@ -5312,7 +5329,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Destino inválido"})
         key = safe(src)
         srcf = PROJ_DIR / safe(src)
-        if not srcf.is_dir():
+        if not srcf.is_dir() and src not in load_projects():
             return self._json({"error": "Proyecto origen no encontrado"})
         subf = srcf / "sub"
         if subf.is_dir() and any(p.is_dir() for p in subf.iterdir()):
@@ -5322,7 +5339,10 @@ class H(BaseHTTPRequestHandler):
             if target.exists():
                 return self._json({"error": "Ya hay un subproyecto con ese nombre en el destino"})
             target.parent.mkdir(parents=True, exist_ok=True)
-            srcf.rename(target)
+            if srcf.is_dir():
+                srcf.rename(target)            # proyecto con contenido: mueve la carpeta
+            else:
+                target.mkdir(parents=True, exist_ok=True)   # proyecto vacío: solo crea el sub
             try:
                 (target / "label.txt").write_text(src)
             except Exception:
