@@ -3714,6 +3714,10 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .gfolder svg{width:14px;height:14px;flex:none}
 .gfbtn{font:inherit;font-size:11.5px;color:#1f6b54;background:none;border:0;cursor:pointer;text-decoration:underline;padding:0 0 0 3px}
 .gfbtn:hover{opacity:.7}
+.gmovemenu{position:absolute;z-index:30;background:#faf6ec;border:1px solid #cfc4ac;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;min-width:190px;max-height:320px;overflow:auto}
+.gmovemenu .gmvh{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8170;padding:5px 9px 6px}
+.gmovemenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:8px;font:inherit;font-size:13px;color:#2a2620;cursor:pointer;white-space:nowrap}
+.gmovemenu button:hover{background:rgba(31,107,84,.1);color:#1f6b54}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3759,6 +3763,10 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
  .gfolder{color:#9a8f78;border-color:#2a2418}
  .gfolder b{color:#ece6d8}
  .gfbtn{color:#e0a571}
+ .gmovemenu{background:#1c1812;border-color:#3a3322;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+ .gmovemenu .gmvh{color:#9a8f78}
+ .gmovemenu button{color:#ece6d8}
+ .gmovemenu button:hover{background:rgba(224,165,113,.14);color:#e0a571}
 }
 """
 
@@ -3767,6 +3775,9 @@ def gallery_html(src, fav=False, proj=""):
     from urllib.parse import quote as _q
     is_shelf = (src == "shelf")
     folder = str((shelf_dir(proj) if is_shelf else save_dir(proj))).replace(str(HOME), "~")
+    _glabel = load_json(CONF_JSON, {}).get("general_label") or "General"
+    _allp = [{"name": "", "label": _glabel}] + [{"name": k, "label": k} for k in load_projects().keys() if k]
+    move_targets = [p for p in _allp if proj_key(p["name"]) != proj_key(proj)]
     pq = ("&project=" + _q(proj)) if proj else ""
     plabel = (" · " + proj) if (proj and not is_general(proj)) else ""
     if is_shelf:
@@ -3782,6 +3793,7 @@ def gallery_html(src, fav=False, proj=""):
     GDL = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>'
     GOP = '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>'
     GLB = '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+    GMV = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6M9.5 13.5 12 11l2.5 2.5"/></svg>'
     tiles = []
     for it in items:
         f = it.get("file", "")
@@ -3799,6 +3811,8 @@ def gallery_html(src, fav=False, proj=""):
         if not is_shelf:
             btns.append('<button class="gb star' + (' on' if favon else '') + '" data-act="fav" title="Favorita">' + GST + '</button>')
         btns.append('<a class="gb" href="' + u + '" download="' + fa + '" title="Descargar">' + GDL + '</a>')
+        if move_targets:
+            btns.append('<button class="gb" data-act="move" title="Mover a otro proyecto">' + GMV + '</button>')
         btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
@@ -3815,6 +3829,7 @@ def gallery_html(src, fav=False, proj=""):
         favlink = '<a class="favtog" href="/galeria?fav=1' + (("&project=" + _q(proj)) if proj else "") + '" title="Ver solo las favoritas">' + GST + 'Solo favoritas</a>'
     js = ("const SRC=" + _json.dumps("shelf" if is_shelf else "history") + ";"
           "const PROJ=" + _json.dumps(proj or "") + ";"
+          "const MOVES=" + _json.dumps(move_targets) + ";"
           "var PQ=PROJ?('&project='+encodeURIComponent(PROJ)):'';"
           "var BASE=(SRC==='shelf')?'/shelffile?name=':'/file?name=';"
           "const tEl=document.getElementById('gtoast');"
@@ -3834,6 +3849,7 @@ def gallery_html(src, fav=False, proj=""):
           "if(act==='ref'){stageRef(file);}"
           "else if(act==='open'){openLb(file,tile.dataset.prompt);}"
           "else if(act==='prompt'){copyP(tile.dataset.prompt);}"
+          "else if(act==='move'){openMove(b,file,tile);}"
           "else if(act==='lib'){stageP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ})});}catch(x){}"
@@ -3852,7 +3868,24 @@ def gallery_html(src, fav=False, proj=""):
           "var c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();"
           "if(c.error){gt(c.error);return;}var eff=(SRC==='shelf')?c.shelf_effective:c.effective;"
           "if(gfdir)gfdir.textContent=eff;gt('Carpeta cambiada ✓');}"
-          "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};")
+          "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};"
+          # --- mover imágenes a otro proyecto ---
+          "var moveFile='',moveTile=null;"
+          "var mv=document.createElement('div');mv.className='gmovemenu';mv.style.display='none';"
+          "mv.innerHTML='<div class=\"gmvh\">Mover a proyecto…</div>'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button data-n=\"'+encodeURIComponent(p.name)+'\">'+nm+'</button>';}).join('');"
+          "document.body.appendChild(mv);"
+          "function openMove(anchor,file,tile){moveFile=file;moveTile=tile||null;var r=anchor.getBoundingClientRect();"
+          "mv.style.display='block';var w=mv.offsetWidth||200;"
+          "mv.style.top=(r.bottom+window.scrollY+4)+'px';mv.style.left=Math.max(8,Math.min(r.left+window.scrollX,window.scrollX+window.innerWidth-w-8))+'px';}"
+          "function closeMv(){mv.style.display='none';}"
+          "function updCount(){var c=document.querySelector('.count');if(c)c.textContent=document.querySelectorAll('.tile').length+' imágenes';}"
+          "mv.addEventListener('click',async function(e){var b=e.target.closest('button[data-n]');if(!b)return;var dest=decodeURIComponent(b.getAttribute('data-n'));closeMv();"
+          "try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,file:moveFile,project:PROJ,dest:dest})})).json();"
+          "if(r&&r.ok){if(moveTile&&moveTile.remove)moveTile.remove();closeLb();updCount();gt('Movida a '+b.textContent+' ✓');}else gt((r&&r.error)||'No se pudo mover');}catch(x){gt('No se pudo mover');}});"
+          "document.addEventListener('click',function(e){if(mv.style.display==='block'&&!mv.contains(e.target)&&!e.target.closest('[data-act=\"move\"]')&&e.target.id!=='glbMove'&&!(e.target.closest&&e.target.closest('#glbMove')))closeMv();});"
+          "window.addEventListener('resize',closeMv);"
+          "var glbMove=document.getElementById('glbMove');"
+          "if(glbMove)glbMove.onclick=function(){var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMove(glbMove,curFile,t);};")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
@@ -3867,6 +3900,7 @@ def gallery_html(src, fav=False, proj=""):
             '<img id="glbImg" alt="">'
             '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
             '<button class="gbtn" id="glbRef">' + GPL + 'Usar como referencia</button>'
+            + ('<button class="gbtn" id="glbMove">' + GMV + 'Mover a proyecto</button>' if move_targets else '') +
             '<button class="gbtn" id="glbCopy">' + GCP + 'Copiar prompt</button>'
             '<a class="gbtn" id="glbDl" download>' + GDL + 'Descargar</a>'
             '</div></div></div>'
@@ -4586,6 +4620,7 @@ class H(BaseHTTPRequestHandler):
                  "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
+                 "/moveitem": self.h_moveitem,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
@@ -4849,6 +4884,64 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             pass
         return self._json({"ok": True})
+
+    def h_moveitem(self):
+        # mueve una imagen (archivo interno + metadato) de un proyecto a otro, mismo tipo (historial/estante)
+        b = self._body()
+        src = b.get("src", "history")
+        f = os.path.basename(b.get("file", "") or "")
+        srcp = b.get("project", "") or ""
+        dest = b.get("dest", "") or ""
+        if not f:
+            return self._json({"error": "Falta el archivo"})
+        if src not in ("history", "shelf"):
+            return self._json({"error": "Origen inválido"})
+        if proj_key(srcp) == proj_key(dest):
+            return self._json({"error": "Ya está en ese proyecto"})
+        with LOCK:
+            if src == "history":
+                sj, dj = phist_json(srcp), phist_json(dest)
+                sdir, ddir = phist_dir(srcp), phist_dir(dest)
+                ext_dest = save_dir(dest)
+            else:
+                sj, dj = pshelf_json(srcp), pshelf_json(dest)
+                sdir, ddir = pshelf_dir(srcp), pshelf_dir(dest)
+                ext_dest = shelf_dir(dest)
+            items = load_json(sj, [])
+            entry = next((x for x in items if x.get("file") == f), None)
+            if entry is None:
+                return self._json({"error": "No encuentro esa imagen"})
+            # archivo interno: evita colisión de nombre en el destino
+            target = f
+            if (ddir / target).exists():
+                stem, ext = os.path.splitext(f)
+                target = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
+            raw = None
+            srcfile = sdir / f
+            try:
+                if srcfile.is_file():
+                    raw = srcfile.read_bytes()
+                    (ddir / target).write_bytes(raw)
+                    srcfile.unlink()
+            except Exception as e:
+                return self._json({"error": f"No pude mover el archivo: {e}"})
+            # espeja en la carpeta externa del destino (si difiere de la interna)
+            try:
+                if raw is not None and ext_dest.resolve() != ddir.resolve():
+                    ext_dest.mkdir(parents=True, exist_ok=True)
+                    (ext_dest / target).write_bytes(raw)
+            except Exception:
+                pass
+            # mueve el metadato
+            new_entry = dict(entry)
+            new_entry["file"] = target
+            if src == "history":
+                new_entry["project"] = dest
+            save_json(sj, [x for x in items if x.get("file") != f])
+            ditems = load_json(dj, [])
+            ditems.insert(0, new_entry)
+            save_json(dj, ditems)
+        return self._json({"ok": True, "file": target, "dest": dest})
 
     def _style_prefix(self, project):
         if not project:
