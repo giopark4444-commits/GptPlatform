@@ -1719,6 +1719,7 @@ html,body{overflow-x:hidden}
     <div class="sec">
       <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
+      <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
       <div class="galbulk hide" id="galBulk"></div>
       <div class="gal" id="gal"></div>
       <button class="more hide" id="galMore"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 9l6 6 6-6"/></svg>Ver más</button>
@@ -1932,6 +1933,7 @@ $('saveDesk').onchange=()=>{localStorage.setItem('studio_desk',$('saveDesk').che
 async function loadConfig(){const r=await(await fetch('/config')).json();
  genLabel=r.general_label||'General';
  $('saveDir').value=r.save_dir||'';cfgEffective=r.effective;renderSaveWhere();
+ if($('histDirLbl'))$('histDirLbl').textContent=r.effective||'(carpeta interna de la app)';
  voiceStyles=r.voice_styles||[];renderVStyles()}
 $('dirApply').onclick=async()=>{
  const r=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:$('saveDir').value})})).json();
@@ -2209,7 +2211,7 @@ async function loadProjects(){projects=await(await fetch('/projects')).json();co
  const cur=s.value||localStorage.getItem('studio_proj')||'';
  s.innerHTML=`<option value="">${esc(genLabel)}</option>`+Object.keys(projects).filter(n=>n).map(n=>`<option ${n===cur?'selected':''}>${esc(n)}</option>`).join('');renderProj()}
 async function setActiveProject(n){try{await fetch('/setproject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:n})});}catch(e){}}
-async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);await setActiveProject(n);renderProj();await loadGal();await loadShelf();}
+async function switchProject(){const n=$('projSel').value;localStorage.setItem('studio_proj',n);await setActiveProject(n);renderProj();await loadConfig();await loadGal();await loadShelf();}
 let styleTab='img';
 function stashStyle(){const n=$('projSel').value;if(!projects[n])return;
  projects[n][styleTab==='img'?'style':'style_video']=$('style').value}
@@ -3571,6 +3573,20 @@ $('shelfDirEdit').onclick=async()=>{toast('Abriendo selector de carpeta…');
  }catch(e){toast(String(e),'bad')}};
 $('shelfDirSave').onclick=()=>saveShelfDir($('shelfDirIn').value);
 $('shelfDirIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shelfDirSave').click();}});
+// carpeta del HISTORIAL (copia externa de las imágenes generadas)
+async function saveHistDir(p){if(!p)return;
+ const c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save_dir:p,project:curProj()})})).json();
+ if(c.error){toast(c.error,'bad');return;}
+ cfgEffective=c.effective||cfgEffective;
+ if(!$('saveDesk').checked){$('saveDesk').checked=true;localStorage.setItem('studio_desk','1');}
+ renderSaveWhere();
+ if($('histDirLbl'))$('histDirLbl').textContent=c.effective||'(carpeta interna de la app)';
+ if($('setGenPath'))$('setGenPath').textContent=c.effective;
+ toast('Las imágenes de este proyecto se copiarán en '+c.effective);}
+$('histDirEdit').onclick=async()=>{toast('Abriendo selector de carpeta…');
+ try{const r=await(await fetch('/pickfolder')).json();
+  if(r.path)saveHistDir(r.path);else if(r.error)toast(r.error,'bad');
+ }catch(e){toast(String(e),'bad')}};
 // ===== marcado de validez de presets para gpt-image-2 =====
 const NATIVE_SIZES=new Set(['1024x1024','1536x1024','1024x1536']);
 function chipValid(w,h){return w%16===0&&h%16===0&&w>=512&&h>=512&&Math.max(w,h)<=3840
