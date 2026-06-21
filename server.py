@@ -2612,15 +2612,15 @@ function openMovePop(anchor){closeMovePop();
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
- const _shown=document.querySelectorAll('#gal .gcard').length;
- const _allSel=_shown>0&&selFiles.size>=_shown;
  bar.innerHTML='<span class="gbcount">'+selFiles.size+' seleccionada'+(selFiles.size===1?'':'s')+'</span>'
-  +'<button id="bulkAll"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>'+(_allSel?'Ninguna':'Todas')+'</button>'
+  +'<button id="bulkAll" title="Seleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todo</button>'
+  +'<button id="bulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
   +'<button id="bulkMove">'+GCM+'Mover</button>'
   +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="bulkExit">Salir</button>';
- $('bulkAll').onclick=()=>{const cards=[...document.querySelectorAll('#gal .gcard')];const all=cards.length&&cards.every(c=>selFiles.has(c.dataset.file));if(all){selFiles.clear()}else{cards.forEach(c=>selFiles.add(c.dataset.file))}renderGal();renderBulk()};
+ $('bulkAll').onclick=()=>{[...document.querySelectorAll('#gal .gcard')].forEach(c=>selFiles.add(c.dataset.file));renderGal();renderBulk()};
+ $('bulkNone').onclick=()=>{selFiles.clear();renderGal();renderBulk()};
  $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget)};
  $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
