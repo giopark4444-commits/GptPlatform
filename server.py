@@ -407,7 +407,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projbtn .chev{width:13px;height:13px;margin-left:2px}
 .projbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* modal de proyectos */
-.projmodal{max-width:780px}
+.modal.projmodal{max-width:min(1180px,96vw);width:96%}
 .modsub{color:var(--mut);font-size:13px;margin:0 0 18px;line-height:1.5}
 .projgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;max-height:60vh;overflow-y:auto;padding:2px}
 .projitem{display:flex;flex-direction:column;gap:8px}
@@ -2281,10 +2281,12 @@ $('projGrid').onclick=async e=>{
  const name=item.dataset.name,label=item.dataset.label;
  const ed=e.target.closest('.pedit');
  if(ed){e.stopPropagation();const mt=item.querySelector('.mtext');
-  mt.innerHTML='<input class="prename" type="text" maxlength="60" title="Enter para guardar · Esc para cancelar">';
+  mt.innerHTML='<input class="prename" type="text" maxlength="60" title="Enter o clic afuera para guardar · Esc para cancelar">';
   const inp=mt.querySelector('.prename');inp.value=label;inp.focus();inp.select();
+  let pdone=false;const psave=()=>{if(pdone)return;pdone=true;renameProject(name,inp.value)};
   inp.addEventListener('click',ev=>ev.stopPropagation());
-  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();renameProject(name,inp.value)}else if(ev.key==='Escape'){ev.preventDefault();renderProjCards(lastProjCards)}});
+  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();psave()}else if(ev.key==='Escape'){ev.preventDefault();pdone=true;renderProjCards(lastProjCards)}});
+  inp.addEventListener('blur',psave);
   return}
  const del=e.target.closest('.pdel');
  if(del){e.stopPropagation();
