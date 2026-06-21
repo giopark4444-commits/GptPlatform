@@ -2612,11 +2612,15 @@ function openMovePop(anchor){closeMovePop();
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
+ const _shown=document.querySelectorAll('#gal .gcard').length;
+ const _allSel=_shown>0&&selFiles.size>=_shown;
  bar.innerHTML='<span class="gbcount">'+selFiles.size+' seleccionada'+(selFiles.size===1?'':'s')+'</span>'
+  +'<button id="bulkAll"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>'+(_allSel?'Ninguna':'Todas')+'</button>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
   +'<button id="bulkMove">'+GCM+'Mover</button>'
   +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="bulkExit">Salir</button>';
+ $('bulkAll').onclick=()=>{const cards=[...document.querySelectorAll('#gal .gcard')];const all=cards.length&&cards.every(c=>selFiles.has(c.dataset.file));if(all){selFiles.clear()}else{cards.forEach(c=>selFiles.add(c.dataset.file))}renderGal();renderBulk()};
  $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget)};
  $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
@@ -4328,6 +4332,8 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
           "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
+          "var gselall=document.getElementById('gselall');"
+          "if(gselall)gselall.onclick=function(){var ts=[].slice.call(g.querySelectorAll('.tile'));var all=ts.length&&ts.every(function(t){return selSet[t.dataset.file]});if(all){ts.forEach(function(t){delete selSet[t.dataset.file];t.classList.remove('gsel')})}else{ts.forEach(function(t){if(!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel')}})}lastSelIdx=null;updSel();if(gselall.lastChild)gselall.lastChild.textContent=all?'Todas':'Ninguna';};"
           "var gcopyall=document.getElementById('gcopyall');"
           "if(gcopyall)gcopyall.onclick=async function(){if(!confirm('¿Copiar todas las imágenes del historial de este proyecto (incluye subproyectos) a Mis imágenes?'))return;"
           "try{var r=await(await fetch('/shelfcopyall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:PROJ,allsubs:true})})).json();"
@@ -4369,6 +4375,8 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
             + (('<main class="groups">' + grid + '</main>') if multi else ('<main class="grid">' + grid + '</main>'))
             + ('<div class="gselbar" id="gselbar">'
                '<span class="gselcount"><b id="gseln">0</b>seleccionadas</span>'
+               '<span class="gseldiv"></span>'
+               '<button class="gselact" id="gselall"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todas</button>'
                '<span class="gseldiv"></span>'
                + (('<button class="gselact" id="gselmove">' + GMV + 'Mover</button>'
                    '<button class="gselact" id="gselcopy">' + GCP + 'Copiar</button>') if move_targets else '')
