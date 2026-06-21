@@ -3714,15 +3714,22 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .gfolder svg{width:14px;height:14px;flex:none}
 .gfbtn{font:inherit;font-size:11.5px;color:#1f6b54;background:none;border:0;cursor:pointer;text-decoration:underline;padding:0 0 0 3px}
 .gfbtn:hover{opacity:.7}
-.gmovemenu{position:absolute;z-index:30;background:#faf6ec;border:1px solid #cfc4ac;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;min-width:190px;max-height:320px;overflow:auto}
-.gmovemenu .gmvh{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8170;padding:5px 9px 6px}
-.gmovemenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:8px;font:inherit;font-size:13px;color:#2a2620;cursor:pointer;white-space:nowrap}
-.gmovemenu button:hover{background:rgba(31,107,84,.1);color:#1f6b54}
-.gmvtabs{display:flex;gap:4px;padding:2px;margin-bottom:4px;background:rgba(0,0,0,.05);border-radius:8px}
-.gmvtabs button{flex:1;text-align:center;padding:6px 8px;border-radius:6px;font-size:12.5px;color:#8a8170}
-.gmvtabs button:hover{background:rgba(0,0,0,.04)}
+.gmvov{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(10,10,12,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.gmvcard{position:relative;width:min(420px,94vw);max-height:82vh;overflow:auto;background:#faf6ec;border:1px solid #e3dccb;border-radius:20px;box-shadow:0 28px 70px rgba(0,0,0,.38);padding:24px;animation:gmvin .2s cubic-bezier(.2,.85,.3,1)}
+@keyframes gmvin{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.gmvclose{position:absolute;top:13px;right:13px;width:32px;height:32px;border:0;background:none;color:#8a8170;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.gmvclose:hover{background:rgba(0,0,0,.06);color:#2a2620}
+.gmvclose svg{width:17px;height:17px}
+.gmvtitle{font-size:17px;font-weight:650;color:#2a2620;margin-bottom:16px}
+.gmvtabs{display:flex;gap:4px;padding:3px;margin-bottom:16px;background:rgba(0,0,0,.05);border-radius:11px}
+.gmvtabs button{flex:1;text-align:center;padding:9px 8px;border-radius:8px;font:inherit;font-size:13.5px;font-weight:500;color:#8a8170;border:0;background:none;cursor:pointer;transition:.14s}
+.gmvtabs button:hover{color:#2a2620}
 .gmvtabs button.on{background:#1f6b54;color:#fff}
-.gmvtabs button.on:hover{background:#1f6b54;color:#fff}
+.gmvh{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#8a8170;margin-bottom:9px}
+.gmvlist{display:flex;flex-direction:column;gap:4px}
+.gmvp{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:1px solid transparent;padding:12px 14px;border-radius:11px;font:inherit;font-size:14px;color:#2a2620;cursor:pointer;transition:.14s}
+.gmvp:hover{background:rgba(31,107,84,.1);color:#1f6b54;border-color:rgba(31,107,84,.22)}
+.gmvp svg{width:18px;height:18px;flex:none;opacity:.8}
 .tile.gsel{outline:3px solid #1f6b54;outline-offset:-3px}
 .tile.gsel::after{content:"✓";position:absolute;top:8px;left:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#1f6b54;color:#fff;border-radius:50%;font-size:14px;font-weight:700;z-index:3}
 body.selmode .tile{cursor:pointer}
@@ -3789,13 +3796,17 @@ body.selmode .acts{display:none!important}
  .gfolder{color:#9a8f78;border-color:#2a2418}
  .gfolder b{color:#ece6d8}
  .gfbtn{color:#e0a571}
- .gmovemenu{background:#1c1812;border-color:#3a3322;box-shadow:0 10px 30px rgba(0,0,0,.5)}
- .gmovemenu .gmvh{color:#9a8f78}
- .gmovemenu button{color:#ece6d8}
- .gmovemenu button:hover{background:rgba(224,165,113,.14);color:#e0a571}
+ .gmvcard{background:#1c1812;border-color:#3a3322;box-shadow:0 28px 70px rgba(0,0,0,.62)}
+ .gmvclose{color:#9a8f78}
+ .gmvclose:hover{background:rgba(255,255,255,.08);color:#ece6d8}
+ .gmvtitle{color:#ece6d8}
  .gmvtabs{background:rgba(255,255,255,.06)}
  .gmvtabs button{color:#9a8f78}
- .gmvtabs button.on,.gmvtabs button.on:hover{background:#e0a571;color:#1c1812}
+ .gmvtabs button:hover{color:#ece6d8}
+ .gmvtabs button.on{background:#e0a571;color:#1c1812}
+ .gmvh{color:#9a8f78}
+ .gmvp{color:#ece6d8}
+ .gmvp:hover{background:rgba(224,165,113,.16);color:#e0a571;border-color:rgba(224,165,113,.3)}
  .tile.gsel{outline-color:#e0a571}
  .tile.gsel::after{background:#e0a571;color:#1c1812}
  .gselbar{background:rgba(28,24,18,.9);border-color:#3a3322;box-shadow:0 18px 44px rgba(0,0,0,.55)}
@@ -3900,7 +3911,7 @@ def gallery_html(src, fav=False, proj=""):
           "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt);"
           "});"
           "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
-          "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(selMode){exitSel();}else{closeLb();}}});"
+          "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mv&&mv.style.display!=='none'){closeMv();}else if(selMode){exitSel();}else{closeLb();}}});"
           "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
           "glbCopy.onclick=function(){copyP(curPrompt);};"
           "var gfdir=document.getElementById('gfdir'),gfpick=document.getElementById('gfpick');"
@@ -3913,20 +3924,19 @@ def gallery_html(src, fav=False, proj=""):
           "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};"
           # --- mover / copiar imágenes a otro proyecto (individual o en lote) ---
           "var mvFiles=[],mvTiles=[],mvMode='move';"
-          "var mv=document.createElement('div');mv.className='gmovemenu';mv.style.display='none';"
-          "mv.innerHTML='<div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">a proyecto…</div>'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-n=\"'+encodeURIComponent(p.name)+'\">'+nm+'</button>';}).join('');"
+          "var mv=document.createElement('div');mv.className='gmvov';mv.style.display='none';"
+          "mv.innerHTML='<div class=\"gmvcard\"><button class=\"gmvclose\" title=\"Cerrar (Esc)\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button><div class=\"gmvtitle\">Enviar a proyecto</div><div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">Elige el proyecto destino</div><div class=\"gmvlist\">'+MOVES.map(function(p){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-n=\"'+encodeURIComponent(p.name)+'\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"/></svg><span>'+nm+'</span></button>';}).join('')+'</div></div>';"
           "document.body.appendChild(mv);"
           "function setMode(m){mvMode=m;mv.querySelectorAll('.gmvtabs button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m);});}"
           "mv.querySelectorAll('.gmvtabs button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setMode(t.dataset.m);};});"
-          "function openMenu(anchor,files,tiles){mvFiles=files;mvTiles=tiles||[];var r=anchor.getBoundingClientRect();mv.style.display='block';var w=mv.offsetWidth||210;"
-          "mv.style.top=(r.bottom+window.scrollY+4)+'px';mv.style.left=Math.max(8,Math.min(r.left+window.scrollX,window.scrollX+window.innerWidth-w-8))+'px';}"
+          "function openMenu(anchor,files,tiles){mvFiles=files;mvTiles=tiles||[];mv.style.display='flex';}"
           "function closeMv(){mv.style.display='none';}"
+          "mv.querySelector('.gmvclose').onclick=closeMv;"
+          "mv.addEventListener('click',function(e){if(e.target===mv)closeMv();});"
           "function updCount(){var c=document.querySelector('.count');if(c)c.textContent=document.querySelectorAll('.tile').length+' imágenes';}"
           "mv.addEventListener('click',async function(e){var b=e.target.closest('button.gmvp');if(!b)return;var dest=decodeURIComponent(b.getAttribute('data-n'));var mode=mvMode,files=mvFiles.slice(),tiles=mvTiles.slice();closeMv();if(!files.length)return;"
           "try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ,dest:dest,mode:mode})})).json();"
-          "if(r&&r.ok){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var n=r.done||files.length;var verb=mode==='copy'?'copiada':'movida';gt((n>1?n+' '+verb+'s':'1 '+verb)+' a '+b.textContent+' ✓');if(selMode)exitSel();}else gt((r&&r.error)||'No se pudo');}catch(x){gt('No se pudo');}});"
-          "document.addEventListener('click',function(e){if(mv.style.display==='block'&&!mv.contains(e.target)&&!e.target.closest('[data-act=\"move\"]')&&!(e.target.closest&&(e.target.closest('#glbMove')||e.target.closest('#gselmove')||e.target.closest('#gselcopy'))))closeMv();});"
-          "window.addEventListener('resize',closeMv);"
+          "if(r&&r.ok){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var n=r.done||files.length;var verb=mode==='copy'?'copiada':'movida';gt((n>1?n+' '+verb+'s':'1 '+verb)+' a '+(b.textContent||'').trim()+' ✓');if(selMode)exitSel();}else gt((r&&r.error)||'No se pudo');}catch(x){gt('No se pudo');}});"
           "var glbMove=document.getElementById('glbMove');"
           "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
           # --- selección en lote ---
