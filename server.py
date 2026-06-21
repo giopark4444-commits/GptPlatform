@@ -1241,10 +1241,10 @@ html,body{overflow-x:hidden}
     </div>
 
     <div class="field">
-      <div class="slabel"><label>Ancho</label><input class="vnum" id="wv" type="number" min="512" max="3840" step="16" value="1536"></div>
-      <input type="range" id="w" min="512" max="3840" step="16" value="1536">
-      <div class="slabel" style="margin-top:6px"><label>Alto</label><input class="vnum" id="hv" type="number" min="512" max="3840" step="16" value="1024"></div>
-      <input type="range" id="h" min="512" max="3840" step="16" value="1024">
+      <div class="slabel"><label>Ancho</label><input class="vnum" id="wv" type="number" min="512" max="3840" step="16" value="1920"></div>
+      <input type="range" id="w" min="512" max="3840" step="16" value="1920">
+      <div class="slabel" style="margin-top:6px"><label>Alto</label><input class="vnum" id="hv" type="number" min="512" max="3840" step="16" value="1088"></div>
+      <input type="range" id="h" min="512" max="3840" step="16" value="1088">
       <button type="button" id="lockBtn" class="lockbtn" aria-pressed="false" title="Bloquear proporción: al mover un lado, el otro se ajusta">
         <svg class="lk-open" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>
         <svg class="lk-closed" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
@@ -1780,7 +1780,7 @@ html,body{overflow-x:hidden}
 </div></div>
 <script>
 const $=id=>document.getElementById(id);
-let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1.5,projects={};
+let mode='crear',refs=[],mask=null,sessCost=0,sessN=0,ratio=1920/1088,projects={};
 const REF_IMG_TOKENS=500; // respaldo si aún no conocemos las dimensiones; el real lo da la API
 // tokens de imagen de entrada ≈ parches de 32px (esquema de gpt-image), tope 1536
 function refTokens(w,h){if(!w||!h)return REF_IMG_TOKENS;return Math.min(1536,Math.ceil(w/32)*Math.ceil(h/32));}
