@@ -41,9 +41,11 @@ JOBS_JSON = ROOT / "jobs.json"
 PROJ_DIR = ROOT / "proyectos"
 SHELF_DIR = ROOT / "estante"          # estante de imágenes propias (no van a OpenAI)
 SHELF_JSON = ROOT / "estante.json"
+TRASH_DIR = ROOT / ".papelera"        # soft-delete: deshacer borrados
 HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
 SHELF_DIR.mkdir(parents=True, exist_ok=True)
+TRASH_DIR.mkdir(parents=True, exist_ok=True)
 
 PRICE_OUT = 30.0
 PRICE_IN = 5.0          # USD por 1M de tokens de texto de entrada
@@ -210,6 +212,31 @@ def list_subs(proj):
                     pass
             out.append({"key": d.name, "label": label or d.name})
     return out
+
+
+def trash_put(src_path):
+    # mueve un archivo a la papelera; devuelve un token para restaurarlo (o "" si no existía)
+    if not src_path.is_file():
+        return ""
+    token = uuid.uuid4().hex + "__" + src_path.name
+    try:
+        src_path.rename(TRASH_DIR / token)
+        return token
+    except Exception:
+        return ""
+
+
+def trash_restore(token, dest_path):
+    # devuelve un archivo de la papelera a su sitio
+    t = TRASH_DIR / os.path.basename(token or "")
+    if not token or not t.is_file():
+        return False
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        t.rename(dest_path)
+        return True
+    except Exception:
+        return False
 
 
 def phist_dir(proj, sub=""):
@@ -2504,8 +2531,13 @@ $('galCopyShelf').onclick=async()=>{
  const body=activeSub?{project:curProj(),sub:activeSub}:{project:curProj(),allsubs:true};
  const scope=activeSub?('«'+activeSub+'»'):('todo «'+(curProj()||genLabel)+'» (incluye subproyectos)');
  if(!confirm('¿Copiar todas las imágenes del historial de '+scope+' a Mis imágenes?'))return;
- try{const r=await(await fetch('/shelfcopyall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
-  if(r&&r.ok){toast(r.added>0?(r.added+' copiada(s) a Mis imágenes'):'Ya estaban todas en Mis imágenes');loadShelf();}else toast((r&&r.error)||'No se pudo copiar','bad');}catch(e){toast('No se pudo copiar','bad')}};
+ try{const r=await jpost('/shelfcopyall',body);
+  if(r&&r.ok){loadShelf();const proj=curProj();const created=(r.created||[]).slice();
+   toast(r.added>0?(r.added+' copiada(s) a Mis imágenes ✓'+(created.length?' · ⌘Z para deshacer':'')):'Ya estaban todas en Mis imágenes');
+   if(created.length)pushUndo({label:created.length+' copiada(s) a Mis imágenes',
+    undo:async()=>{const byd={};created.forEach(c=>{(byd[c.sub||'']=byd[c.sub||'']||[]).push(c.file)});for(const s of Object.keys(byd)){await jpost('/deleteitems',{src:'shelf',project:proj,sub:s,files:byd[s]})}loadShelf();},
+    redo:async()=>{const rr=await jpost('/shelfcopyall',body);created.length=0;(rr.created||[]).forEach(c=>created.push(c));loadShelf();}});
+  }else toast((r&&r.error)||'No se pudo copiar','bad');}catch(e){toast('No se pudo copiar','bad')}};
 // las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
 async function addRefFromServer(src,file,project){try{
  const pq='&project='+encodeURIComponent(project||'');
@@ -2592,14 +2624,18 @@ function closeMovePop(){const e=$('movePop');if(e)e.remove()}
 document.addEventListener('click',e=>{const mp=$('movePop');if(mp&&!mp.contains(e.target)&&!e.target.closest('#bulkMove'))closeMovePop()});
 async function bulkMoveTo(dest,dest_sub){
  // agrupa la selección por sub de origen (al ver "Todos" puede haber varios)
- const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
- let moved=0;
+ const proj=curProj();const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+ let moved=0;const groups=[];
  for(const ssub of Object.keys(byd)){
-  if(curProj()===dest&&ssub===dest_sub)continue;
-  const r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'history',files:byd[ssub],project:curProj(),sub:ssub,dest:dest,dest_sub:dest_sub,mode:'move'})})).json();
-  if(r&&r.error){toast(r.error,'bad');continue}moved+=byd[ssub].length}
+  if(proj===dest&&ssub===dest_sub)continue;
+  const r=await jpost('/moveitem',{src:'history',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,mode:'move'});
+  if(r&&r.error){toast(r.error,'bad');continue}moved+=byd[ssub].length;
+  if(r&&r.pairs)groups.push({a:{p:proj,s:ssub},b:{p:dest,s:dest_sub},names:r.pairs.map(x=>x.to),at:'b'})}
  closeMovePop();selMode=false;selFiles.clear();await loadGal();renderBulk();
- if(moved)toast(moved+' imagen(es) movidas')}
+ if(moved){toast(moved+' movida(s) · ⌘Z para deshacer');
+  pushUndo({label:moved+' movida(s)',
+   undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:'history',files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadGal();},
+   redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:'history',files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadGal();}})}}
 function openMovePop(anchor){closeMovePop();
  const tgts=moveTargets();
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
@@ -2628,9 +2664,21 @@ function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hid
   toast(n?(n+' prompt(s) enviados a la biblioteca'):'Ninguna tenía prompt',n?'':'bad');selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkDel').onclick=async(e)=>{const b=e.currentTarget;if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
   if(!b.classList.contains('arm')){b.classList.add('arm');b.lastChild.textContent='¿Borrar '+selFiles.size+'?';setTimeout(()=>{b.classList.remove('arm');renderBulk()},2600);return}
-  for(const f of [...selFiles]){const fs=selFileSub(f);try{await fetch('/historydel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f,project:curProj(),sub:fs})});hist=hist.filter(x=>x.file!==f);if(histGroups.length){const g=histGroups.find(x=>x.k===fs);if(g)g.items=g.items.filter(it=>it.file!==f)}}catch(e){}}
-  const k=selFiles.size;selMode=false;selFiles.clear();renderGal();renderBulk();toast(k+' imagen(es) borradas')}}
+  const proj=curProj();const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+  const groups=[];for(const s of Object.keys(byd)){const r=await jpost('/deleteitems',{src:'history',files:byd[s],project:proj,sub:s});if(r&&r.undo)groups.push({sub:s,items:r.undo})}
+  const k=selFiles.size;selMode=false;selFiles.clear();await loadGal();renderBulk();toast(k+' borrada(s) · ⌘Z para deshacer');
+  pushUndo({label:k+' borrada(s)',
+   undo:async()=>{for(const g of groups){await jpost('/restoreitems',{src:'history',project:proj,sub:g.sub,items:g.items})}await loadGal();},
+   redo:async()=>{for(const g of groups){const r=await jpost('/deleteitems',{src:'history',files:g.items.map(u=>(u.entry||{}).file).filter(Boolean),project:proj,sub:g.sub});if(r&&r.undo)g.items=r.undo}await loadGal();}})}}
 $('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();renderGal();renderBulk()};
+// ===== Deshacer / Rehacer (⌘Z / ⇧⌘Z) =====
+let undoStack=[],redoStack=[];
+async function jpost(u,b){return (await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();}
+function pushUndo(op){undoStack.push(op);if(undoStack.length>40)undoStack.shift();redoStack.length=0;}
+async function doUndo(){const op=undoStack.pop();if(!op){toast('Nada que deshacer');return}try{await op.undo();redoStack.push(op);toast('Deshecho: '+op.label);}catch(e){toast('No se pudo deshacer','bad');}}
+async function doRedo(){const op=redoStack.pop();if(!op){toast('Nada que rehacer');return}try{await op.redo();undoStack.push(op);toast('Rehecho: '+op.label);}catch(e){toast('No se pudo rehacer','bad');}}
+document.addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey))return;const t=(document.activeElement||{}).tagName;if(t==='INPUT'||t==='TEXTAREA'||(document.activeElement||{}).isContentEditable)return;const k=(e.key||'').toLowerCase();
+ if(k==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}else if(k==='y'){e.preventDefault();doRedo();}});
 let galSubs=new Set([activeSub]),histGroups=[];
 function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
@@ -3958,6 +4006,7 @@ def load_promptlib():
 
 GALERIA_CSS = """
 *{box-sizing:border-box;margin:0}
+svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body{background:#f4efe3;color:#2a2620;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:0 0 64px;-webkit-font-smoothing:antialiased}
 header{position:sticky;top:0;z-index:5;display:flex;align-items:baseline;gap:14px;padding:18px 26px;
  background:rgba(244,239,227,.86);backdrop-filter:blur(12px);border-bottom:1px solid #e3dccb}
@@ -4333,7 +4382,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
           "var gselall=document.getElementById('gselall');"
-          "if(gselall)gselall.onclick=function(){var ts=[].slice.call(g.querySelectorAll('.tile'));var all=ts.length&&ts.every(function(t){return selSet[t.dataset.file]});if(all){ts.forEach(function(t){delete selSet[t.dataset.file];t.classList.remove('gsel')})}else{ts.forEach(function(t){if(!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel')}})}lastSelIdx=null;updSel();if(gselall.lastChild)gselall.lastChild.textContent=all?'Todas':'Ninguna';};"
+          "if(gselall)gselall.onclick=function(){var ts=allTiles();var all=ts.length&&ts.every(function(t){return selSet[t.dataset.file]});if(all){ts.forEach(function(t){delete selSet[t.dataset.file];t.classList.remove('gsel')})}else{ts.forEach(function(t){if(!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel')}})}lastSelIdx=null;updSel();if(gselall.lastChild)gselall.lastChild.textContent=all?'Todas':'Ninguna';};"
           "var gcopyall=document.getElementById('gcopyall');"
           "if(gcopyall)gcopyall.onclick=async function(){if(!confirm('¿Copiar todas las imágenes del historial de este proyecto (incluye subproyectos) a Mis imágenes?'))return;"
           "try{var r=await(await fetch('/shelfcopyall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:PROJ,allsubs:true})})).json();"
@@ -5130,6 +5179,7 @@ class H(BaseHTTPRequestHandler):
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
+                 "/restoreitems": self.h_restoreitems,
                  "/shelfcopyall": self.h_shelfcopyall,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
@@ -5445,12 +5495,10 @@ class H(BaseHTTPRequestHandler):
         with LOCK:
             jp = phist_json(pr, sb)
             h = load_json(jp, [])
+            entry = next((x for x in h if x.get("file") == f), None)
             save_json(jp, [x for x in h if x.get("file") != f])
-        try:
-            (phist_dir(pr, sb) / f).unlink()
-        except Exception:
-            pass
-        return self._json({"ok": True})
+        token = trash_put(phist_dir(pr, sb) / f)   # a la papelera (deshacer), no se borra de verdad
+        return self._json({"ok": True, "token": token, "entry": entry})
 
     def h_shelf_add(self):
         b = self._body()
@@ -5501,12 +5549,10 @@ class H(BaseHTTPRequestHandler):
         with LOCK:
             sj = pshelf_json(pr, sb)
             items = load_json(sj, [])
+            entry = next((x for x in items if x.get("file") == f), None)
             save_json(sj, [x for x in items if x.get("file") != f])
-        try:
-            (pshelf_dir(pr, sb) / f).unlink()   # solo la copia interna; las copias en tu carpeta se conservan
-        except Exception:
-            pass
-        return self._json({"ok": True})
+        token = trash_put(pshelf_dir(pr, sb) / f)   # papelera (deshacer); las copias externas se conservan
+        return self._json({"ok": True, "token": token, "entry": entry})
 
     def h_moveitem(self):
         # mueve o COPIA una o varias imágenes (archivo interno + metadato) a otro proyecto, mismo tipo
@@ -5544,6 +5590,7 @@ class H(BaseHTTPRequestHandler):
             items = load_json(sj, [])
             ditems = load_json(dj, [])
             moved_files = set()
+            pairs = []   # origen→destino, para deshacer
             for f in files:
                 entry = next((x for x in items if x.get("file") == f), None)
                 if entry is None:
@@ -5576,6 +5623,7 @@ class H(BaseHTTPRequestHandler):
                     new_entry["project"] = dest
                     new_entry["sub"] = dest_sub
                 ditems.insert(0, new_entry)
+                pairs.append({"from": f, "to": target})
                 if mode == "move":
                     moved_files.add(f)
                 done += 1
@@ -5583,7 +5631,7 @@ class H(BaseHTTPRequestHandler):
                 save_json(sj, [x for x in items if x.get("file") not in moved_files])
             if done:
                 save_json(dj, ditems)
-        return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "dest_sub": dest_sub, "errors": errors})
+        return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "dest_sub": dest_sub, "errors": errors, "pairs": pairs})
 
     def h_deleteitems(self):
         # borra en lote del historial o estante (solo la copia interna; las copias externas se conservan)
@@ -5600,6 +5648,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "Faltan archivos"})
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
+        undo = []   # para deshacer: token de papelera + metadato por archivo
         with LOCK:
             if src == "history":
                 jp, d = phist_json(pr, sb), phist_dir(pr, sb)
@@ -5607,13 +5656,43 @@ class H(BaseHTTPRequestHandler):
                 jp, d = pshelf_json(pr, sb), pshelf_dir(pr, sb)
             items = load_json(jp, [])
             fset = set(files)
+            for x in items:
+                if x.get("file") in fset:
+                    undo.append({"entry": x, "token": ""})
             save_json(jp, [x for x in items if x.get("file") not in fset])
-        for f in files:
-            try:
-                (d / f).unlink()
-            except Exception:
-                pass
-        return self._json({"ok": True, "done": len(files)})
+        for u in undo:
+            u["token"] = trash_put(d / u["entry"].get("file", ""))   # a la papelera (deshacer)
+        return self._json({"ok": True, "done": len(undo), "undo": undo})
+
+    def h_restoreitems(self):
+        # deshacer un borrado: devuelve los archivos de la papelera y reinserta los metadatos
+        b = self._body()
+        src = b.get("src", "history")
+        pr = b.get("project", "") or ""
+        sb = b.get("sub", "") or ""
+        ud = b.get("items") or []
+        if src not in ("history", "shelf"):
+            return self._json({"error": "Origen inválido"})
+        restored = 0
+        with LOCK:
+            if src == "history":
+                jp, d = phist_json(pr, sb), phist_dir(pr, sb)
+            else:
+                jp, d = pshelf_json(pr, sb), pshelf_dir(pr, sb)
+            items = load_json(jp, [])
+            have = set(x.get("file") for x in items)
+            for u in ud:
+                entry = u.get("entry") or {}
+                f = entry.get("file", "")
+                if not f:
+                    continue
+                trash_restore(u.get("token", ""), d / f)
+                if (d / f).is_file() and f not in have:
+                    items.insert(0, entry)
+                    have.add(f)
+                    restored += 1
+            save_json(jp, items)
+        return self._json({"ok": True, "restored": restored})
 
     def h_shelfcopyall(self):
         # copia TODAS las imágenes del historial a Mis imágenes del MISMO ámbito.
@@ -5628,6 +5707,7 @@ class H(BaseHTTPRequestHandler):
         else:
             scopes = [""]
         added = 0
+        created = []   # {sub, file} de cada copia, para deshacer
         with LOCK:
             for sk in scopes:
                 hist = load_json(phist_json(pr, sk), [])
@@ -5660,9 +5740,10 @@ class H(BaseHTTPRequestHandler):
                         except Exception:
                             pass
                     items.insert(0, {"file": fn, "name": f, "ts": time.strftime("%Y-%m-%d %H:%M")})
+                    created.append({"sub": sk, "file": fn})
                     added += 1
                 save_json(sj, items)
-        return self._json({"ok": True, "added": added})
+        return self._json({"ok": True, "added": added, "created": created})
 
     def _style_prefix(self, project):
         if not project:
