@@ -3734,6 +3734,8 @@ body.selmode .acts{display:none!important}
 .gselbar button:hover{border-color:#1f6b54;color:#1f6b54}
 .gselbar button svg{width:15px;height:15px}
 .gselbar .gselx{border-color:transparent;color:#8a8170}
+.gselbar .gseldel{color:#b4452f;border-color:#e3c9c0}
+.gselbar .gseldel:hover{border-color:#b4452f;color:#b4452f;background:rgba(180,69,47,.07)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3793,6 +3795,8 @@ body.selmode .acts{display:none!important}
  .gselbar button{background:#231f1c;border-color:#3a3322;color:#ece6d8}
  .gselbar button:hover{border-color:#e0a571;color:#e0a571}
  .gselbar .gselx{border-color:transparent;color:#9a8f78}
+ .gselbar .gseldel{color:#e07a6b;border-color:#5a2a22}
+ .gselbar .gseldel:hover{border-color:#e07a6b;color:#e07a6b;background:rgba(224,122,107,.12)}
 }
 """
 
@@ -3926,7 +3930,12 @@ def gallery_html(src, fav=False, proj=""):
           "var gselmove=document.getElementById('gselmove'),gselcopy=document.getElementById('gselcopy'),gselcancel=document.getElementById('gselcancel');"
           "if(gselmove)gselmove.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('move');openMenu(gselmove,selFiles(),selTiles());};"
           "if(gselcopy)gselcopy.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('copy');openMenu(gselcopy,selFiles(),selTiles());};"
-          "if(gselcancel)gselcancel.onclick=exitSel;")
+          "if(gselcancel)gselcancel.onclick=exitSel;"
+          "var gseldel=document.getElementById('gseldel');"
+          "if(gseldel)gseldel.onclick=async function(){var files=selFiles(),tiles=selTiles();if(!files.length){gt('Selecciona imágenes primero');return;}"
+          "if(!confirm('¿Eliminar '+files.length+(files.length===1?' imagen':' imágenes')+'? Se quita la copia interna (las copias en tu carpeta se conservan).'))return;"
+          "try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ})})).json();"
+          "if(r&&r.ok){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt((r.done||files.length)+(((r.done||files.length)===1)?' eliminada ✓':' eliminadas ✓'));}else gt((r&&r.error)||'No se pudo eliminar');}catch(x){gt('No se pudo eliminar');}};")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
@@ -3936,14 +3945,15 @@ def gallery_html(src, fav=False, proj=""):
             'Carpeta: <b id="gfdir">' + _h.escape(folder) + '</b>'
             '<button class="gfbtn" id="gfpick">cambiar</button></span>'
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink
-            + (('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover o copiar">'
-                '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>') if move_targets else '')
+            + ('<button class="favtog" id="gselbtn" title="Seleccionar varias para mover, copiar o eliminar">'
+               '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>')
             + '</header>'
             '<main class="grid">' + grid + '</main>'
-            + (('<div class="gselbar" id="gselbar"><span id="gseln">0 seleccionadas</span>'
-                '<button id="gselmove">' + GMV + 'Mover a…</button>'
-                '<button id="gselcopy">' + GCP + 'Copiar a…</button>'
-                '<button class="gselx" id="gselcancel">Cancelar</button></div>') if move_targets else '')
+            + ('<div class="gselbar" id="gselbar"><span id="gseln">0 seleccionadas</span>'
+               + (('<button id="gselmove">' + GMV + 'Mover a…</button>'
+                   '<button id="gselcopy">' + GCP + 'Copiar a…</button>') if move_targets else '')
+               + '<button class="gseldel" id="gseldel"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Eliminar</button>'
+               '<button class="gselx" id="gselcancel">Cancelar</button></div>')
             + '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
             '<img id="glbImg" alt="">'
             '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
@@ -4668,7 +4678,7 @@ class H(BaseHTTPRequestHandler):
                  "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
-                 "/moveitem": self.h_moveitem,
+                 "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
                  "/promptlib": self.h_promptlib, "/promptstage": self.h_promptstage,
                  "/promptinbox": self.h_promptinbox,
                  "/stage": self.h_stage, "/setproject": self.h_setproject}.get(self.path)
@@ -5006,6 +5016,35 @@ class H(BaseHTTPRequestHandler):
             if done:
                 save_json(dj, ditems)
         return self._json({"ok": True, "done": done, "mode": mode, "dest": dest, "errors": errors})
+
+    def h_deleteitems(self):
+        # borra en lote del historial o estante (solo la copia interna; las copias externas se conservan)
+        b = self._body()
+        src = b.get("src", "history")
+        files = b.get("files")
+        if not files:
+            one = b.get("file", "")
+            files = [one] if one else []
+        files = [os.path.basename(x) for x in files if x]
+        pr = b.get("project", "") or ""
+        if not files:
+            return self._json({"error": "Faltan archivos"})
+        if src not in ("history", "shelf"):
+            return self._json({"error": "Origen inválido"})
+        with LOCK:
+            if src == "history":
+                jp, d = phist_json(pr), phist_dir(pr)
+            else:
+                jp, d = pshelf_json(pr), pshelf_dir(pr)
+            items = load_json(jp, [])
+            fset = set(files)
+            save_json(jp, [x for x in items if x.get("file") not in fset])
+        for f in files:
+            try:
+                (d / f).unlink()
+            except Exception:
+                pass
+        return self._json({"ok": True, "done": len(files)})
 
     def _style_prefix(self, project):
         if not project:
