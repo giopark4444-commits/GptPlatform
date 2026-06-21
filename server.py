@@ -227,16 +227,33 @@ def trash_put(src_path):
 
 
 def trash_restore(token, dest_path):
-    # devuelve un archivo de la papelera a su sitio
+    # devuelve un archivo de la papelera a su sitio (con contención de ruta como defensa)
     t = TRASH_DIR / os.path.basename(token or "")
     if not token or not t.is_file():
         return False
     try:
+        base = TRASH_DIR.resolve()
+        if base != t.resolve().parent:
+            return False
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         t.rename(dest_path)
         return True
     except Exception:
         return False
+
+
+def trash_purge(days=14):
+    # vacía de verdad lo que lleve más de N días en la papelera (evita que crezca sin límite)
+    cutoff = time.time() - days * 86400
+    try:
+        for p in TRASH_DIR.iterdir():
+            try:
+                if p.is_file() and p.stat().st_mtime < cutoff:
+                    p.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def phist_dir(proj, sub=""):
@@ -393,7 +410,13 @@ def save_dir_sub(proj=None, sub=""):
 
 def shelf_dir_sub(proj=None, sub=""):
     base = shelf_dir(proj)
-    return (base / _sub_safe(sub)) if sub else base
+    if not sub:
+        return base
+    # si NO hay carpeta externa configurada, base es la interna (estante raíz);
+    # devolver la interna del sub para que NO se cree una copia huérfana al "espejar"
+    if base.resolve() == pshelf_dir(proj).resolve():
+        return pshelf_dir(proj, sub)
+    return base / _sub_safe(sub)
 
 
 def icloud_dir():
@@ -2539,15 +2562,15 @@ $('galCopyShelf').onclick=async()=>{
     redo:async()=>{const rr=await jpost('/shelfcopyall',body);created.length=0;(rr.created||[]).forEach(c=>created.push(c));loadShelf();}});
   }else toast((r&&r.error)||'No se pudo copiar','bad');}catch(e){toast('No se pudo copiar','bad')}};
 // las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
-async function addRefFromServer(src,file,project){try{
- const pq='&project='+encodeURIComponent(project||'');
+async function addRefFromServer(src,file,project,sub){try{
+ const pq='&project='+encodeURIComponent(project||'')+'&sub='+encodeURIComponent(sub||'');
  const url=(src==='shelf'?'/shelffile?name=':'/file?name=')+encodeURIComponent(file)+pq;
  const b=await(await fetch(url)).blob();
  refs.push({name:file,b64:await blobToB64(b)});renderThumbs();
  if(mode!=='editar')setMode('editar');validate();toast('Imagen añadida como referencia (desde Ver todo)');
 }catch(e){toast('No pude añadir la referencia','bad')}}
 async function pollStage(){try{const r=await(await fetch('/stage')).json();
- if(r.items&&r.items.length)for(const it of r.items)await addRefFromServer(it.src,it.file,it.project);}catch(e){}}
+ if(r.items&&r.items.length)for(const it of r.items)await addRefFromServer(it.src,it.file,it.project,it.sub);}catch(e){}}
 // la ventana "Biblioteca de prompts" envía aquí el prompt compuesto
 async function pollPromptStage(){try{const r=await(await fetch('/promptstage')).json();
  if(r.items&&r.items.length){const p=r.items[r.items.length-1].prompt||'';
@@ -2578,8 +2601,8 @@ $('cmdk').addEventListener('click',e=>{if(e.target===$('cmdk'))closeCmdk()});
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();if($('cmdk').classList.contains('hide'))openCmdk();else closeCmdk()}},true);
 function pollAll(){pollStage();pollPromptStage();}
 setInterval(pollAll,2500);
-window.addEventListener('focus',()=>{pollAll();loadGal();});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();loadGal();}});
+window.addEventListener('focus',()=>{pollAll();if(!selMode)loadGal();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();if(!selMode)loadGal();}});
 function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="true"><img src="/file?name=${fn}${pq}" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
@@ -2678,6 +2701,10 @@ function pushUndo(op){undoStack.push(op);if(undoStack.length>40)undoStack.shift(
 async function doUndo(){const op=undoStack.pop();if(!op){toast('Nada que deshacer');return}try{await op.undo();redoStack.push(op);toast('Deshecho: '+op.label);}catch(e){toast('No se pudo deshacer','bad');}}
 async function doRedo(){const op=redoStack.pop();if(!op){toast('Nada que rehacer');return}try{await op.redo();undoStack.push(op);toast('Rehecho: '+op.label);}catch(e){toast('No se pudo rehacer','bad');}}
 document.addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey))return;const t=(document.activeElement||{}).tagName;if(t==='INPUT'||t==='TEXTAREA'||(document.activeElement||{}).isContentEditable)return;const k=(e.key||'').toLowerCase();
+ if(k!=='z'&&k!=='y')return;
+ // no deshacer con el visor o un modal abierto (evita ⌘Z accidental mientras se mira algo)
+ if($('lightbox')&&!$('lightbox').classList.contains('hide'))return;
+ if(document.querySelector('.overlay:not(.hide)'))return;
  if(k==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}else if(k==='y'){e.preventDefault();doRedo();}});
 let galSubs=new Set([activeSub]),histGroups=[];
 function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
@@ -4379,7 +4406,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
           "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n;if(selbar)selbar.classList.toggle('show',selMode);}"
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
-          "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
+          "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');var _ga=document.getElementById('gselall');if(_ga&&_ga.lastChild)_ga.lastChild.textContent='Todas';}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
           "var gselall=document.getElementById('gselall');"
           "if(gselall)gselall.onclick=function(){var ts=allTiles();var all=ts.length&&ts.every(function(t){return selSet[t.dataset.file]});if(all){ts.forEach(function(t){delete selSet[t.dataset.file];t.classList.remove('gsel')})}else{ts.forEach(function(t){if(!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel')}})}lastSelIdx=null;updSel();if(gselall.lastChild)gselall.lastChild.textContent=all?'Todas':'Ninguna';};"
@@ -5291,12 +5318,15 @@ class H(BaseHTTPRequestHandler):
             if old in pr:
                 pr[new] = pr.pop(old)
                 save_json(PROJ_JSON, pr)
-            try:  # reetiquetar el historial del proyecto
-                jp = phist_json(new)
-                h = load_json(jp, [])
-                for it in h:
-                    it["project"] = new
-                save_json(jp, h)
+            try:  # reetiquetar el historial del proyecto (raíz + cada subproyecto)
+                for sk in [""] + [s["key"] for s in list_subs(new)]:
+                    jp = phist_json(new, sk)
+                    h = load_json(jp, [])
+                    if not h:
+                        continue
+                    for it in h:
+                        it["project"] = new
+                    save_json(jp, h)
             except Exception:
                 pass
         if ACTIVE_PROJ == old:
@@ -5394,10 +5424,16 @@ class H(BaseHTTPRequestHandler):
         if not key:
             return self._json({"error": "Falta el subproyecto"})
         with LOCK:
+            src = psub_base(proj, key)
             try:
-                shutil.rmtree(psub_base(proj, key))
+                if src.is_dir():   # a la papelera (recuperable), no borrado definitivo
+                    dest = TRASH_DIR / (uuid.uuid4().hex + "__sub__" + safe(proj) + "__" + key)
+                    src.rename(dest)
             except Exception:
-                pass
+                try:
+                    shutil.rmtree(src)
+                except Exception:
+                    pass
         return self._json({"ok": True})
 
     def h_subconvert(self):
@@ -5496,8 +5532,8 @@ class H(BaseHTTPRequestHandler):
             jp = phist_json(pr, sb)
             h = load_json(jp, [])
             entry = next((x for x in h if x.get("file") == f), None)
+            token = trash_put(phist_dir(pr, sb) / f)   # a la papelera (deshacer), dentro del lock (atómico)
             save_json(jp, [x for x in h if x.get("file") != f])
-        token = trash_put(phist_dir(pr, sb) / f)   # a la papelera (deshacer), no se borra de verdad
         return self._json({"ok": True, "token": token, "entry": entry})
 
     def h_shelf_add(self):
@@ -5550,8 +5586,8 @@ class H(BaseHTTPRequestHandler):
             sj = pshelf_json(pr, sb)
             items = load_json(sj, [])
             entry = next((x for x in items if x.get("file") == f), None)
+            token = trash_put(pshelf_dir(pr, sb) / f)   # papelera (deshacer), dentro del lock; copias externas se conservan
             save_json(sj, [x for x in items if x.get("file") != f])
-        token = trash_put(pshelf_dir(pr, sb) / f)   # papelera (deshacer); las copias externas se conservan
         return self._json({"ok": True, "token": token, "entry": entry})
 
     def h_moveitem(self):
@@ -5575,7 +5611,7 @@ class H(BaseHTTPRequestHandler):
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
         if proj_key(srcp) == proj_key(dest) and _sub_safe(src_sub) == _sub_safe(dest_sub):
-            return self._json({"error": "Ya está en ese lugar"})
+            return self._json({"ok": True, "done": 0, "mode": mode, "dest": dest, "dest_sub": dest_sub, "errors": [], "pairs": []})
         done = 0
         errors = []
         with LOCK:
@@ -5658,10 +5694,9 @@ class H(BaseHTTPRequestHandler):
             fset = set(files)
             for x in items:
                 if x.get("file") in fset:
-                    undo.append({"entry": x, "token": ""})
+                    tok = trash_put(d / x.get("file", ""))   # a la papelera (deshacer), dentro del lock
+                    undo.append({"entry": x, "token": tok})
             save_json(jp, [x for x in items if x.get("file") not in fset])
-        for u in undo:
-            u["token"] = trash_put(d / u["entry"].get("file", ""))   # a la papelera (deshacer)
         return self._json({"ok": True, "done": len(undo), "undo": undo})
 
     def h_restoreitems(self):
@@ -5684,8 +5719,8 @@ class H(BaseHTTPRequestHandler):
             for u in ud:
                 entry = u.get("entry") or {}
                 f = entry.get("file", "")
-                if not f:
-                    continue
+                if not f or os.path.basename(f) != f or f.startswith("."):
+                    continue   # rechaza separadores de ruta y '..' (path traversal)
                 trash_restore(u.get("token", ""), d / f)
                 if (d / f).is_file() and f not in have:
                     items.insert(0, entry)
@@ -6665,7 +6700,7 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "La imagen no es PNG/JPEG/WebP."})
         dims = img_dims(raw0)
         size = upscale_size(dims[0], dims[1], float(b.get("factor", 2))) if dims else "1536x1024"
-        orig = next((x for x in load_json(phist_json(pr), []) if x.get("file") == f), {})
+        orig = next((x for x in load_json(phist_json(pr, sb), []) if x.get("file") == f), {})
         ct = MIME.get(sniff_image(raw0), "image/png").split(";")[0]
         prompt = ("Upscale this exact image to a higher resolution. Increase sharpness and recover fine "
                   "detail and texture, and reduce noise and compression artifacts. Keep the content, "
@@ -6860,5 +6895,6 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     PENDING_VIDEOS.update(load_json(JOBS_JSON, {}))  # recupera trabajos de video en curso
+    trash_purge()   # vacía la papelera de borrados con más de 14 días
     print(f"Gio Studio en  http://localhost:{PORT}")
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
