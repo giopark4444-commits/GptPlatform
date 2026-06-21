@@ -1427,6 +1427,7 @@ html,body{overflow-x:hidden}
         <canvas id="ang3dCv" width="220" height="180" title="Arrastra para girar"></canvas>
         <div class="ang3dside">
           <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
+          <div class="seg ang3dseg" id="ang3dShape" style="margin-top:4px"><button data-sh="cube" class="on">Cubo</button><button data-sh="mann">Maniquí</button></div>
           <div class="ang3dtxt" id="ang3dTxt"></div>
           <div class="ang3dpresets" id="ang3dPresets"></div>
           <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el diagrama como referencia visual</label>
@@ -3645,7 +3646,7 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 // ===== Ángulo 3D (gizmo de cámara/orientación) =====
-let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0}, ang3dMode='subj';
+let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0}, ang3dMode='subj', ang3dShape='cube';
 function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function ang3dActive(){return ang3dMode==='cam'?ang3dCam:ang3dSubj}
 function ang3dSubjText(){const a2=(((ang3dSubj.yaw+180)%360+360)%360)-180,a=Math.abs(a2);
@@ -3730,6 +3731,18 @@ function drawDial(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d'),W=cv
  ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fillStyle=c.acc;ctx.fill();
  if(Math.abs(pitch)>=18){ctx.fillStyle=c.acc;ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(pitch>0?'▲':'▼',cx,cy-R-1);ctx.textAlign='start';}}
 function sceneAngle(cv,e){const r=cv.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);return Math.round(Math.atan2(dx,dy)*180/Math.PI);}
+// maniquí 3D girable (alternativa al cubo para el SUJETO): figura articulada
+function drawMannequin(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const cs=getComputedStyle(document.body),acc=(cs.getPropertyValue('--accent').trim()||'#1f6b54'),mut=(cs.getPropertyValue('--mut').trim()||'#888');
+ const cx=W/2,cy=H/2+6,s=Math.min(W,H)*0.16,ry=yaw*Math.PI/180,rx=pitch*Math.PI/180;
+ function rot(p){var x=p[0],y=p[1],z=p[2];var x1=x*Math.cos(ry)+z*Math.sin(ry),z1=-x*Math.sin(ry)+z*Math.cos(ry);var y2=y*Math.cos(rx)-z1*Math.sin(rx),z2=y*Math.sin(rx)+z1*Math.cos(rx);return[x1,y2,z2];}
+ function P(p){var r=rot(p);return[cx+r[0]*s,cy+r[1]*s];}
+ const neck=[0,-1.0,0],hip=[0,0.7,0],lsh=[-0.55,-0.95,0],rsh=[0.55,-0.95,0],lha=[-0.85,0.25,0.05],rha=[0.85,0.25,0.05],lhp=[-0.32,0.7,0],rhp=[0.32,0.7,0],lf=[-0.42,2.0,0],rf=[0.42,2.0,0],head=[0,-1.5,0];
+ ctx.strokeStyle=acc;ctx.lineWidth=2.6;ctx.lineJoin='round';ctx.lineCap='round';
+ function seg(a,b){var A=P(a),B=P(b);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke();}
+ seg(neck,hip);seg(lsh,rsh);seg(lsh,lha);seg(rsh,rha);seg(hip,lhp);seg(hip,rhp);seg(lhp,lf);seg(rhp,rf);
+ var hd=P(head);ctx.beginPath();ctx.arc(hd[0],hd[1],s*0.42,0,7);ctx.fillStyle=acc+'cc';ctx.fill();ctx.strokeStyle=acc;ctx.lineWidth=2;ctx.stroke();
+ var nz=P([0,-1.5,0.95]);ctx.beginPath();ctx.moveTo(hd[0],hd[1]);ctx.lineTo(nz[0],nz[1]);ctx.lineWidth=2.4;ctx.strokeStyle=acc;ctx.stroke();ctx.beginPath();ctx.arc(nz[0],nz[1],3.2,0,7);ctx.fillStyle=acc;ctx.fill();}
 // esfera de órbita 3D para la CÁMARA: sujeto al centro, cámara orbitando; arrastra para mover en 3D
 function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
  const c=sceneCols(),D=Math.PI/180,cx=W/2,cy=H/2,R=Math.min(W,H)*0.38,vt=20*D;
@@ -3755,11 +3768,12 @@ function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.ge
  ctx.font='9px sans-serif';ctx.textAlign='center';ctx.globalAlpha=.85;ctx.fillStyle=c.txt;
  const hb=camPitch>=45?'cenital':camPitch>=18?'picado':camPitch<=-18?'contrapicado':'nivel';
  ctx.fillText('cámara · '+hb, cx, H-5);ctx.globalAlpha=1;ctx.textAlign='start';}
-function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
+function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else if(ang3dShape==='mann')drawMannequin($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
-$('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));ang3dRenderPresets();ang3dUpd()};
+$('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));$('ang3dShape').classList.toggle('hide',ang3dMode!=='subj');ang3dRenderPresets();ang3dUpd()};
+$('ang3dShape').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dShape=b.dataset.sh;[...$('ang3dShape').children].forEach(x=>x.classList.toggle('on',x.dataset.sh===ang3dShape));ang3dUpd()};
 $('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const o=ang3dActive();o.yaw=+b.dataset.y;o.pitch=+b.dataset.p;ang3dUpd()};
 $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
 (function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
