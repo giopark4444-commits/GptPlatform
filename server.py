@@ -4583,6 +4583,8 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 .search{flex:1;min-width:180px;max-width:420px;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--txt);font-size:13px;outline:none}
 .search:focus{border-color:var(--accent)}
 .hint{color:var(--faint);font-size:11.5px;margin-left:auto}
+.hbtn{background:var(--surf);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 12px;font-size:12.5px;font-family:inherit;cursor:pointer}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
 .layout{display:flex;gap:0;align-items:stretch;min-height:calc(100vh - 60px)}
 .side{width:300px;flex:none;border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:6px}
 .filters{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
@@ -4700,6 +4702,9 @@ header h1{font-size:17px;font-weight:650;letter-spacing:.01em}
 <header>
   <h1>Biblioteca de prompts</h1>
   <input id="q" class="search" placeholder="Buscar en prompts…">
+  <button id="libExport" class="hbtn" title="Descargar toda la biblioteca como archivo .json">Exportar</button>
+  <button id="libImport" class="hbtn" title="Importar prompts desde un .json (se fusionan)">Importar</button>
+  <input type="file" id="libFile" accept="application/json,.json" style="display:none">
   <span class="hint">Compón un prompt y envíalo a la interfaz principal ▸</span>
 </header>
 <div class="layout">
@@ -4973,6 +4978,18 @@ $('#addCat').onclick=()=>{const i=$('#newCat');const n=i.value.trim();
  if(!n){addCategory('');i.value='';return}
  lib.categories.push({id:uid(),name:n,parent:''});i.value='';save();render();toast('Categoría creada')};
 $('#newCat').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addCat').click()}});
+$('#libExport').onclick=()=>{const blob=new Blob([JSON.stringify(lib,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='biblioteca-prompts.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Biblioteca exportada')};
+$('#libImport').onclick=()=>$('#libFile').click();
+$('#libFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ let data;try{data=JSON.parse(await f.text())}catch(_){toast('Archivo .json inválido','bad');return}
+ const cats=Array.isArray(data.categories)?data.categories:[],its=Array.isArray(data.items)?data.items:[];
+ if(!cats.length&&!its.length){toast('No encontré prompts en ese archivo','bad');return}
+ const idmap={};   // id de categoría del archivo → id en esta biblioteca (fusiona por nombre+padre)
+ cats.forEach(c=>{if(!c||!c.id)return;const nm=(c.name||'').trim();if(!nm)return;const ex=lib.categories.find(x=>x.name===nm&&((x.parent||'')===(c.parent||'')));if(ex){idmap[c.id]=ex.id}else{const nid=uid();idmap[c.id]=nid;lib.categories.push({id:nid,name:nm,parent:''})}});
+ cats.forEach(c=>{if(c&&c.parent&&idmap[c.id]){const me=catById(idmap[c.id]);if(me)me.parent=idmap[c.parent]||''}});
+ const existing=new Set(lib.items.map(x=>(x.text||'').trim()));let n=0;
+ its.forEach(x=>{const t=(x.text||x.prompt||'').trim();if(!t||existing.has(t))return;existing.add(t);lib.items.unshift({id:uid(),text:t,title:(x.title||'').trim(),cat:idmap[x.cat]||'',verdict:x.verdict||'',fav:!!x.fav,_new:true,ts:Date.now()});n++});
+ save();render();toast(n?(n+' prompt(s) importados'):'Nada nuevo que importar (ya estaban)')};
 $('#addComp').onclick=()=>addComposer(true);
 $('#list').addEventListener('dragstart',e=>{const card=e.target.closest('.card');if(!card){return}dragItemId=card.dataset.id;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',card.dataset.id)}catch(x){}card.classList.add('dragging')});
 $('#list').addEventListener('dragend',e=>{const card=e.target.closest('.card');if(card)card.classList.remove('dragging');dragItemId=null;clearDrop()});
