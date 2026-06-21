@@ -4478,12 +4478,18 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           # agrupar por subproyecto de origen (en multi-grupo la selección puede mezclar subs)
           "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:subOf(files[i]))||'';(byS[s]=byS[s]||[]).push(files[i]);}"
           "var done=0,err='';"
-          "for(var sk in byS){try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk,dest:dest,dest_sub:destSub,dest_src:mvDest,mode:mode})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo';}}"
-          "if(done){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var verb=mode==='copy'?'copiada':'movida';var dst=(mvDest==='shelf'?'Mis imágenes':(b.textContent||'').trim());gt((done>1?done+' '+verb+'s':'1 '+verb)+' a '+dst+' ✓');if(selMode)exitSel();}else gt(err||'No se pudo');});"
+          "var ug=[];for(var sk in byS){try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk,dest:dest,dest_sub:destSub,dest_src:mvDest,mode:mode})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);if(r.pairs)ug.push({s:sk,pairs:r.pairs});}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo';}}"
+          "if(done){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var verb=mode==='copy'?'copiada':'movida';var dst=(mvDest==='shelf'?'Mis imágenes':(b.textContent||'').trim());"
+          "var _mode=mode,_dest=dest,_dsub=destSub,_dk=mvDest;gLastUndo=async function(){for(var i=0;i<ug.length;i++){var names=ug[i].pairs.map(function(p){return p.to});if(_mode==='copy'){await ghpost('/deleteitems',{src:_dk,project:_dest,sub:_dsub,files:names});}else{await ghpost('/moveitem',{src:_dk,files:names,project:_dest,sub:_dsub,dest:PROJ,dest_sub:ug[i].s,dest_src:SRC,mode:'move'});}}gt('Deshecho');setTimeout(function(){location.reload();},400);};"
+          "gt((done>1?done+' '+verb+'s':'1 '+verb)+' a '+dst+' ✓ · ⌘Z para deshacer');if(selMode)exitSel();}else gt(err||'No se pudo');});"
           "var glbMove=document.getElementById('glbMove');"
           "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
           # --- selección en lote ---
           "var selMode=false,selSet={},lastSelIdx=null;"
+          # deshacer (1 nivel) en la ventana Ver todo: revierte la última acción y recarga
+          "var gLastUndo=null;"
+          "async function ghpost(u,b){return (await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();}"
+          "document.addEventListener('keydown',function(e){if(!(e.metaKey||e.ctrlKey))return;var t=(document.activeElement||{}).tagName;if(t==='INPUT'||t==='TEXTAREA')return;if(mv&&mv.style.display!=='none')return;if(glb&&glb.classList.contains('show'))return;if((e.key||'').toLowerCase()!=='z'||e.shiftKey)return;e.preventDefault();if(!gLastUndo){gt('Nada que deshacer');return;}var op=gLastUndo;gLastUndo=null;op();});"
           # marquee: arrastrar un recuadro para seleccionar varias
           "var marq=null,mqStart=null,mqMoved=false;"
           "GRIDS.forEach(function(g){"
@@ -4518,8 +4524,8 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "if(!confirm('¿Eliminar '+files.length+(files.length===1?' imagen':' imágenes')+'? Se quita la copia interna (las copias en tu carpeta se conservan).'))return;"
           # agrupar por subproyecto de origen
           "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:'')||'';(byS[s]=byS[s]||[]).push(files[i]);}"
-          "var done=0,err='';for(var sk in byS){try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo eliminar';}}"
-          "if(done){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt(done+((done===1)?' eliminada ✓':' eliminadas ✓'));}else gt(err||'No se pudo eliminar');};"
+          "var done=0,err='',ug=[];for(var sk in byS){try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);if(r.undo)ug.push({sub:sk,items:r.undo});}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo eliminar';}}"
+          "if(done){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gLastUndo=async function(){for(var i=0;i<ug.length;i++){await ghpost('/restoreitems',{src:SRC,project:PROJ,sub:ug[i].sub,items:ug[i].items});}gt('Restaurado');setTimeout(function(){location.reload();},400);};gt(done+((done===1)?' eliminada ✓':' eliminadas ✓')+' · ⌘Z para deshacer');}else gt(err||'No se pudo eliminar');};"
           # --- soltar imágenes externas (Finder/escritorio/otra app) en Mis imágenes ---
           "if(SRC==='shelf'){"
           "window.addEventListener('dragover',function(e){if(e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0){e.preventDefault();document.body.classList.add('gdrop');}});"
