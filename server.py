@@ -3709,6 +3709,11 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .favtog:hover{border-color:#cfc4ac;color:#2a2620}
 .favtog.on{color:#e6b35c;border-color:#e6b35c;background:rgba(230,179,92,.1)}
 .favtog svg{width:14px;height:14px}
+.gfolder{font-size:12px;color:#8a8170;display:inline-flex;align-items:center;gap:6px;border:1px solid #e3dccb;border-radius:9px;padding:5px 10px;white-space:nowrap;align-self:center}
+.gfolder b{font-weight:600;color:#2a2620;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.gfolder svg{width:14px;height:14px;flex:none}
+.gfbtn{font:inherit;font-size:11.5px;color:#1f6b54;background:none;border:0;cursor:pointer;text-decoration:underline;padding:0 0 0 3px}
+.gfbtn:hover{opacity:.7}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
@@ -3751,6 +3756,9 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
  .tile{background:#1c1812;border-color:#2a2418}
  .tile:hover{border-color:#3a3322}
  .gtoast{background:#ece6d8;color:#1c1812}
+ .gfolder{color:#9a8f78;border-color:#2a2418}
+ .gfolder b{color:#ece6d8}
+ .gfbtn{color:#e0a571}
 }
 """
 
@@ -3758,6 +3766,7 @@ def gallery_html(src, fav=False, proj=""):
     import html as _h, json as _json
     from urllib.parse import quote as _q
     is_shelf = (src == "shelf")
+    folder = str((shelf_dir(proj) if is_shelf else save_dir(proj))).replace(str(HOME), "~")
     pq = ("&project=" + _q(proj)) if proj else ""
     plabel = (" · " + proj) if (proj and not is_general(proj)) else ""
     if is_shelf:
@@ -3835,11 +3844,23 @@ def gallery_html(src, fav=False, proj=""):
           "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
           "document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});"
           "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
-          "glbCopy.onclick=function(){copyP(curPrompt);};")
+          "glbCopy.onclick=function(){copyP(curPrompt);};"
+          "var gfdir=document.getElementById('gfdir'),gfpick=document.getElementById('gfpick');"
+          "if(gfpick)gfpick.onclick=async function(){gt('Abriendo selector de carpeta…');"
+          "try{var r=await(await fetch('/pickfolder')).json();"
+          "if(r.path){var fld=(SRC==='shelf')?'shelf_dir':'save_dir';var body={project:PROJ};body[fld]=r.path;"
+          "var c=await(await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();"
+          "if(c.error){gt(c.error);return;}var eff=(SRC==='shelf')?c.shelf_effective:c.effective;"
+          "if(gfdir)gfdir.textContent=eff;gt('Carpeta cambiada ✓');}"
+          "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
             '<header><h1>' + _h.escape(title) + '</h1><span class="count">' + str(len(tiles)) + ' imágenes</span>'
+            '<span class="gfolder" title="Carpeta donde se guardan estas imágenes">'
+            '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
+            'Carpeta: <b id="gfdir">' + _h.escape(folder) + '</b>'
+            '<button class="gfbtn" id="gfpick">cambiar</button></span>'
             '<span class="hint">Pasa el cursor sobre una imagen para sus acciones</span>' + favlink + '</header>'
             '<main class="grid">' + grid + '</main>'
             '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
