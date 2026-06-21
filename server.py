@@ -211,6 +211,11 @@ def list_subs(proj):
                 except Exception:
                     pass
             out.append({"key": d.name, "label": label or d.name})
+    # orden personalizado (arrastrable): _order.json manda; lo no listado va al final (alfabético)
+    order = load_json(base / "_order.json", []) if base.is_dir() else []
+    if order:
+        pos = {k: i for i, k in enumerate(order)}
+        out.sort(key=lambda s: (pos.get(s["key"], len(order)), s["label"].lower()))
     return out
 
 
@@ -518,6 +523,9 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
 .movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
 .movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
+.movepop .mpdest{display:flex;gap:3px;padding:3px;margin:0 4px 6px;background:var(--surface2);border-radius:9px}
+.movepop .mpdest button{flex:1;text-align:center;font:inherit;font-size:12px;color:var(--mut);border:0;background:none;border-radius:6px;padding:5px;cursor:pointer}
+.movepop .mpdest button.on{background:var(--accent);color:#fff}
 .movepop button.mpopt{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--txt);font-size:13px;font-family:var(--ui);padding:7px 10px;border-radius:8px;cursor:pointer}
 .movepop button.mpopt:hover{background:var(--accent-dim);color:var(--accent)}
 /* modal de proyectos */
@@ -544,7 +552,11 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projfoot .pdel:hover{color:var(--bad);border-color:var(--bad)}
 .projfoot .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
 .subrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:2px 3px 0;margin-top:1px}
-.subchipp{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;font-size:11.5px;color:var(--txt);max-width:100%}
+.subchipp{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;font-size:11.5px;color:var(--txt);max-width:100%;cursor:pointer}
+.subchipp .scn{cursor:pointer}
+.subchipp:hover{border-color:var(--accent)}
+.subchipp.pdrag{opacity:.4}
+.subchipp.subdropt{outline:2px solid var(--accent);outline-offset:1px}
 .subchipp .scn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 .subchipp .scc{font-size:10px;color:var(--mut);background:var(--surface);border-radius:10px;padding:0 6px;font-variant-numeric:tabular-nums}
 .subchipp .subren,.subchipp .subx{flex:none;width:20px;height:20px;border:0;background:none;color:var(--faint);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.14s}
@@ -2425,7 +2437,7 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
   const subs=c.subs||[];
   const subrow=`<div class="subrow">`
-   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" title="${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
+   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
@@ -2471,6 +2483,8 @@ $('projGrid').onclick=async e=>{
  if(sdel){e.stopPropagation();const key=sdel.dataset.subdel;
   if(!sdel.classList.contains('arm')){[...$('projGrid').querySelectorAll('.subx.arm')].forEach(x=>x.classList.remove('arm'));sdel.classList.add('arm');toast('Borra el subproyecto y TODO su contenido · clic otra vez','bad');setTimeout(()=>sdel.classList.remove('arm'),2800);return}
   const r=await(await fetch('/subdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,key:key})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto borrado')}return}
+ const schip=e.target.closest('.subchipp');
+ if(schip&&!e.target.closest('button')){e.stopPropagation();$('projSel').value=name;activeSub=schip.dataset.sub||'';await switchProject();$('projModal').classList.add('hide');toast('Abierto: '+(label)+' › '+(schip.querySelector('.scn')?schip.querySelector('.scn').textContent:activeSub));return}
  if(e.target.closest('.subrow'))return;
  if(e.target.closest('input'))return;
  $('projSel').value=name;activeSub='';await switchProject();$('projModal').classList.add('hide')};
@@ -2481,12 +2495,22 @@ $('projGrid').addEventListener('change',async e=>{const sc=e.target.closest('.su
  if(r&&r.error){toast(r.error,'bad');sc.value='';return}
  const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('Convertido en subproyecto de "'+dest+'" ✓')});
 // arrastrar una tarjeta de proyecto sobre otra → convertir en subproyecto
-$('projGrid').addEventListener('dragstart',e=>{const it=e.target.closest('.projitem');if(!it||!it.dataset.name)return;
+$('projGrid').addEventListener('dragstart',e=>{
+ const chip=e.target.closest('.subchipp');
+ if(chip&&!e.target.closest('button')){const pit=chip.closest('.projitem');e.dataTransfer.setData('text/x-sub',chip.dataset.sub||'');e.dataTransfer.effectAllowed='move';window.__subDrag={proj:pit?pit.dataset.name:'',key:chip.dataset.sub};chip.classList.add('pdrag');return}
+ const it=e.target.closest('.projitem');if(!it||!it.dataset.name)return;
  if(e.target.closest('button,select,input,.subrow')){e.preventDefault();return}
  e.dataTransfer.setData('text/x-studio-proj',it.dataset.name);e.dataTransfer.effectAllowed='move';it.classList.add('pdrag')});
-$('projGrid').addEventListener('dragend',()=>{[...$('projGrid').querySelectorAll('.pdrag,.dropt')].forEach(x=>x.classList.remove('pdrag','dropt'))});
-$('projGrid').addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-studio-proj')<0)return;const it=e.target.closest('.projitem');if(!it)return;const src=e.dataTransfer.getData('text/x-studio-proj');e.preventDefault();[...$('projGrid').querySelectorAll('.dropt')].forEach(x=>x.classList.remove('dropt'));if(it.dataset.name!==src||it.classList.contains('pdrag'))it.classList.toggle('dropt',!it.classList.contains('pdrag'))});
-$('projGrid').addEventListener('dragleave',e=>{const it=e.target.closest('.projitem');if(it&&!it.contains(e.relatedTarget))it.classList.remove('dropt')});
+$('projGrid').addEventListener('dragend',()=>{[...$('projGrid').querySelectorAll('.pdrag,.dropt,.subdropt')].forEach(x=>x.classList.remove('pdrag','dropt','subdropt'));window.__subDrag=null});
+$('projGrid').addEventListener('dragover',e=>{const types=[...e.dataTransfer.types];
+ if(types.indexOf('text/x-sub')>=0){const chip=e.target.closest('.subchipp');if(!chip||!window.__subDrag)return;const pit=chip.closest('.projitem');if(!pit||pit.dataset.name!==window.__subDrag.proj)return;e.preventDefault();[...$('projGrid').querySelectorAll('.subdropt')].forEach(x=>x.classList.remove('subdropt'));if(chip.dataset.sub!==window.__subDrag.key)chip.classList.add('subdropt');return}
+ if(types.indexOf('text/x-studio-proj')<0)return;const it=e.target.closest('.projitem');if(!it)return;const src=e.dataTransfer.getData('text/x-studio-proj');e.preventDefault();[...$('projGrid').querySelectorAll('.dropt')].forEach(x=>x.classList.remove('dropt'));if(it.dataset.name!==src||it.classList.contains('pdrag'))it.classList.toggle('dropt',!it.classList.contains('pdrag'))});
+$('projGrid').addEventListener('dragleave',e=>{const it=e.target.closest('.projitem');if(it&&!it.contains(e.relatedTarget))it.classList.remove('dropt');const ch=e.target.closest('.subchipp');if(ch&&!ch.contains(e.relatedTarget))ch.classList.remove('subdropt')});
+$('projGrid').addEventListener('drop',async e=>{
+ if([...e.dataTransfer.types].indexOf('text/x-sub')>=0&&window.__subDrag){e.preventDefault();const sd=window.__subDrag;const chip=e.target.closest('.subchipp');[...$('projGrid').querySelectorAll('.subdropt,.pdrag')].forEach(x=>x.classList.remove('subdropt','pdrag'));if(!chip)return;const pit=chip.closest('.projitem');if(!pit||pit.dataset.name!==sd.proj)return;const tgt=chip.dataset.sub;if(tgt===sd.key)return;
+  const ord=[...pit.querySelectorAll('.subchipp')].map(c=>c.dataset.sub).filter(k=>k!==sd.key);const i=ord.indexOf(tgt);ord.splice(i<0?ord.length:i,0,sd.key);
+  const r=await(await fetch('/suborder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:sd.proj,order:ord})})).json();
+  if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyectos reordenados')}return}});
 $('projGrid').addEventListener('drop',async e=>{const src=e.dataTransfer.getData('text/x-studio-proj');if(!src)return;e.preventDefault();const it=e.target.closest('.projitem');[...$('projGrid').querySelectorAll('.dropt,.pdrag')].forEach(x=>x.classList.remove('dropt','pdrag'));if(!it)return;const dest=it.dataset.name;if(dest===src)return;
  if(!confirm('¿Convertir "'+src+'" en subproyecto de "'+(dest||genLabel)+'"? Se moverá su carpeta y su contenido.'))return;
  const r=await(await fetch('/subconvert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:src,dest:dest})})).json();
@@ -2645,29 +2669,29 @@ function moveTargets(){const out=[];const list=Object.keys(window.SUBS||{});
  return out}
 function closeMovePop(){const e=$('movePop');if(e)e.remove()}
 document.addEventListener('click',e=>{const mp=$('movePop');if(mp&&!mp.contains(e.target)&&!e.target.closest('#bulkMove'))closeMovePop()});
-async function bulkMoveTo(dest,dest_sub){
+async function bulkMoveTo(dest,dest_sub,destSrc){destSrc=destSrc||'history';
  // agrupa la selección por sub de origen (al ver "Todos" puede haber varios)
  const proj=curProj();const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
  let moved=0;const groups=[];
  for(const ssub of Object.keys(byd)){
-  if(proj===dest&&ssub===dest_sub)continue;
-  const r=await jpost('/moveitem',{src:'history',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,mode:'move'});
+  if(destSrc==='history'&&proj===dest&&ssub===dest_sub)continue;
+  const r=await jpost('/moveitem',{src:'history',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,dest_src:destSrc,mode:'move'});
   if(r&&r.error){toast(r.error,'bad');continue}moved+=byd[ssub].length;
-  if(r&&r.pairs)groups.push({a:{p:proj,s:ssub},b:{p:dest,s:dest_sub},names:r.pairs.map(x=>x.to),at:'b'})}
- closeMovePop();selMode=false;selFiles.clear();await loadGal();renderBulk();
- if(moved){toast(moved+' movida(s) · ⌘Z para deshacer');
+  if(r&&r.pairs)groups.push({a:{p:proj,s:ssub,k:'history'},b:{p:dest,s:dest_sub,k:destSrc},names:r.pairs.map(x=>x.to),at:'b'})}
+ closeMovePop();selMode=false;selFiles.clear();await loadGal();if(destSrc==='shelf')loadShelf();renderBulk();
+ if(moved){const dst=destSrc==='shelf'?'Mis imágenes':'el proyecto';toast(moved+' movida(s) a '+dst+' · ⌘Z para deshacer');
   pushUndo({label:moved+' movida(s)',
-   undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:'history',files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadGal();},
-   redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:'history',files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadGal();}})}}
+   undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadGal();loadShelf();},
+   redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadGal();loadShelf();}})}}
 function openMovePop(anchor){closeMovePop();
- const tgts=moveTargets();
+ const tgts=moveTargets();let pdest='history';
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
- pop.innerHTML='<div class="mphdr">Mover a…</div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ pop.innerHTML='<div class="mphdr">Mover a…</div><div class="mpdest"><button data-d="history" class="on">Historial</button><button data-d="shelf">Mis imágenes</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
  document.body.appendChild(pop);
  const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
- pop.onclick=e=>{const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub)}}
+ pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub,pdest)}}
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
@@ -4367,13 +4391,15 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "if(gfdir)gfdir.textContent=eff;gt('Carpeta cambiada ✓');}"
           "else if(r.error)gt(r.error);}catch(x){gt('No se pudo abrir el selector');}};"
           # --- mover / copiar imágenes a otro proyecto (individual o en lote) ---
-          "var mvFiles=[],mvTiles=[],mvMode='move';"
+          "var mvFiles=[],mvTiles=[],mvMode='move',mvDest='history';"
           "var mv=document.createElement('div');mv.className='gmvov';mv.style.display='none';"
-          "mv.innerHTML='<div class=\"gmvcard\"><button class=\"gmvclose\" title=\"Cerrar (Esc)\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button><div class=\"gmvtitle\">Enviar a proyecto</div><div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvh\">Elige el proyecto destino</div><div class=\"gmvlist\">'+MOVES.map(function(p,i){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-i=\"'+i+'\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"/></svg><span>'+nm+'</span></button>';}).join('')+'</div></div>';"
+          "mv.innerHTML='<div class=\"gmvcard\"><button class=\"gmvclose\" title=\"Cerrar (Esc)\"><svg viewBox=\"0 0 24 24\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button><div class=\"gmvtitle\">Enviar a proyecto</div><div class=\"gmvtabs\"><button data-m=\"move\" class=\"on\">Mover</button><button data-m=\"copy\">Copiar</button></div><div class=\"gmvtabs gmvdest\"><button data-d=\"history\" class=\"on\">a Historial</button><button data-d=\"shelf\">a Mis imágenes</button></div><div class=\"gmvh\">Elige el proyecto destino</div><div class=\"gmvlist\">'+MOVES.map(function(p,i){var nm=String(p.label).replace(/[<>&]/g,'');return '<button class=\"gmvp\" data-i=\"'+i+'\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"/></svg><span>'+nm+'</span></button>';}).join('')+'</div></div>';"
           "document.body.appendChild(mv);"
-          "function setMode(m){mvMode=m;mv.querySelectorAll('.gmvtabs button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m);});}"
-          "mv.querySelectorAll('.gmvtabs button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setMode(t.dataset.m);};});"
-          "function openMenu(anchor,files,tiles){mvFiles=files;mvTiles=tiles||[];mv.style.display='flex';}"
+          "function setMode(m){mvMode=m;mv.querySelectorAll('.gmvtabs:not(.gmvdest) button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m);});}"
+          "function setDest(d){mvDest=d;mv.querySelectorAll('.gmvdest button').forEach(function(x){x.classList.toggle('on',x.dataset.d===d);});}"
+          "mv.querySelectorAll('.gmvtabs:not(.gmvdest) button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setMode(t.dataset.m);};});"
+          "mv.querySelectorAll('.gmvdest button').forEach(function(t){t.onclick=function(ev){ev.stopPropagation();setDest(t.dataset.d);};});"
+          "function openMenu(anchor,files,tiles){mvFiles=files;mvTiles=tiles||[];setDest('history');mv.style.display='flex';}"
           "function closeMv(){mv.style.display='none';}"
           "mv.querySelector('.gmvclose').onclick=closeMv;"
           "mv.addEventListener('click',function(e){if(e.target===mv)closeMv();});"
@@ -4383,8 +4409,8 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           # agrupar por subproyecto de origen (en multi-grupo la selección puede mezclar subs)
           "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:subOf(files[i]))||'';(byS[s]=byS[s]||[]).push(files[i]);}"
           "var done=0,err='';"
-          "for(var sk in byS){try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk,dest:dest,dest_sub:destSub,mode:mode})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo';}}"
-          "if(done){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var verb=mode==='copy'?'copiada':'movida';gt((done>1?done+' '+verb+'s':'1 '+verb)+' a '+(b.textContent||'').trim()+' ✓');if(selMode)exitSel();}else gt(err||'No se pudo');});"
+          "for(var sk in byS){try{var r=await(await fetch('/moveitem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk,dest:dest,dest_sub:destSub,dest_src:mvDest,mode:mode})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo';}}"
+          "if(done){if(mode==='move'){tiles.forEach(function(t){if(t&&t.remove)t.remove();});closeLb();updCount();}var verb=mode==='copy'?'copiada':'movida';var dst=(mvDest==='shelf'?'Mis imágenes':(b.textContent||'').trim());gt((done>1?done+' '+verb+'s':'1 '+verb)+' a '+dst+' ✓');if(selMode)exitSel();}else gt(err||'No se pudo');});"
           "var glbMove=document.getElementById('glbMove');"
           "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
           # --- selección en lote ---
@@ -5212,7 +5238,8 @@ class H(BaseHTTPRequestHandler):
                  "/promptinbox": self.h_promptinbox,
                  "/stage": self.h_stage, "/setproject": self.h_setproject,
                  "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
-                 "/subdel": self.h_subdel, "/subconvert": self.h_subconvert}.get(self.path)
+                 "/subdel": self.h_subdel, "/subconvert": self.h_subconvert,
+                 "/suborder": self.h_suborder}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -5365,6 +5392,18 @@ class H(BaseHTTPRequestHandler):
                 pr[key]["refs"] = [x for x in pr[key].get("refs", []) if x != f]
                 save_json(PROJ_JSON, pr)
         return self._json({"ok": True})
+
+    def h_suborder(self):
+        # guarda el orden personalizado (arrastrable) de subproyectos de un proyecto
+        b = self._body()
+        proj = b.get("project", "") or ""
+        order = [str(k) for k in (b.get("order") or []) if k]
+        base = proj_folder(proj) / "sub"
+        if not base.is_dir():
+            return self._json({"error": "Sin subproyectos"})
+        with LOCK:
+            save_json(base / "_order.json", order)
+        return self._json({"ok": True, "subs": list_subs(proj)})
 
     def h_subcreate(self):
         b = self._body()
@@ -5606,23 +5645,26 @@ class H(BaseHTTPRequestHandler):
         mode = b.get("mode", "move")
         if mode not in ("move", "copy"):
             mode = "move"
+        dest_src = b.get("dest_src") or src   # tipo de destino: 'history' o 'shelf' (por defecto, el mismo del origen)
+        if dest_src not in ("history", "shelf"):
+            dest_src = src
         if not files:
             return self._json({"error": "Faltan archivos"})
         if src not in ("history", "shelf"):
             return self._json({"error": "Origen inválido"})
-        if proj_key(srcp) == proj_key(dest) and _sub_safe(src_sub) == _sub_safe(dest_sub):
+        if src == dest_src and proj_key(srcp) == proj_key(dest) and _sub_safe(src_sub) == _sub_safe(dest_sub):
             return self._json({"ok": True, "done": 0, "mode": mode, "dest": dest, "dest_sub": dest_sub, "errors": [], "pairs": []})
         done = 0
         errors = []
         with LOCK:
             if src == "history":
-                sj, dj = phist_json(srcp, src_sub), phist_json(dest, dest_sub)
-                sdir, ddir = phist_dir(srcp, src_sub), phist_dir(dest, dest_sub)
-                ext_dest = save_dir_sub(dest, dest_sub)
+                sj, sdir = phist_json(srcp, src_sub), phist_dir(srcp, src_sub)
             else:
-                sj, dj = pshelf_json(srcp, src_sub), pshelf_json(dest, dest_sub)
-                sdir, ddir = pshelf_dir(srcp, src_sub), pshelf_dir(dest, dest_sub)
-                ext_dest = shelf_dir_sub(dest, dest_sub)
+                sj, sdir = pshelf_json(srcp, src_sub), pshelf_dir(srcp, src_sub)
+            if dest_src == "history":
+                dj, ddir, ext_dest = phist_json(dest, dest_sub), phist_dir(dest, dest_sub), save_dir_sub(dest, dest_sub)
+            else:
+                dj, ddir, ext_dest = pshelf_json(dest, dest_sub), pshelf_dir(dest, dest_sub), shelf_dir_sub(dest, dest_sub)
             items = load_json(sj, [])
             ditems = load_json(dj, [])
             moved_files = set()
@@ -5653,11 +5695,14 @@ class H(BaseHTTPRequestHandler):
                         (ext_dest / target).write_bytes(raw)
                 except Exception:
                     pass
-                new_entry = dict(entry)
-                new_entry["file"] = target
-                if src == "history":
+                if dest_src == "history":
+                    new_entry = dict(entry)
+                    new_entry["file"] = target
                     new_entry["project"] = dest
                     new_entry["sub"] = dest_sub
+                else:   # destino = Mis imágenes (estante): entrada con forma de estante
+                    nm = entry.get("name") or (str(entry.get("prompt", "")).strip()[:60]) or f
+                    new_entry = {"file": target, "name": nm, "ts": time.strftime("%Y-%m-%d %H:%M")}
                 ditems.insert(0, new_entry)
                 pairs.append({"from": f, "to": target})
                 if mode == "move":
