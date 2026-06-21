@@ -551,6 +551,9 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subchip{font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:3px 10px;cursor:pointer;transition:.14s}
 .subchip:hover{border-color:var(--line2);color:var(--txt)}
 .subchip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.subchip.subdrag{cursor:grab}
+.subchip.chipdrag{opacity:.4}
+.subchip.chipdropt{outline:2px solid var(--accent);outline-offset:1px}
 .histgroup{margin:0 0 10px}
 .histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
 .movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
@@ -2450,7 +2453,7 @@ async function switchProject(){const n=$('projSel').value;localStorage.setItem('
  const subs=curSubs();if(!subs.some(s=>s.key===activeSub))activeSub='';
  localStorage.setItem('studio_sub',activeSub);
  await setActiveProject(n,activeSub);renderSubSel();renderProj();await loadConfig();
- galSubs=new Set([activeSub]);shelfSubs=new Set([activeSub]);
+ galSubs=new Set(['all']);shelfSubs=new Set(['all']);
  renderGalChips();renderShelfChips();await loadGal();await loadShelf();}
 let styleTab='img';
 function stashStyle(){const n=$('projSel').value;if(!projects[n])return;
@@ -2799,11 +2802,11 @@ document.addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey))return;const 
  if($('lightbox')&&!$('lightbox').classList.contains('hide'))return;
  if(document.querySelector('.overlay:not(.hide)'))return;
  if(k==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}else if(k==='y'){e.preventDefault();doRedo();}});
-let galSubs=new Set([activeSub]),histGroups=[];
+let galSubs=new Set(['all']),histGroups=[];
 function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
- const chip=(k,lbl)=>`<button class="subchip${galSubs.has(k)?' on':''}" data-k="${esc(k)}">${esc(lbl)}</button>`;
- c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label)).join('')+`<button class="subchip${galSubs.has('all')?' on':''}" data-k="all">Todos</button>`}
+ const chip=(k,lbl,dr)=>`<button class="subchip${galSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
+ c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all','Todos')}
 $('galSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
  if(k==='all'){galSubs=new Set(['all'])}else{galSubs.delete('all');if(galSubs.has(k))galSubs.delete(k);else galSubs.add(k);if(!galSubs.size)galSubs.add('')}
  renderGalChips();loadGal()};
@@ -3914,12 +3917,21 @@ function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{con
  let bw,bh;if(W>=H){bw=m;bh=Math.max(3,Math.round(m*H/W))}else{bh=m;bw=Math.max(3,Math.round(m*W/H))}
  const s=document.createElement('span');s.className='mini';s.style.width=bw+'px';s.style.height=bh+'px';c.insertBefore(s,c.firstChild)})}
 // ===== Estante de imágenes propias (local, en tu equipo · no en OpenAI) =====
-let shelfItems=[],shelfSubs=new Set([activeSub]),shelfGroups=[];
+let shelfItems=[],shelfSubs=new Set(['all']),shelfGroups=[];
 function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
 function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
- const chip=(k,lbl)=>`<button class="subchip${shelfSubs.has(k)?' on':''}" data-k="${esc(k)}">${esc(lbl)}</button>`;
- c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label)).join('')+`<button class="subchip${shelfSubs.has('all')?' on':''}" data-k="all">Todos</button>`}
+ const chip=(k,lbl,dr)=>`<button class="subchip${shelfSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
+ c.innerHTML=chip('','Raíz')+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all','Todos')}
+function wireSubReorder(cid){const c=$(cid);if(!c)return;
+ c.addEventListener('dragstart',e=>{const b=e.target.closest('.subdrag');if(!b)return;e.dataTransfer.setData('text/x-subk',b.dataset.k);e.dataTransfer.effectAllowed='move';window.__subck=b.dataset.k;b.classList.add('chipdrag')});
+ c.addEventListener('dragend',()=>{[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdrag','chipdropt'))});
+ c.addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-subk')<0)return;e.preventDefault();const b=e.target.closest('.subdrag');[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdropt'));if(b&&b.dataset.k!==window.__subck)b.classList.add('chipdropt')});
+ c.addEventListener('drop',async e=>{if([...e.dataTransfer.types].indexOf('text/x-subk')<0)return;e.preventDefault();const b=e.target.closest('.subdrag');[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdropt','chipdrag'));const src=window.__subck;if(!b||b.dataset.k===src)return;
+  const ord=[...c.querySelectorAll('.subdrag')].map(x=>x.dataset.k).filter(k=>k!==src);const i=ord.indexOf(b.dataset.k);ord.splice(i<0?ord.length:i,0,src);
+  const r=await jpost('/suborder',{project:curProj(),order:ord});if(r&&r.error){toast(r.error,'bad');return}
+  await loadProjects();renderGalChips();renderShelfChips();toast('Subproyectos reordenados')})}
+wireSubReorder('galSubChips');wireSubReorder('shelfSubChips');
 $('shelfSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
  if(k==='all'){shelfSubs=new Set(['all'])}else{shelfSubs.delete('all');if(shelfSubs.has(k))shelfSubs.delete(k);else shelfSubs.add(k);if(!shelfSubs.size)shelfSubs.add('')}
  renderShelfChips();loadShelf()};
@@ -4103,7 +4115,7 @@ buildMinis();validate();checkKey();setProv(prov);markValidChips();
 // config (etiqueta de General) → proyecto activo → historial + Mis imágenes de ese proyecto
 (async()=>{await loadProjects();activeSub=localStorage.getItem('studio_sub')||'';
  const subs0=curSubs();if(!subs0.some(s=>s.key===activeSub))activeSub='';
- renderSubSel();galSubs=new Set([activeSub]);shelfSubs=new Set([activeSub]);
+ renderSubSel();galSubs=new Set(['all']);shelfSubs=new Set(['all']);
  await setActiveProject($('projSel').value,activeSub);await loadConfig();
  renderGalChips();renderShelfChips();await loadGal();await loadShelf();})();
 (function(){let saved=localStorage.getItem('studio_theme');
