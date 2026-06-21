@@ -3732,8 +3732,12 @@ h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
 .gmvp svg{width:18px;height:18px;flex:none;opacity:.8}
 .tile.gsel{outline:3px solid #1f6b54;outline-offset:-3px}
 .tile.gsel::after{content:"✓";position:absolute;top:8px;left:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#1f6b54;color:#fff;border-radius:50%;font-size:14px;font-weight:700;z-index:3}
+body.selmode{user-select:none;-webkit-user-select:none}
 body.selmode .tile{cursor:pointer}
+body.selmode .tile>img{-webkit-user-drag:none;user-drag:none;pointer-events:none}
 body.selmode .acts{display:none!important}
+.gmarq{position:fixed;border:1.5px solid #1f6b54;background:rgba(31,107,84,.14);z-index:50;pointer-events:none;border-radius:4px}
+body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;inset:14px;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(31,107,84,.1);border:3px dashed #1f6b54;border-radius:18px;font-size:19px;font-weight:650;color:#1f6b54;pointer-events:none;backdrop-filter:blur(2px)}
 .gselbar{position:fixed;left:50%;bottom:24px;z-index:40;display:none;align-items:center;gap:6px;
  background:rgba(250,246,236,.9);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
  border:1px solid #e3dccb;border-radius:18px;box-shadow:0 18px 44px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.07);
@@ -3809,6 +3813,8 @@ body.selmode .acts{display:none!important}
  .gmvp:hover{background:rgba(224,165,113,.16);color:#e0a571;border-color:rgba(224,165,113,.3)}
  .tile.gsel{outline-color:#e0a571}
  .tile.gsel::after{background:#e0a571;color:#1c1812}
+ .gmarq{border-color:#e0a571;background:rgba(224,165,113,.16)}
+ body.gdrop::after{background:rgba(224,165,113,.12);border-color:#e0a571;color:#e0a571}
  .gselbar{background:rgba(28,24,18,.9);border-color:#3a3322;box-shadow:0 18px 44px rgba(0,0,0,.55)}
  .gselcount{color:#9a8f78}
  .gselcount b{background:#e0a571;color:#1c1812}
@@ -3896,7 +3902,9 @@ def gallery_html(src, fav=False, proj=""):
           "function closeLb(){glb.classList.remove('show');glbImg.src='';}"
           "var g=document.querySelector('.grid');"
           "if(g)g.addEventListener('click',async function(e){"
-          "if(selMode){var st=e.target.closest('.tile');if(st){e.preventDefault();toggleSel(st);}return;}"
+          "if(selMode){if(window.__marqueed){window.__marqueed=false;return;}var st=e.target.closest('.tile');if(st){e.preventDefault();var ts=[].slice.call(g.querySelectorAll('.tile')),idx=ts.indexOf(st);"
+          "if(e.shiftKey&&lastSelIdx!==null&&lastSelIdx<ts.length){var a=Math.min(lastSelIdx,idx),z=Math.max(lastSelIdx,idx);for(var i=a;i<=z;i++){var t=ts[i];if(t&&!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel');}}updSel();}"
+          "else{toggleSel(st);lastSelIdx=idx;}}return;}"
           "var b=e.target.closest('[data-act]');"
           "if(b){e.preventDefault();var tile=b.closest('.tile'),file=tile.dataset.file,act=b.dataset.act;"
           "if(act==='ref'){stageRef(file);}"
@@ -3940,13 +3948,23 @@ def gallery_html(src, fav=False, proj=""):
           "var glbMove=document.getElementById('glbMove');"
           "if(glbMove)glbMove.onclick=function(){setMode('move');var t=null;try{t=document.querySelector('.tile[data-file=\"'+(window.CSS&&CSS.escape?CSS.escape(curFile):curFile)+'\"]');}catch(_){}openMenu(glbMove,[curFile],t?[t]:[]);};"
           # --- selección en lote ---
-          "var selMode=false,selSet={};"
+          "var selMode=false,selSet={},lastSelIdx=null;"
+          # marquee: arrastrar un recuadro para seleccionar varias
+          "var marq=null,mqStart=null,mqMoved=false;"
+          "if(g)g.addEventListener('pointerdown',function(e){if(!selMode)return;if(e.button!==0)return;if(e.target.closest('a,button'))return;e.preventDefault();mqStart={x:e.clientX,y:e.clientY};mqMoved=false;});"
+          "if(g)g.addEventListener('pointermove',function(e){if(!selMode||!mqStart)return;var dx=e.clientX-mqStart.x,dy=e.clientY-mqStart.y;if(!mqMoved&&Math.abs(dx)+Math.abs(dy)<6)return;mqMoved=true;"
+          "if(!marq){marq=document.createElement('div');marq.className='gmarq';document.body.appendChild(marq);}"
+          "var x1=Math.min(e.clientX,mqStart.x),y1=Math.min(e.clientY,mqStart.y),x2=Math.max(e.clientX,mqStart.x),y2=Math.max(e.clientY,mqStart.y);"
+          "marq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';"
+          "[].slice.call(g.querySelectorAll('.tile')).forEach(function(t){var r=t.getBoundingClientRect();var hit=!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2);if(hit&&!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel');}});updSel();});"
+          "function endMarq(){if(!mqStart)return;if(marq){marq.remove();marq=null;}if(mqMoved)window.__marqueed=true;mqStart=null;mqMoved=false;}"
+          "if(g){g.addEventListener('pointerup',endMarq);g.addEventListener('pointercancel',endMarq);}"
           "var selbtn=document.getElementById('gselbtn'),selbar=document.getElementById('gselbar'),seln=document.getElementById('gseln');"
           "function selFiles(){return Object.keys(selSet);}"
           "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
           "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n;if(selbar)selbar.classList.toggle('show',selMode);}"
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
-          "function exitSel(){selMode=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
+          "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');}"
           "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
           "var gselmove=document.getElementById('gselmove'),gselcopy=document.getElementById('gselcopy'),gselcancel=document.getElementById('gselcancel');"
           "if(gselmove)gselmove.onclick=function(){if(!selFiles().length){gt('Selecciona imágenes primero');return;}setMode('move');openMenu(gselmove,selFiles(),selTiles());};"
@@ -3956,7 +3974,15 @@ def gallery_html(src, fav=False, proj=""):
           "if(gseldel)gseldel.onclick=async function(){var files=selFiles(),tiles=selTiles();if(!files.length){gt('Selecciona imágenes primero');return;}"
           "if(!confirm('¿Eliminar '+files.length+(files.length===1?' imagen':' imágenes')+'? Se quita la copia interna (las copias en tu carpeta se conservan).'))return;"
           "try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:files,project:PROJ})})).json();"
-          "if(r&&r.ok){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt((r.done||files.length)+(((r.done||files.length)===1)?' eliminada ✓':' eliminadas ✓'));}else gt((r&&r.error)||'No se pudo eliminar');}catch(x){gt('No se pudo eliminar');}};")
+          "if(r&&r.ok){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gt((r.done||files.length)+(((r.done||files.length)===1)?' eliminada ✓':' eliminadas ✓'));}else gt((r&&r.error)||'No se pudo eliminar');}catch(x){gt('No se pudo eliminar');}};"
+          # --- soltar imágenes externas (Finder/escritorio/otra app) en Mis imágenes ---
+          "if(SRC==='shelf'){"
+          "window.addEventListener('dragover',function(e){if(e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0){e.preventDefault();document.body.classList.add('gdrop');}});"
+          "window.addEventListener('dragleave',function(e){if(!e.relatedTarget)document.body.classList.remove('gdrop');});"
+          "window.addEventListener('drop',async function(e){document.body.classList.remove('gdrop');if(selMode)return;var fs=[].slice.call((e.dataTransfer&&e.dataTransfer.files)||[]).filter(function(f){return f.type&&f.type.indexOf('image/')===0;});if(!fs.length)return;e.preventDefault();"
+          "gt('Subiendo '+fs.length+' imagen'+(fs.length>1?'es':'')+'…');var imgs=[];for(var i=0;i<fs.length;i++){imgs.push({name:fs[i].name,b64:await new Promise(function(res){var rd=new FileReader();rd.onload=function(){res(String(rd.result).split(',')[1]);};rd.readAsDataURL(fs[i]);})});}"
+          "try{var rr=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:PROJ})})).json();if(rr&&rr.ok){gt(fs.length+' añadida'+(fs.length>1?'s':'')+' a Mis imágenes ✓');setTimeout(function(){location.reload();},650);}else gt((rr&&rr.error)||'No se pudo subir');}catch(x){gt('No se pudo subir');}});"
+          "}")
     return ('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>' + _h.escape(title) + ' · Gio Studio</title><style>' + GALERIA_CSS + '</style></head><body>'
