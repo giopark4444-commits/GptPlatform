@@ -757,10 +757,10 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subchipp.subdropt{outline:2px solid var(--accent);outline-offset:1px}
 .subchipp .scn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 .subchipp .scc{font-size:10px;color:var(--mut);background:var(--surface);border-radius:10px;padding:0 6px;font-variant-numeric:tabular-nums}
-.subchipp .subren,.subchipp .subx{flex:none;width:20px;height:20px;border:0;background:none;color:var(--faint);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.14s}
-.subchipp:hover .subren,.subchipp:hover .subx{opacity:1}
-.subchipp .subren svg,.subchipp .subx svg{width:12px;height:12px}
-.subchipp .subren:hover{color:var(--accent)}
+.subchipp .subren,.subchipp .subx,.subchipp .subout{flex:none;width:20px;height:20px;border:0;background:none;color:var(--faint);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.14s}
+.subchipp:hover .subren,.subchipp:hover .subx,.subchipp:hover .subout{opacity:1}
+.subchipp .subren svg,.subchipp .subx svg,.subchipp .subout svg{width:12px;height:12px}
+.subchipp .subren:hover,.subchipp .subout:hover{color:var(--accent)}
 .subchipp .subx:hover{color:var(--bad)}
 .subchipp .subx.arm{color:#fff;background:var(--bad);opacity:1}
 .subadd{flex:none;font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--line2);border-radius:20px;padding:3px 10px;cursor:pointer;font-family:inherit}
@@ -2714,7 +2714,7 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
   const subs=c.subs||[];
   const subrow=`<div class="subrow">`
-   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
+   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subout" data-subpromote="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Sacar: volverlo un proyecto independiente"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
@@ -2756,6 +2756,11 @@ $('projGrid').onclick=async e=>{
  if(sadd){e.stopPropagation();const nm=prompt('Nombre del nuevo subproyecto de "'+(label)+'":');if(nm&&nm.trim()){const r=await(await fetch('/subcreate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,name:nm.trim()})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto "'+nm.trim()+'" creado')}}return}
  const sren=e.target.closest('[data-subren]');
  if(sren){e.stopPropagation();const key=sren.dataset.subren,old=sren.dataset.sublabel||key;const nw=prompt('Nuevo nombre del subproyecto:',old);if(nw!==null&&nw.trim()){const r=await(await fetch('/subrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,key:key,new:nw.trim()})})).json();if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyecto renombrado')}}return}
+ const sprom=e.target.closest('[data-subpromote]');
+ if(sprom){e.stopPropagation();const key=sprom.dataset.subpromote,lbl=sprom.dataset.sublabel||key;
+  if(!confirm('¿Sacar «'+lbl+'» de «'+(label)+'» y volverlo un proyecto independiente?'))return;
+  const r=await(await fetch('/subpromote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:name,key:key})})).json();
+  if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('«'+(r.name||lbl)+'» ahora es un proyecto')}return}
  const sdel=e.target.closest('[data-subdel]');
  if(sdel){e.stopPropagation();const key=sdel.dataset.subdel;
   if(!sdel.classList.contains('arm')){[...$('projGrid').querySelectorAll('.subx.arm')].forEach(x=>x.classList.remove('arm'));sdel.classList.add('arm');toast('Borra el subproyecto y TODO su contenido · clic otra vez','bad');setTimeout(()=>sdel.classList.remove('arm'),2800);return}
@@ -5733,7 +5738,7 @@ class H(BaseHTTPRequestHandler):
                  "/stage": self.h_stage, "/setproject": self.h_setproject,
                  "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
                  "/subdel": self.h_subdel, "/subconvert": self.h_subconvert,
-                 "/suborder": self.h_suborder}.get(self.path)
+                 "/subpromote": self.h_subpromote, "/suborder": self.h_suborder}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -6011,6 +6016,49 @@ class H(BaseHTTPRequestHandler):
             except Exception:
                 pass
         return self._json({"ok": True, "dest": dest, "key": key, "label": src})
+
+    def h_subpromote(self):
+        # SACAR un subproyecto y volverlo proyecto de primer nivel (mueve su carpeta)
+        b = self._body()
+        proj = b.get("project", "") or ""
+        key = _sub_safe(b.get("key", ""))
+        if not key:
+            return self._json({"error": "Falta el subproyecto"})
+        src = psub_base(proj, key)
+        if not src.is_dir():
+            return self._json({"error": "Subproyecto no encontrado"})
+        label = ""
+        lf = src / "label.txt"
+        if lf.exists():
+            try:
+                label = lf.read_text().strip()
+            except Exception:
+                pass
+        label = label or key
+        with LOCK:
+            pr = load_json(PROJ_JSON, {})
+            base_label, n = label, 2
+            while (PROJ_DIR / safe(label)).exists() or proj_key(label) in pr or is_general(label):
+                label = f"{base_label} {n}"
+                n += 1
+            dest = PROJ_DIR / safe(label)
+            src.rename(dest)                       # mueve la carpeta del sub a primer nivel
+            pr[label] = {"style": "", "refs": []}  # registrar como proyecto
+            save_json(PROJ_JSON, pr)
+            try:
+                (dest / "label.txt").unlink()      # ya no es subproyecto
+            except Exception:
+                pass
+            try:                                   # reetiquetar su historial (raíz del nuevo proyecto)
+                jp = dest / "historial.json"
+                h = load_json(jp, [])
+                for it in h:
+                    it["project"] = label
+                    it["sub"] = ""
+                save_json(jp, h)
+            except Exception:
+                pass
+        return self._json({"ok": True, "name": label})
 
     def h_config(self):
         b = self._body()
