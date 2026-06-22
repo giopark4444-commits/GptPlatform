@@ -4242,6 +4242,17 @@ $('shelfGrid').addEventListener('drop',async e=>{const sec=e.target.closest('.sh
  const imgs=await imagesFromDT(e.dataTransfer);   // imagen(es) del historial → copiar a Mis imágenes de esa sección
  if(imgs.length)await shelfAddTo(imgs,tgtSub);});
 $('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'))});
+// soltar una imagen (del historial o del estante) sobre un CHIP de subproyecto → archivarla ahí (siempre visible)
+$('shelfSubChips').addEventListener('dragover',e=>{const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const c=e.target.closest('.subchip');if(!c||c.dataset.k==='all')return;e.preventDefault();e.stopPropagation();[...$('shelfSubChips').querySelectorAll('.chipdropt')].forEach(x=>x.classList.remove('chipdropt'));c.classList.add('chipdropt')});
+$('shelfSubChips').addEventListener('dragleave',e=>{const c=e.target.closest('.subchip');if(c&&!c.contains(e.relatedTarget))c.classList.remove('chipdropt')});
+$('shelfSubChips').addEventListener('drop',async e=>{const c=e.target.closest('.subchip');if(!c||c.dataset.k==='all')return;
+ const shelfFile=e.dataTransfer.getData('text/x-studio-shelf'),histFile=e.dataTransfer.getData('text/x-studio-file'),histMulti=e.dataTransfer.getData('text/x-studio-files');
+ if(!shelfFile&&!histFile&&!histMulti)return;
+ e.preventDefault();e.stopPropagation();[...$('shelfSubChips').querySelectorAll('.chipdropt')].forEach(x=>x.classList.remove('chipdropt'));
+ const tgtSub=c.dataset.k||'';
+ if(shelfFile){const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';if(srcSub===tgtSub)return;await shelfMoveOne(shelfFile,srcSub,curProj(),tgtSub,'shelf');return;}
+ const imgs=await imagesFromDT(e.dataTransfer);if(imgs.length)await shelfAddTo(imgs,tgtSub);});
+$('shelfSubChips').addEventListener('dragend',()=>{[...$('shelfSubChips').querySelectorAll('.chipdropt')].forEach(x=>x.classList.remove('chipdropt'))});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
