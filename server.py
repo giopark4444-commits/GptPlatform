@@ -1011,6 +1011,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 #ang3dCv{flex:none;width:140px;height:114px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;cursor:grab;touch-action:none}
 #ang3dCv:active{cursor:grabbing}
 .ang3dside{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ang3daxes{display:flex;flex-direction:column;gap:3px;margin:2px 0}
+.ang3daxis{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--mut)}
+.ang3daxis span{flex:none;width:74px}
+.ang3daxis input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:3px}
 .ang3dtxt{font-size:12px;color:var(--accent);font-weight:600;line-height:1.35}
 .ang3dpresets{display:flex;flex-wrap:wrap;gap:4px}
 .ang3dpresets button{font-size:10.5px;padding:4px 7px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:7px;cursor:pointer;font-family:inherit}
@@ -1545,6 +1549,10 @@ html,body{overflow-x:hidden}
         <div class="ang3dside">
           <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
           <div class="seg ang3dseg" id="ang3dShape" style="margin-top:4px"><button data-sh="head" class="on">Cabeza</button><button data-sh="cube">Cubo</button><button data-sh="mann">Maniquí</button></div>
+          <div class="ang3daxes">
+            <label class="ang3daxis"><span id="ang3dYawLbl">Giro ↔</span><input type="range" id="ang3dYaw" min="-180" max="180" step="1" value="25"></label>
+            <label class="ang3daxis"><span id="ang3dPitchLbl">Inclinación ↕</span><input type="range" id="ang3dPitch" min="-80" max="80" step="1" value="0"></label>
+          </div>
           <div class="ang3dtxt" id="ang3dTxt"></div>
           <div class="ang3dpresets" id="ang3dPresets"></div>
           <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el diagrama como referencia visual</label>
@@ -3942,7 +3950,13 @@ function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.ge
  const hb=camPitch>=45?'cenital':camPitch>=18?'picado':camPitch<=-18?'contrapicado':'nivel';
  ctx.fillText('cámara · '+hb, cx, H-5);ctx.globalAlpha=1;ctx.textAlign='start';}
 function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else if(ang3dShape==='mann')drawMannequin($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else if(ang3dShape==='cube')drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else drawHead($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
-function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
+function ang3dSyncSliders(){const o=ang3dActive(),y=$('ang3dYaw'),p=$('ang3dPitch');if(!y||!p)return;
+ const a2=(((o.yaw+180)%360+360)%360)-180;   // normaliza el giro a -180..180
+ y.value=Math.round(a2);p.value=Math.round(o.pitch);
+ const cam=ang3dMode==='cam';
+ $('ang3dYawLbl').textContent=trVal(cam?'Órbita ↔':'Giro ↔',LANG);
+ $('ang3dPitchLbl').textContent=trVal(cam?'Altura ↕':'Inclinación ↕',LANG);}
+function ang3dUpd(){ang3dDraw();ang3dSyncSliders();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
 $('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));$('ang3dShape').classList.toggle('hide',ang3dMode!=='subj');ang3dRenderPresets();ang3dUpd()};
@@ -3956,6 +3970,10 @@ $('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value
   else{ang3dSubj.yaw+=dx*0.8;ang3dSubj.pitch=Math.max(-60,Math.min(60,ang3dSubj.pitch+dy*0.6))}
   ang3dUpd()});
  cv.addEventListener('pointerup',()=>{drag=false});cv.addEventListener('pointerleave',()=>{drag=false});})();
+// dos ejes INDEPENDIENTES: un deslizador para el giro horizontal y otro para la inclinación vertical
+(function(){const y=$('ang3dYaw'),p=$('ang3dPitch');if(!y||!p)return;
+ y.addEventListener('input',()=>{ang3dActive().yaw=+y.value;ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;});
+ p.addEventListener('input',()=>{ang3dActive().pitch=+p.value;ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;});})();
 // ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
 let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1,poseCam={yaw:0,pitch:0};
 function poseCamUpd(){drawCamSphere($('poseCamCv'),poseCam.yaw,poseCam.pitch,0);const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
