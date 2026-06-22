@@ -685,7 +685,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
  position:sticky;top:0;z-index:var(--z-sticky);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em;flex:none}
 /* en el flujo (no absoluto): se centra entre la marca y la derecha y baja como bloque al achicar, sin pisarse */
-.projbar{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none;z-index:1}
+.projbar{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;flex-wrap:wrap;row-gap:6px;z-index:1}
 .top .seg{flex:none}
 .projbtn{display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--line);color:var(--txt);
  border-radius:11px;padding:8px 14px;font-size:13.5px;font-weight:500;cursor:pointer;transition:.16s;font-family:var(--ui);max-width:300px}
@@ -787,7 +787,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .seg button:hover{color:var(--txt)}
 .seg button.on{background:var(--elev);color:var(--txt);box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
 .seg button kbd{margin-left:2px}
-.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;flex:none}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;flex:0 1 auto;min-width:0;flex-wrap:wrap;row-gap:6px;justify-content:flex-end}
 .sess{font-size:12px;color:var(--mut)}.sess b{color:var(--txt);font-weight:500}
 .ghost{display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--line2);color:var(--mut);
  border-radius:9px;padding:7px 12px;font-size:12px;cursor:pointer;transition:.18s}
