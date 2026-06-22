@@ -1532,6 +1532,11 @@ html,body{overflow-x:hidden}
 
 <div class="top">
   <div class="brand"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-4.6 3.3L16.5 19 12 15.7 7.5 19l1.6-5.7L4.5 10l5.6-1.4z"/></svg></span>Gio Studio</div>
+  <div class="seg">
+    <button id="mImagen" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Imagen<kbd>1</kbd></button>
+    <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>2</kbd></button>
+    <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>3</kbd></button>
+  </div>
   <div class="projbar">
     <button class="projbtn" id="projBtn" title="Proyectos — cada uno con su memoria, historial y Mis imágenes">
       <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -1544,11 +1549,6 @@ html,body{overflow-x:hidden}
       <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span>Prompt Library</span>
     </button>
-  </div>
-  <div class="seg">
-    <button id="mImagen" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Imagen<kbd>1</kbd></button>
-    <button id="mAudio"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Audio<kbd>2</kbd></button>
-    <button id="mVideo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>Video<kbd>3</kbd></button>
   </div>
   <div class="right">
     <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">$0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
