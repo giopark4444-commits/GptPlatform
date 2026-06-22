@@ -2843,7 +2843,7 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
    <a class="gfbtn" href="/file?name=${fn}${pq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
-   <button class="gfbtn gcopy" title="Copiar prompt">${GCP}</button>
+   <button class="gfbtn gcopy" title="Copiar prompt + cargar las referencias que se usaron">${GCP}</button>
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
@@ -3017,7 +3017,7 @@ $('gal').onclick=async e=>{
    else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Lista en '+d.size)}
   }catch(x){toast(String(x),'bad')}
   up.classList.remove('busy');return}
- if(cp){$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);toast('Prompt copiado');return}
+ if(cp){const it=hist.find(x=>x.file===card.dataset.file)||{};$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);const n=await useHistRefs(it);toast(n?('Prompt + '+n+' referencia(s) cargadas'):'Prompt copiado');return}
  if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
   if(del.classList.contains('arm')){
@@ -3040,12 +3040,18 @@ function lbNavigate(dir){
  const c=cards[ni];
  if(lbScope==='gal'){openLb('/file?name='+encodeURIComponent(c.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),c.dataset.p||'',c.dataset.file);lbScope='gal';lbCurFile=c.dataset.file;lbSyncNav()}
  else{const it=shelfItems.find(x=>x.file===c.dataset.shelf);if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}}
+async function useHistRefs(it){   // carga en el panel las referencias guardadas con esa imagen del historial
+ if(!it||!Array.isArray(it.refs)||!it.refs.length)return 0;
+ const sb=it._sub||it.sub||'';const out=[];
+ for(const r of it.refs){try{const bl=await(await fetch('/reffile?name='+encodeURIComponent(r.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(sb))).blob();out.push({name:r.name||r.file,b64:await blobToB64(bl)})}catch(e){}}
+ if(out.length){refs=out;mask=null;renderThumbs();if(typeof renderMaskThumb==='function')renderMaskThumb();if(mode!=='editar')setMode('editar');if(typeof validate==='function')validate();}
+ return out.length;}
 function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lbPrompt').textContent=p||'';
  $('lightbox').dataset.file=file||'';$('lbDesc').style.display=file?'':'none';
  $('lbPrompt').classList.toggle('hide',!p);
  $('lbDl').href=src;$('lbDl').setAttribute('download',file||'imagen.png');
  $('lbUse').style.display=p?'':'none';
- $('lbUse').onclick=ev=>{ev.stopPropagation();$('prompt').value=p||'';toast('Prompt cargado')};
+ $('lbUse').onclick=async ev=>{ev.stopPropagation();$('prompt').value=p||'';const f=$('lightbox').dataset.file;const it=(typeof hist!=='undefined'&&hist)?hist.find(x=>x.file===f):null;const n=await useHistRefs(it);toast(n?('Prompt y '+n+' referencia(s) cargadas'):'Prompt cargado');};
  $('lbLib').style.display=p?'':'none';
  $('lbLib').onclick=ev=>{ev.stopPropagation();sendPromptToLib(p||'')};
  // ficha técnica (resolución, calidad, modo, costo, tokens, fecha) si es del historial
@@ -5495,6 +5501,11 @@ class H(BaseHTTPRequestHandler):
             fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype) if fp.is_file() else self._send(404, "no", "text/plain")
+        if self.path.startswith("/reffile?"):
+            q = parse_qs(urlparse(self.path).query)
+            fp = phist_dir(q.get("project", [""])[0], q.get("sub", [""])[0]) / "_refs" / os.path.basename(q.get("name", [""])[0])
+            ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
+            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path == "/trash":
             idx = load_json(TRASH_INDEX, [])
             items = [r for r in idx if (TRASH_DIR / os.path.basename(r.get("token", ""))).is_file()]
@@ -6250,6 +6261,25 @@ class H(BaseHTTPRequestHandler):
         st = load_projects().get(project, {}).get("style", "")
         return (st.strip() + "\n\n") if st.strip() else ""
 
+    def _persist_refs(self, proj, sub, items):
+        # guarda las referencias usadas en _refs/ (deduplicadas por contenido); devuelve [{file,name}]
+        if not items:
+            return []
+        out = []
+        with LOCK:
+            rdir = phist_dir(proj, sub) / "_refs"
+            rdir.mkdir(parents=True, exist_ok=True)
+            for name, raw in items:
+                ie = sniff_image(raw)
+                if not ie:
+                    continue
+                fn = hashlib.md5(raw).hexdigest() + "." + ie
+                fp = rdir / fn
+                if not fp.exists():
+                    fp.write_bytes(raw)
+                out.append({"file": fn, "name": name})
+        return out
+
     def _save_results(self, data, meta, via_visual=False, model_used="gpt-image-2"):
         ext = meta.get("output_format", "png")
         mime = "image/" + ("jpeg" if ext == "jpeg" else ext)
@@ -6297,7 +6327,8 @@ class H(BaseHTTPRequestHandler):
             add_history({"file": name, "prompt": meta["prompt"], "size": meta["size"],
                          "quality": meta["quality"], "mode": meta["mode"], "cost": per,
                          "output_tokens": out_t, "ts": time.strftime("%Y-%m-%d %H:%M"),
-                         "project": meta.get("project", ""), "sub": meta.get("sub", "")})
+                         "project": meta.get("project", ""), "sub": meta.get("sub", ""),
+                         "refs": meta.get("ref_files", [])})
             images.append({"image": f"data:{mime};base64," + b64, "file": name, "cost": per})
         first = images[0]["image"] if images else ""
         return {"images": images, "image": first, "cost": total, "output_tokens": out_t,
@@ -6374,6 +6405,7 @@ class H(BaseHTTPRequestHandler):
             field("output_compression", str(b["output_compression"]))
         nimg = 0
         total_bytes = 0
+        ref_saves = []   # referencias que el usuario añadió → se guardan con la imagen
         for img in b.get("images", []):
             raw = base64.b64decode(img["b64"])
             if not sniff_image(raw):
@@ -6381,6 +6413,7 @@ class H(BaseHTTPRequestHandler):
             total_bytes += len(raw)
             filepart("image[]", img.get("name", "ref.png"), raw)
             nimg += 1
+            ref_saves.append((img.get("name", "ref.png"), raw))
         via_visual = False
         if b.get("use_project_refs"):  # "" = espacio General, también válido
             proj = b.get("project") or ""
@@ -6402,7 +6435,8 @@ class H(BaseHTTPRequestHandler):
             filepart("mask", b["mask"].get("name", "mask.png"), base64.b64decode(b["mask"]["b64"]))
         meta = {"prompt": b.get("prompt", ""), "size": size, "quality": b.get("quality", "auto"),
                 "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
-                "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
+                "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True),
+                "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
         stream = partial > 0 and int(b.get("n", 1)) == 1
         if stream:
