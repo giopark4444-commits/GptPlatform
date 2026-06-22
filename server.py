@@ -2808,7 +2808,7 @@ let galSubs=new Set(['all']),histGroups=[];
 function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${galSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
- c.innerHTML=chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all',trVal('Todos',LANG))}
+ c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')}
 $('galSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
  if(k==='all'){galSubs=new Set(['all'])}else{galSubs.delete('all');if(galSubs.has(k))galSubs.delete(k);else galSubs.add(k);if(!galSubs.size)galSubs.add('')}
  renderGalChips();loadGal()};
@@ -3924,7 +3924,7 @@ function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf
 function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${shelfSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
- c.innerHTML=chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')+chip('all',trVal('Todos',LANG))}
+ c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')}
 function wireSubReorder(cid){const c=$(cid);if(!c)return;
  c.addEventListener('dragstart',e=>{const b=e.target.closest('.subdrag');if(!b)return;e.dataTransfer.setData('text/x-subk',b.dataset.k);e.dataTransfer.effectAllowed='move';window.__subck=b.dataset.k;b.classList.add('chipdrag')});
  c.addEventListener('dragend',()=>{[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdrag','chipdropt'))});
