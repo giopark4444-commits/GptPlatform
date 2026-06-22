@@ -4188,13 +4188,14 @@ function renderShelf(){
  }else{
   $('shelfGrid').innerHTML=shelfItems.map(it=>scardHtml(it)).join('');
  }}
-async function shelfAddImages(imgs){if(!imgs.length)return;
- const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:curProj(),sub:activeSub})})).json();
+async function shelfAddImages(imgs){return shelfAddTo(imgs,activeSub)}
+async function shelfAddTo(imgs,sub){if(!imgs.length)return;
+ const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:curProj(),sub:sub||''})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
  await loadShelf();
  const n=imgs.length-(r.skipped?r.skipped.length:0);
- if(n>0)toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en tu estante');}
+ if(n>0){const subs=curSubs();const lbl=sub?((subs.find(s=>s.key===sub)||{}).label||sub):'Raíz';toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en Mis imágenes · '+lbl);}}
 async function shelfAddFiles(files){const imgs=[];let bad=0;
  for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
@@ -4227,10 +4228,19 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true)});
-// soltar una imagen del estante sobre OTRA sección de subproyecto → moverla ahí
-$('shelfGrid').addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-studio-shelf')<0)return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
+// soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
+const ANGSEC_TYPES=['text/x-studio-shelf','text/x-studio-file','text/x-studio-files'];
+$('shelfGrid').addEventListener('dragover',e=>{const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
 $('shelfGrid').addEventListener('dragleave',e=>{const sec=e.target.closest('.shelfsec');if(sec&&!sec.contains(e.relatedTarget))sec.classList.remove('secdrop')});
-$('shelfGrid').addEventListener('drop',async e=>{const file=e.dataTransfer.getData('text/x-studio-shelf');if(!file)return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));const sh=$('shelf');if(sh)sh.classList.remove('dragover');const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';const tgtSub=sec.dataset.sub||'';if(srcSub===tgtSub)return;await shelfMoveOne(file,srcSub,curProj(),tgtSub,'shelf')});
+$('shelfGrid').addEventListener('drop',async e=>{const sec=e.target.closest('.shelfsec');if(!sec)return;
+ const shelfFile=e.dataTransfer.getData('text/x-studio-shelf'),histFile=e.dataTransfer.getData('text/x-studio-file'),histMulti=e.dataTransfer.getData('text/x-studio-files');
+ if(!shelfFile&&!histFile&&!histMulti)return;
+ e.preventDefault();e.stopPropagation();
+ [...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));const sh=$('shelf');if(sh)sh.classList.remove('dragover');
+ const tgtSub=sec.dataset.sub||'';
+ if(shelfFile){const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';if(srcSub===tgtSub)return;await shelfMoveOne(shelfFile,srcSub,curProj(),tgtSub,'shelf');return;}
+ const imgs=await imagesFromDT(e.dataTransfer);   // imagen(es) del historial → copiar a Mis imágenes de esa sección
+ if(imgs.length)await shelfAddTo(imgs,tgtSub);});
 $('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'))});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
