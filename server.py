@@ -478,6 +478,120 @@ def backup_status():
             "path": str(real).replace(str(HOME), "~")}
 
 
+def _zip_name(s):
+    # nombre de carpeta legible y seguro para usar dentro del zip
+    s = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", (s or "").strip())
+    s = s.rstrip(". ")[:80]
+    return s or "Sin nombre"
+
+
+def _backup_skip(p):
+    return (not p.is_file()) or p.name.endswith((".tmp", ".bak")) or p.name == ".DS_Store"
+
+
+def _backup_add_scope(z, base, proj, sub):
+    # vuelca un ámbito (raíz del proyecto o un subproyecto) ya organizado:
+    #   <base>/Historial/<imagenes> + _info.json   y   <base>/Mis imágenes/<imagenes> + _info.json
+    hdir, hjson = phist_dir(proj, sub), phist_json(proj, sub)
+    sdir, sjson = pshelf_dir(proj, sub), pshelf_json(proj, sub)
+    hist = load_json(hjson, [])
+    if hdir.is_dir():
+        for p in sorted(hdir.iterdir()):
+            if not _backup_skip(p):
+                z.write(p, base + "/Historial/" + p.name)
+    if hist:
+        z.writestr(base + "/Historial/_info.json", json.dumps(hist, ensure_ascii=False, indent=1))
+    shelf = load_json(sjson, [])
+    if sdir.is_dir():
+        for p in sorted(sdir.iterdir()):
+            if not _backup_skip(p):
+                z.write(p, base + "/Mis imágenes/" + p.name)
+    if shelf:
+        z.writestr(base + "/Mis imágenes/_info.json", json.dumps(shelf, ensure_ascii=False, indent=1))
+    return len(hist), len(shelf)
+
+
+def build_backup_zip():
+    """Backup ORGANIZADO: cada proyecto es una carpeta con nombre legible
+    (Historial / Mis imágenes / Subproyectos), sin papelera ni archivos .bak/.tmp."""
+    raw = load_json(PROJ_JSON, {})
+    conf = load_json(CONF_JSON, {})
+    gl = conf.get("general_label") or "General"
+    projects = [("", gl)]                       # ("" = espacio General)
+    seen = {"general"}
+    for k in raw.keys():
+        if is_general(k):
+            continue
+        projects.append((k, k))                 # la clave del JSON ya es el nombre legible
+        seen.add(safe(k))
+    if PROJ_DIR.is_dir():                        # carpetas en disco no registradas en el JSON
+        for d in sorted(PROJ_DIR.iterdir()):
+            if d.is_dir() and d.name not in seen:
+                projects.append((d.name, d.name))
+                seen.add(d.name)
+    manifest = []
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        used = {}
+        for key, label in projects:
+            L = _zip_name(label)
+            used[L] = used.get(L, 0) + 1
+            if used[L] > 1:
+                L = f"{L} ({used[L]})"
+            base = "Proyectos/" + L
+            nh, ns = _backup_add_scope(z, base, key, "")
+            subinfo = []
+            for s in list_subs(key):
+                snh, sns = _backup_add_scope(z, base + "/Subproyectos/" + _zip_name(s["label"]), key, s["key"])
+                subinfo.append((s["label"], snh, sns))
+            # otros archivos del proyecto (estilo, memoria visual, portada…) → _otros/
+            pf = proj_folder(key)
+            if pf.is_dir():
+                for p in pf.rglob("*"):
+                    if _backup_skip(p):
+                        continue
+                    rel = p.relative_to(pf)
+                    if rel.parts and rel.parts[0] in ("historial", "estante", "sub"):
+                        continue   # ya incluidos, organizados, arriba
+                    if p.name in ("historial.json", "estante.json"):
+                        continue   # ya van como _info.json dentro de Historial / Mis imágenes
+                    z.write(p, base + "/_otros/" + str(rel))
+            manifest.append((L, nh, ns, subinfo))
+        if PROMPTS_JSON.exists():
+            z.write(PROMPTS_JSON, "Biblioteca de prompts.json")
+        if CONF_JSON.exists():
+            z.write(CONF_JSON, "_sistema/config.json")
+        if PROJ_JSON.exists():
+            z.write(PROJ_JSON, "_sistema/proyectos.json")
+        z.writestr("LÉEME.txt", _backup_readme(manifest))
+    return buf.getvalue()
+
+
+def _backup_readme(manifest):
+    L = [
+        "GIO STUDIO — COPIA DE SEGURIDAD",
+        "Generada: " + time.strftime("%Y-%m-%d %H:%M"),
+        "",
+        "CÓMO ESTÁ ORGANIZADO",
+        "  Proyectos/<Nombre del proyecto>/",
+        "     Historial/        → las imágenes generadas (+ _info.json con prompts y datos)",
+        "     Mis imágenes/      → tu estante de imágenes propias (+ _info.json)",
+        "     Subproyectos/<Nombre>/  → cada subproyecto, con su Historial y Mis imágenes",
+        "     _otros/            → estilo, memoria visual, portada, etc.",
+        "  Biblioteca de prompts.json  → tu biblioteca de prompts",
+        "  _sistema/            → config.json y proyectos.json (para restaurar)",
+        "",
+        "No se incluyen la papelera ni archivos temporales (.bak/.tmp).",
+        "",
+        "PROYECTOS EN ESTA COPIA",
+    ]
+    for name, nh, ns, subs in manifest:
+        L.append(f"  • {name}  —  {nh} en Historial, {ns} en Mis imágenes")
+        for sname, snh, sns in subs:
+            L.append(f"       └ {sname}: {snh} en Historial, {sns} en Mis imágenes")
+    return "\n".join(L) + "\n"
+
+
 
 try:
     I18N_JSON = (Path(__file__).resolve().parent / "i18n.json").read_text(encoding="utf-8")
@@ -5224,17 +5338,7 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/backupstatus":
             return self._json(backup_status())
         if self.path == "/backup.zip":
-            real = ROOT.resolve()
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-                for p in real.rglob("*"):
-                    if not p.is_file() or p.name.endswith(".tmp") or p.name == ".DS_Store" or ".git" in p.parts:
-                        continue
-                    try:
-                        z.write(p, p.relative_to(real))
-                    except Exception:
-                        pass
-            data = buf.getvalue()
+            data = build_backup_zip()   # organizado por proyecto (Historial / Mis imágenes / Subproyectos)
             self.send_response(200)
             self.send_header("Content-Type", "application/zip")
             self.send_header("Content-Disposition",
