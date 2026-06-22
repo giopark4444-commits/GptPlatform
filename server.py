@@ -42,6 +42,7 @@ PROJ_DIR = ROOT / "proyectos"
 SHELF_DIR = ROOT / "estante"          # estante de imágenes propias (no van a OpenAI)
 SHELF_JSON = ROOT / "estante.json"
 TRASH_DIR = ROOT / ".papelera"        # soft-delete: deshacer borrados
+THUMBS_DIR = ROOT / ".thumbs"         # miniaturas en caché para las cuadrículas (no full-res)
 HIST_DIR.mkdir(parents=True, exist_ok=True)
 PROJ_DIR.mkdir(parents=True, exist_ok=True)
 SHELF_DIR.mkdir(parents=True, exist_ok=True)
@@ -356,6 +357,36 @@ def png_meta(raw, pairs):
         return raw[:pos] + extra + raw[pos:]
     except Exception:
         return raw
+
+
+_THUMB_OK = None   # ¿está disponible 'sips'? (macOS) — se detecta una vez
+
+
+def thumb_for(src_path, px=640):
+    """Devuelve la ruta a una miniatura en caché (~px de lado mayor, JPEG) o None.
+    Las cuadrículas piden esto en vez de la imagen full-res (3+ MB) → carga muchísimo más ligera."""
+    global _THUMB_OK
+    try:
+        if not src_path.is_file():
+            return None
+        if _THUMB_OK is False:
+            return None
+        THUMBS_DIR.mkdir(parents=True, exist_ok=True)
+        st = src_path.stat()
+        key = hashlib.md5(f"{src_path.resolve()}|{int(st.st_mtime)}|{st.st_size}|{px}".encode()).hexdigest() + ".jpg"
+        tp = THUMBS_DIR / key
+        if tp.is_file() and tp.stat().st_size > 0:
+            return tp
+        r = subprocess.run(["sips", "-s", "format", "jpeg", "-Z", str(px), str(src_path), "--out", str(tp)],
+                           capture_output=True, timeout=25)
+        if tp.is_file() and tp.stat().st_size > 0:
+            _THUMB_OK = True
+            return tp
+        if r.returncode != 0 and _THUMB_OK is None:
+            _THUMB_OK = False   # sips no existe/falla en este sistema → no reintentar
+    except Exception:
+        pass
+    return None
 
 
 def load_projects():
@@ -2875,7 +2906,7 @@ window.addEventListener('focus',()=>{pollAll();if(!selMode)loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();if(!selMode)loadGal();}});
 function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
- return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="true"><img src="/file?name=${fn}${pq}" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
+ return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="true"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
@@ -4243,7 +4274,7 @@ async function loadShelf(){const subs=curSubs();
  shelfItems=shelfGroups.length===1?shelfGroups[0].items:[].concat(...shelfGroups.map(g=>g.items));
  if(dir)$('shelfDirLbl').textContent=dir;renderShelf()}
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
- return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
+ return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -4708,7 +4739,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
         return ('<figure class="tile" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
                 + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
-                '<img src="' + u + '" loading="lazy" alt="">'
+                '<img src="' + u + '&thumb=1" loading="lazy" alt="">'
                 '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
 
     # cargar cada grupo (raíz + subproyectos seleccionados) y construir su grilla
@@ -5583,8 +5614,12 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"voices": [], "error": str(e)})
         if self.path.startswith("/file?"):
-            name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
-            fp = phist_dir(self._proj(), self._sub()) / os.path.basename(name)
+            q = parse_qs(urlparse(self.path).query)
+            fp = phist_dir(self._proj(), self._sub()) / os.path.basename(q.get("name", [""])[0])
+            if q.get("thumb") and fp.is_file():
+                tp = thumb_for(fp)
+                if tp:
+                    return self._send(200, tp.read_bytes(), "image/jpeg", {"Cache-Control": "private, max-age=86400"})
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path.startswith("/pfile?"):
@@ -5632,8 +5667,12 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": f"No pude abrir el selector: {e}"})
         if self.path.startswith("/shelffile?"):
-            name = parse_qs(urlparse(self.path).query).get("name", [""])[0]
-            fp = pshelf_dir(self._proj(), self._sub()) / os.path.basename(name)
+            q = parse_qs(urlparse(self.path).query)
+            fp = pshelf_dir(self._proj(), self._sub()) / os.path.basename(q.get("name", [""])[0])
+            if q.get("thumb") and fp.is_file():
+                tp = thumb_for(fp)
+                if tp:
+                    return self._send(200, tp.read_bytes(), "image/jpeg", {"Cache-Control": "private, max-age=86400"})
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
             return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
         if self.path == "/stage":
