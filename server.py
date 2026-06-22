@@ -1577,6 +1577,14 @@ html,body{overflow-x:hidden}
           <div class="ang3drow-h"><span>Distancia</span><span class="ang3dval" id="ang3dDistV">Plano medio</span></div>
           <input type="range" id="ang3dDist" min="0" max="100" step="1" value="45">
         </div>
+        <div class="ang3drow hide" id="ang3dLensRow">
+          <div class="ang3drow-h"><span>Lente</span><span class="ang3dval" id="ang3dLensV">50 mm · normal</span></div>
+          <input type="range" id="ang3dLens" min="14" max="200" step="1" value="50">
+        </div>
+        <div class="ang3drow hide" id="ang3dApRow">
+          <div class="ang3drow-h"><span>Apertura</span><span class="ang3dval" id="ang3dApV">f/4</span></div>
+          <input type="range" id="ang3dAp" min="0" max="9" step="1" value="4">
+        </div>
         <div class="ang3dtxt" id="ang3dTxt"></div>
         <div class="ang3dpresets" id="ang3dPresets"></div>
         <label class="check ang3dchk"><input type="checkbox" id="ang3dRef"> Adjuntar el diagrama como referencia visual</label>
@@ -3827,7 +3835,11 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 // ===== Ángulo 3D (gizmo de cámara/orientación) =====
-let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0,dist:45}, ang3dMode='subj', ang3dShape='head', ang3dUse={subj:true,cam:true};
+let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0,dist:45,lens:50,fstop:4}, ang3dMode='subj', ang3dShape='head', ang3dUse={subj:true,cam:true};
+const ANG_FSTOPS=[1.2,1.4,2,2.8,4,5.6,8,11,16,22];
+function lensType(mm){mm=+mm;if(mm<=16)return 'ultra gran angular';if(mm<=28)return 'gran angular';if(mm<=45)return 'casi normal';if(mm<=60)return 'normal';if(mm<=105)return 'retrato (tele corto)';if(mm<=180)return 'teleobjetivo';return 'teleobjetivo largo';}
+function fNum(f){f=+f;return 'f/'+(f<10?f.toFixed(f%1?1:0):Math.round(f));}
+function dofText(f){f=+f;if(f<=2)return 'muy poca profundidad de campo, fondo muy desenfocado, bokeh marcado';if(f<=4)return 'poca profundidad de campo, fondo desenfocado';if(f<=8)return 'profundidad de campo media';return 'gran profundidad de campo, casi todo enfocado';}
 function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function ang3dActive(){return ang3dMode==='cam'?ang3dCam:ang3dSubj}
 function ang3dSubjText(){const a2=(((ang3dSubj.yaw+180)%360+360)%360)-180,a=Math.abs(a2);
@@ -3853,7 +3865,7 @@ function distShort(d){d=+d;
  if(d<70)return 'Plano entero';
  if(d<86)return 'Plano general';
  return 'Gran plano gral.';}
-function camTextFor(yaw,pitch,dist){const a2=(((yaw+180)%360+360)%360)-180,a=Math.abs(a2);
+function camTextFor(yaw,pitch,dist,lens,fstop){const a2=(((yaw+180)%360+360)%360)-180,a=Math.abs(a2);
  const dir=a2>0?'la derecha':'la izquierda';let h;
  if(a<=20)h='desde el frente';
  else if(a<=70)h='desde un ángulo a '+dir;
@@ -3865,8 +3877,11 @@ function camTextFor(yaw,pitch,dist){const a2=(((yaw+180)%360+360)%360)-180,a=Mat
  else if(pitch>=18)v='en picado (desde arriba)';
  else if(pitch<=-18)v='en contrapicado (desde abajo)';
  else v='a la altura de los ojos';
- return h+', '+v+(dist!=null?', '+distLabel(dist):'');}
-function ang3dCamText(){return camTextFor(ang3dCam.yaw,ang3dCam.pitch,ang3dCam.dist)}
+ let out=h+', '+v+(dist!=null?', '+distLabel(dist):'');
+ if(lens!=null)out+=', con lente de '+Math.round(lens)+'mm ('+lensType(lens)+')';
+ if(fstop!=null)out+=', apertura '+fNum(fstop)+' ('+dofText(fstop)+')';
+ return out;}
+function ang3dCamText(){return camTextFor(ang3dCam.yaw,ang3dCam.pitch,ang3dCam.dist,ang3dCam.lens,ang3dCam.fstop)}
 function ang3dDesc(){const us=ang3dUse.subj,uc=ang3dUse.cam;const s=ang3dSubjText(),c=ang3dCamText();
  const short=[],pp=[];
  if(us){short.push('Sujeto: '+ang3dCap(s));pp.push('muestra al sujeto '+s);}
@@ -4011,7 +4026,12 @@ function ang3dSyncSliders(){const o=ang3dActive(),y=$('ang3dYaw'),p=$('ang3dPitc
  $('ang3dYawV').textContent=Math.round(a2)+'°';
  $('ang3dPitchV').textContent=Math.round(o.pitch)+'°';
  $('ang3dDistRow').classList.toggle('hide',!cam);
- if(cam){$('ang3dDist').value=Math.round(ang3dCam.dist);$('ang3dDistV').textContent=trVal(distShort(ang3dCam.dist),LANG);}}
+ $('ang3dLensRow').classList.toggle('hide',!cam);
+ $('ang3dApRow').classList.toggle('hide',!cam);
+ if(cam){$('ang3dDist').value=Math.round(ang3dCam.dist);$('ang3dDistV').textContent=trVal(distShort(ang3dCam.dist),LANG);
+  $('ang3dLens').value=Math.round(ang3dCam.lens);$('ang3dLensV').textContent=Math.round(ang3dCam.lens)+' mm · '+trVal(lensType(ang3dCam.lens),LANG);
+  let ai=ANG_FSTOPS.indexOf(ang3dCam.fstop);if(ai<0)ai=ANG_FSTOPS.reduce((b,f,i)=>Math.abs(f-ang3dCam.fstop)<Math.abs(ANG_FSTOPS[b]-ang3dCam.fstop)?i:b,0);
+  $('ang3dAp').value=ai;$('ang3dApV').textContent=fNum(ang3dCam.fstop);}}
 function ang3dUpd(){ang3dDraw();ang3dSyncSliders();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
@@ -4039,7 +4059,10 @@ $('ang3dIns').onclick=()=>{const d=ang3dDesc();if(!d.prompt){toast('Marca «Suje
  const txt=()=>{const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;};
  y.addEventListener('input',()=>{ang3dActive().yaw=+y.value;$('ang3dYawV').textContent=y.value+'°';ang3dDraw();txt();});
  p.addEventListener('input',()=>{ang3dActive().pitch=+p.value;$('ang3dPitchV').textContent=p.value+'°';ang3dDraw();txt();});
- if(d)d.addEventListener('input',()=>{ang3dCam.dist=+d.value;$('ang3dDistV').textContent=trVal(distShort(d.value),LANG);ang3dDraw();txt();});})();
+ if(d)d.addEventListener('input',()=>{ang3dCam.dist=+d.value;$('ang3dDistV').textContent=trVal(distShort(d.value),LANG);ang3dDraw();txt();});
+ const ln=$('ang3dLens'),ap=$('ang3dAp');
+ if(ln)ln.addEventListener('input',()=>{ang3dCam.lens=+ln.value;$('ang3dLensV').textContent=Math.round(ang3dCam.lens)+' mm · '+trVal(lensType(ang3dCam.lens),LANG);txt();});
+ if(ap)ap.addEventListener('input',()=>{ang3dCam.fstop=ANG_FSTOPS[+ap.value]||4;$('ang3dApV').textContent=fNum(ang3dCam.fstop);txt();});})();
 // ===== Ángulos 3D: detección de sujetos + gizmos (experimental) =====
 let poseSubs=[],poseImg={src:'',full:'',w:0,h:0},poseSel=-1,poseCam={yaw:0,pitch:0};
 function poseCamUpd(){drawCamSphere($('poseCamCv'),poseCam.yaw,poseCam.pitch,0);const t=$('poseCamTxt');if(t)t.textContent=ang3dCap(camTextFor(poseCam.yaw,poseCam.pitch))}
