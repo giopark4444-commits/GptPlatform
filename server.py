@@ -932,14 +932,13 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
-.sov{position:absolute;inset:0;display:flex;align-items:flex-start;gap:4px;padding:5px;opacity:0;
- background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 48%);transition:.15s}
+.sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:4px;padding:5px;opacity:0;
+ background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 70%);transition:.15s}
 .scard:hover .sov{opacity:1}
 .sbtn{width:24px;height:24px;border-radius:7px;border:0;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);
  display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
 .sbtn svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2}
 .sbtn:hover{background:rgba(0,0,0,.85)}
-.sbtn.use{margin-right:auto}
 .shelfempty{font-size:12px;color:var(--faint);text-align:center;padding:18px;border:1px dashed var(--line2);border-radius:10px}
 .shelf.dragover{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
 .strip{display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap}
