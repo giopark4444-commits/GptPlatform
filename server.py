@@ -851,6 +851,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  border:0;border-radius:11px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;transition:.16s}
 .primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .primary:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+#go.busy{background:var(--surface2);color:var(--accent);cursor:progress;box-shadow:none;transform:none}
+#go.busy svg{display:none}
+#go.busy::before{content:"";width:15px;height:15px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+#resultImg.gen-busy{opacity:.45;filter:saturate(.6);transition:opacity .2s}
 .hint{font-size:11px;color:var(--faint);margin-top:10px;line-height:1.55}
 .hint.warn{color:#e0b070;border-left:2px solid #e0b070;padding-left:9px}
 
@@ -3108,7 +3112,12 @@ function renderStrip(){const s=$('strip');
 $('strip').onclick=e=>{const b=e.target.closest('.sth');if(b)showResult(+b.dataset.i)};
 
 function updGenChip(){const n=activeJobs;$('genChip').classList.toggle('hide',n<=0);
- if(n>0)$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…'}
+ if(n>0)$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…';
+ // feedback inmediato en el propio botón (aunque ya haya un resultado en el lienzo)
+ const go=$('go'),gt=$('goTxt');
+ if(go){go.classList.toggle('busy',n>0);if(gt)gt.textContent=n>0?(n>1?('Generando '+n+'…'):'Generando…'):'Generar';}
+ // atenúa el resultado actual mientras se genera, para que se note que está trabajando
+ if($('resultImg'))$('resultImg').classList.toggle('gen-busy',n>0)}
 async function run(){
  const prompt=$('prompt').value.trim();if(!prompt){toast('Escribe el prompt','bad');$('prompt').focus();return}
  const proj=$('projSel').value,pdata=projects[proj];
