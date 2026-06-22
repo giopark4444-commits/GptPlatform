@@ -1027,6 +1027,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .ang3dpresets button{font-size:11px;padding:5px 10px;border:1px solid var(--line);background:var(--surface);color:var(--mut);border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ang3dpresets button:hover{border-color:var(--accent);color:var(--accent)}
 .ang3dchk{font-size:11.5px;margin:2px 0 0}
+.ang3duse{display:flex;gap:16px;flex-wrap:wrap}
+.ang3duse .check{font-size:12px;margin:0}
+.ang3dseg button.off{opacity:.4;pointer-events:none}
 .exp2{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-dim);padding:1px 6px;border-radius:20px;margin-left:6px}
 /* modal Ángulos 3D (detección + gizmos) */
 .modal.posemodal{max-width:min(1040px,96vw);width:96%;max-height:92vh;overflow:auto}
@@ -1552,6 +1555,10 @@ html,body{overflow-x:hidden}
       <label class="check" style="margin:0"><input type="checkbox" id="ang3dOn"> Ángulo 3D · sujeto y cámara</label>
       <div id="ang3dBox" class="ang3d hide">
         <canvas id="ang3dCv" width="320" height="210" title="Arrastra para girar"></canvas>
+        <div class="ang3duse">
+          <label class="check"><input type="checkbox" id="ang3dUseSubj" checked> Sujeto (cabeza)</label>
+          <label class="check"><input type="checkbox" id="ang3dUseCam" checked> Cámara</label>
+        </div>
         <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
         <div class="seg ang3dseg" id="ang3dShape"><button data-sh="head" class="on">Cabeza</button><button data-sh="cube">Cubo</button><button data-sh="mann">Maniquí</button></div>
         <div class="ang3drow">
@@ -3811,7 +3818,7 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 // ===== Ángulo 3D (gizmo de cámara/orientación) =====
-let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0,dist:45}, ang3dMode='subj', ang3dShape='head';
+let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0,dist:45}, ang3dMode='subj', ang3dShape='head', ang3dUse={subj:true,cam:true};
 function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function ang3dActive(){return ang3dMode==='cam'?ang3dCam:ang3dSubj}
 function ang3dSubjText(){const a2=(((ang3dSubj.yaw+180)%360+360)%360)-180,a=Math.abs(a2);
@@ -3851,9 +3858,13 @@ function camTextFor(yaw,pitch,dist){const a2=(((yaw+180)%360+360)%360)-180,a=Mat
  else v='a la altura de los ojos';
  return h+', '+v+(dist!=null?', '+distLabel(dist):'');}
 function ang3dCamText(){return camTextFor(ang3dCam.yaw,ang3dCam.pitch,ang3dCam.dist)}
-function ang3dDesc(){const s=ang3dSubjText(),c=ang3dCamText();
- return {short:'Sujeto: '+ang3dCap(s)+'  ·  Cámara: '+ang3dCap(c),
-  prompt:'Encuadre y ángulo: muestra al sujeto '+s+', con la cámara '+c+'. Conserva su identidad y proporciones.'};}
+function ang3dDesc(){const us=ang3dUse.subj,uc=ang3dUse.cam;const s=ang3dSubjText(),c=ang3dCamText();
+ const short=[],pp=[];
+ if(us){short.push('Sujeto: '+ang3dCap(s));pp.push('muestra al sujeto '+s);}
+ if(uc){short.push('Cámara: '+ang3dCap(c));pp.push('con la cámara '+c);}
+ let prompt='';
+ if(pp.length){prompt='Encuadre y ángulo: '+pp.join(', ')+'.';if(us)prompt+=' Conserva su identidad y proporciones.';}
+ return {short:short.join('  ·  ')||'Marca «Sujeto» o «Cámara» para usar el ángulo', prompt};}
 function ang3dPresetList(){return ang3dMode==='cam'
  ?[['Frontal',0,0],['Lado izq',-90,0],['Lado der',90,0],['Detrás',180,0],['Picado',0,35],['Contrapicado',0,-28],['Cenital',0,60],['Nivel',0,0]]
  :[['Frente',0,0],['3/4 izq',-35,0],['3/4 der',35,0],['Perfil izq',-90,0],['Perfil der',90,0],['Espalda',180,0],['Vista arriba',0,25],['Vista abajo',0,-25]];}
@@ -3995,10 +4006,18 @@ function ang3dSyncSliders(){const o=ang3dActive(),y=$('ang3dYaw'),p=$('ang3dPitc
 function ang3dUpd(){ang3dDraw();ang3dSyncSliders();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
-$('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dMode=b.dataset.m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===ang3dMode));$('ang3dShape').classList.toggle('hide',ang3dMode!=='subj');ang3dRenderPresets();ang3dUpd()};
+function ang3dSetMode(m){ang3dMode=m;[...$('ang3dMode').children].forEach(x=>x.classList.toggle('on',x.dataset.m===m));$('ang3dShape').classList.toggle('hide',m!=='subj');ang3dRenderPresets();ang3dUpd();}
+$('ang3dMode').onclick=e=>{const b=e.target.closest('button');if(!b||b.classList.contains('off'))return;ang3dSetMode(b.dataset.m)};
+function ang3dApplyUse(){const mb=$('ang3dMode');
+ mb.querySelector('[data-m="subj"]').classList.toggle('off',!ang3dUse.subj);
+ mb.querySelector('[data-m="cam"]').classList.toggle('off',!ang3dUse.cam);
+ if(ang3dMode==='subj'&&!ang3dUse.subj&&ang3dUse.cam)ang3dSetMode('cam');
+ else if(ang3dMode==='cam'&&!ang3dUse.cam&&ang3dUse.subj)ang3dSetMode('subj');}
+$('ang3dUseSubj').onchange=()=>{ang3dUse.subj=$('ang3dUseSubj').checked;ang3dApplyUse();ang3dUpd();};
+$('ang3dUseCam').onchange=()=>{ang3dUse.cam=$('ang3dUseCam').checked;ang3dApplyUse();ang3dUpd();};
 $('ang3dShape').onclick=e=>{const b=e.target.closest('button');if(!b)return;ang3dShape=b.dataset.sh;[...$('ang3dShape').children].forEach(x=>x.classList.toggle('on',x.dataset.sh===ang3dShape));ang3dUpd()};
 $('ang3dPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const o=ang3dActive();o.yaw=+b.dataset.y;o.pitch=+b.dataset.p;ang3dUpd()};
-$('ang3dIns').onclick=()=>{const d=ang3dDesc(),ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
+$('ang3dIns').onclick=()=>{const d=ang3dDesc();if(!d.prompt){toast('Marca «Sujeto» o «Cámara» primero','bad');return}const ta=$('prompt');ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+d.prompt;ta.dispatchEvent(new Event('input',{bubbles:true}));toast('Ángulo añadido al prompt')};
 (function(){const cv=$('ang3dCv');if(!cv)return;let drag=false,lx=0,ly=0;
  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
  cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
