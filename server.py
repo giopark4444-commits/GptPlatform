@@ -2880,6 +2880,26 @@ function openMovePop(anchor){closeMovePop();
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
  pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub,pdest)}}
+// mover UNA imagen de Mis imágenes (estante) a otro proyecto/sub (o al Historial), con deshacer
+async function shelfMoveOne(file,srcSub,dest,dest_sub,destSrc){const proj=curProj();
+ if(destSrc==='shelf'&&proj===dest&&srcSub===dest_sub){toast('Ya está en ese lugar');return}
+ const r=await jpost('/moveitem',{src:'shelf',files:[file],project:proj,sub:srcSub,dest:dest,dest_sub:dest_sub,dest_src:destSrc,mode:'move'});
+ if(r&&r.error){toast(r.error,'bad');return}
+ await loadShelf();if(destSrc==='history')await loadGal();
+ const g={a:{p:proj,s:srcSub,k:'shelf'},b:{p:dest,s:dest_sub,k:destSrc},names:(r.pairs||[]).map(p=>p.to),at:'b'};
+ toast('Movida a '+(destSrc==='shelf'?'Mis imágenes':'Historial')+' · ⌘Z para deshacer');
+ pushUndo({label:'1 movida',
+  undo:async()=>{const rr=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to);await loadShelf();await loadGal();},
+  redo:async()=>{const rr=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to);await loadShelf();await loadGal();}})}
+function openShelfMovePop(anchor,file,srcSub){closeMovePop();
+ const tgts=moveTargets();let pdest='shelf';
+ const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
+ pop.innerHTML='<div class="mphdr">'+trVal('Mover a…',LANG)+'</div><div class="mpdest"><button data-d="shelf" class="on">'+trVal('Mis imágenes',LANG)+'</button><button data-d="history">'+trVal('Historial',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ document.body.appendChild(pop);
+ const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
+ let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
+ pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
+ pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];closeMovePop();shelfMoveOne(file,srcSub,t.project,t.sub,pdest)}}
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
@@ -4101,6 +4121,7 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
   <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
@@ -4127,6 +4148,8 @@ $('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+e
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
  if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
 $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
+ const smv=e.target.closest('.smove');
+ if(smv){e.stopPropagation();const f=smv.dataset.file;openShelfMovePop(smv,f,shelfFileSub(f));return;}
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;const ssub=shelfFileSub(it.file);
   const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub))).blob();
   refs.push({name:it.name||it.file,b64:await blobToB64(b)});renderThumbs();
