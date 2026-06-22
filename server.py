@@ -673,6 +673,8 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subchip.chipdropt{outline:2px solid var(--accent);outline-offset:1px}
 .histgroup{margin:0 0 10px}
 .histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
+.shelfsec.secdrop{outline:2px dashed var(--accent);outline-offset:3px;border-radius:10px;background:var(--accent-dim)}
+.shelfsec.secdrop .histgrouphdr{border-color:var(--accent);color:var(--accent)}
 .movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
 .movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
 .movepop .mpdest{display:flex;gap:3px;padding:3px;margin:0 4px 6px;background:var(--surface2);border-radius:9px}
@@ -4148,7 +4150,7 @@ function renderShelf(){
  if(shelfGroups.length>1){const subs=curSubs();
   $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
    const inner=(g.items||[]).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
-   return `<div class="histgroup" style="grid-column:1/-1"><div class="histgrouphdr">${esc(lbl)}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
+   return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr">${esc(lbl)}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
  }else{
   $('shelfGrid').innerHTML=shelfItems.map(it=>scardHtml(it)).join('');
  }}
@@ -4190,7 +4192,12 @@ $('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target
   if(it){openLb('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
- e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true)});
+// soltar una imagen del estante sobre OTRA sección de subproyecto → moverla ahí
+$('shelfGrid').addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-studio-shelf')<0)return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
+$('shelfGrid').addEventListener('dragleave',e=>{const sec=e.target.closest('.shelfsec');if(sec&&!sec.contains(e.relatedTarget))sec.classList.remove('secdrop')});
+$('shelfGrid').addEventListener('drop',async e=>{const file=e.dataTransfer.getData('text/x-studio-shelf');if(!file)return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));const sh=$('shelf');if(sh)sh.classList.remove('dragover');const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';const tgtSub=sec.dataset.sub||'';if(srcSub===tgtSub)return;await shelfMoveOne(file,srcSub,curProj(),tgtSub,'shelf')});
+$('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'))});
 // arrastrar imágenes sobre el estante
 const shEl=$('shelf');
 shEl.addEventListener('dragover',e=>{e.preventDefault();shEl.classList.add('dragover');});
