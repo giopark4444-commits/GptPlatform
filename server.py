@@ -1611,6 +1611,8 @@ html,body{overflow-x:hidden}
     <div class="field">
       <label>Presets · relación de aspecto</label>
       <div class="presets" id="presets">
+        <span class="pgroup">Referencia</span>
+        <span class="chip" data-refar="1" title="Usa la misma proporción de la imagen de referencia">⤢ Como la referencia</span>
         <span class="pgroup">Nativas · gpt-image-2 (sin reescalado)</span>
         <span class="chip" data-w="1024" data-h="1024">1024² · 1:1</span>
         <span class="chip" data-w="1536" data-h="1024">1536×1024 · 3:2</span>
@@ -2276,7 +2278,24 @@ $('wv').addEventListener('change',()=>commitNum('wv','w'));
 $('hv').addEventListener('change',()=>commitNum('hv','h'));
 ['wv','hv'].forEach(n=>$(n).addEventListener('keydown',e=>{
  if(e.key==='Enter'){e.preventDefault();$(n).blur()}}));
+function setSizeFromRefAR(){
+ if(!refs.length){toast('Carga una imagen de referencia primero','bad');return}
+ const im=new Image();
+ im.onload=()=>{let rw=im.naturalWidth,rh=im.naturalHeight;
+  if(!rw||!rh){toast('No pude leer el tamaño de la referencia','bad');return}
+  let ratioWH=rw/rh;if(ratioWH>3)ratioWH=3;else if(ratioWH<1/3)ratioWH=1/3;   // límite gpt-image-2 3:1
+  const cur=(+$('w').value||0)*(+$('h').value||0);
+  let area=cur>655360?cur:2073600;area=Math.min(8000000,Math.max(800000,area));   // conserva la resolución actual (o ~1080p)
+  let W=Math.round(Math.sqrt(area*ratioWH)/16)*16, H=Math.round(Math.sqrt(area/ratioWH)/16)*16;
+  W=Math.max(512,Math.min(3840,W));H=Math.max(512,Math.min(3840,H));
+  document.querySelectorAll('.chip[data-w]').forEach(x=>x.classList.remove('on'));
+  document.querySelector('.chip[data-refar]').classList.add('on');
+  $('w').value=W;$('h').value=H;$('wv').value=W;$('hv').value=H;ratio=W/H;validate();
+  toast('Proporción de la referencia: '+W+'×'+H);};
+ im.onerror=()=>toast('No pude leer la referencia','bad');
+ im.src='data:image/png;base64,'+refs[0].b64;}
 $('presets').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;
+ if(c.dataset.refar){setSizeFromRefAR();return}
  if(c.dataset.px||c.dataset.uhd){const was=c.classList.contains('on');
   document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'));
   if(was){selRes=0;return}
