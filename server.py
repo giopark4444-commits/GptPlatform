@@ -1544,7 +1544,7 @@ html,body{overflow-x:hidden}
         <canvas id="ang3dCv" width="220" height="180" title="Arrastra para girar"></canvas>
         <div class="ang3dside">
           <div class="seg ang3dseg" id="ang3dMode"><button data-m="subj" class="on">Sujeto</button><button data-m="cam">Cámara</button></div>
-          <div class="seg ang3dseg" id="ang3dShape" style="margin-top:4px"><button data-sh="cube" class="on">Cubo</button><button data-sh="mann">Maniquí</button></div>
+          <div class="seg ang3dseg" id="ang3dShape" style="margin-top:4px"><button data-sh="head" class="on">Cabeza</button><button data-sh="cube">Cubo</button><button data-sh="mann">Maniquí</button></div>
           <div class="ang3dtxt" id="ang3dTxt"></div>
           <div class="ang3dpresets" id="ang3dPresets"></div>
           <label class="check" style="margin:2px 0 0;font-size:11.5px"><input type="checkbox" id="ang3dRef"> Adjuntar el diagrama como referencia visual</label>
@@ -3765,7 +3765,7 @@ async function improvePrompt(btn,taId,mode){const ta=$(taId),p=ta.value.trim();
 $('mpImg').onclick=e=>{e.preventDefault();improvePrompt($('mpImg'),'prompt','imagen')};
 $('mpImgBtn').onclick=e=>{e.preventDefault();improvePrompt($('mpImgBtn'),'prompt','imagen')};
 // ===== Ángulo 3D (gizmo de cámara/orientación) =====
-let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0}, ang3dMode='subj', ang3dShape='cube';
+let ang3dSubj={yaw:25,pitch:0}, ang3dCam={yaw:0,pitch:0}, ang3dMode='subj', ang3dShape='head';
 function ang3dCap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function ang3dActive(){return ang3dMode==='cam'?ang3dCam:ang3dSubj}
 function ang3dSubjText(){const a2=(((ang3dSubj.yaw+180)%360+360)%360)-180,a=Math.abs(a2);
@@ -3862,6 +3862,40 @@ function drawMannequin(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d')
  seg(neck,hip);seg(lsh,rsh);seg(lsh,lha);seg(rsh,rha);seg(hip,lhp);seg(hip,rhp);seg(lhp,lf);seg(rhp,rf);
  var hd=P(head);ctx.beginPath();ctx.arc(hd[0],hd[1],s*0.42,0,7);ctx.fillStyle=acc+'cc';ctx.fill();ctx.strokeStyle=acc;ctx.lineWidth=2;ctx.stroke();
  var nz=P([0,-1.5,0.95]);ctx.beginPath();ctx.moveTo(hd[0],hd[1]);ctx.lineTo(nz[0],nz[1]);ctx.lineWidth=2.4;ctx.strokeStyle=acc;ctx.stroke();ctx.beginPath();ctx.arc(nz[0],nz[1],3.2,0,7);ctx.fillStyle=acc;ctx.fill();}
+// CABEZA humana 3D girable: muestra hacia dónde mira (ojos + nariz que sobresale + flecha de mirada)
+function drawHead(cv,yaw,pitch){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+ const cs=getComputedStyle(document.body),acc=(cs.getPropertyValue('--accent').trim()||'#1f6b54'),mut=(cs.getPropertyValue('--mut').trim()||'#9a9a9a');
+ const cx=W/2,cy=H/2,R=Math.min(W,H)*0.30,ry=yaw*Math.PI/180,rx=pitch*Math.PI/180;
+ function rot(p){var x=p[0],y=p[1],z=p[2];var x1=x*Math.cos(ry)+z*Math.sin(ry),z1=-x*Math.sin(ry)+z*Math.cos(ry);var y2=y*Math.cos(rx)-z1*Math.sin(rx),z2=y*Math.sin(rx)+z1*Math.cos(rx);return[x1,y2,z2];}
+ function P(p){var r=rot(p);return[cx+r[0]*R,cy+r[1]*R,r[2]];}
+ // cráneo (esfera → círculo) con sombreado suave
+ var grd=ctx.createRadialGradient(cx-R*0.3,cy-R*0.3,R*0.2,cx,cy,R);grd.addColorStop(0,acc+'33');grd.addColorStop(1,acc+'14');
+ ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fillStyle=grd;ctx.fill();ctx.strokeStyle=acc;ctx.lineWidth=2;ctx.stroke();
+ // wireframe sutil (meridiano de la cara + línea de los ojos) para dar volumen y leer la rotación
+ ctx.strokeStyle=acc+'4d';ctx.lineWidth=1;
+ function ring(fn){ctx.beginPath();for(var t=0;t<=Math.PI*2+0.01;t+=Math.PI/24){var q=P(fn(t));if(t===0)ctx.moveTo(q[0],q[1]);else ctx.lineTo(q[0],q[1]);}ctx.stroke();}
+ ring(function(t){return [0,Math.sin(t),Math.cos(t)];});            // meridiano vertical (centro de la cara)
+ ring(function(t){return [Math.sin(t),-0.12,Math.cos(t)];});        // línea horizontal de los ojos
+ // rasgos: solo visibles si están en el hemisferio que mira al espectador (z>0)
+ function vis(p){return rot(p)[2]>0.02;}
+ // orejas (a los lados; se ven de perfil)
+ [[-1.0,-0.05,0],[1.0,-0.05,0]].forEach(function(e){if(vis(e)){var q=P(e);ctx.beginPath();ctx.ellipse(q[0],q[1],R*0.07,R*0.13,0,0,7);ctx.fillStyle=acc+'cc';ctx.fill();ctx.strokeStyle=acc;ctx.lineWidth=1.2;ctx.stroke();}});
+ // cejas
+ ctx.strokeStyle=acc;ctx.lineWidth=2;
+ [[[-0.46,-0.28,0.86],[-0.16,-0.30,0.92]],[[0.16,-0.30,0.92],[0.46,-0.28,0.86]]].forEach(function(br){if(vis(br[0])||vis(br[1])){var a=P(br[0]),b=P(br[1]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}});
+ // ojos con pupila (mirando al frente)
+ [[-0.31,-0.12,0.90],[0.31,-0.12,0.90]].forEach(function(e){if(vis(e)){var q=P(e);ctx.beginPath();ctx.ellipse(q[0],q[1],R*0.11,R*0.075,0,0,7);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=acc;ctx.lineWidth=1.3;ctx.stroke();var pu=P([e[0]*1.02,e[1],e[2]+0.06]);ctx.beginPath();ctx.arc(pu[0],pu[1],R*0.038,0,7);ctx.fillStyle=acc;ctx.fill();}});
+ // nariz que SOBRESALE (clave para leer la dirección)
+ var nb=P([0,0.06,0.95]),nt=P([0,0.18,1.34]);if(nt[2]>-0.2){ctx.strokeStyle=acc;ctx.lineWidth=2.6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(nb[0],nb[1]);ctx.lineTo(nt[0],nt[1]);ctx.stroke();ctx.beginPath();ctx.arc(nt[0],nt[1],2.6,0,7);ctx.fillStyle=acc;ctx.fill();}
+ // boca
+ var m0=[-0.2,0.5,0.86],m1=[0.2,0.5,0.86];if(vis(m0)||vis(m1)){var a=P(m0),b=P(m1);ctx.strokeStyle=acc+'cc';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}
+ // FLECHA DE MIRADA: desde el entrecejo hacia delante, sobresale del cráneo
+ var g0=P([0,-0.1,1.0]),g1=P([0,-0.1,2.15]);var ahead=g1[2]>g0[2]||g1[2]>-0.3;
+ ctx.strokeStyle=acc;ctx.lineWidth=2.4;ctx.setLineDash(ahead?[]:[3,3]);
+ ctx.beginPath();ctx.moveTo(g0[0],g0[1]);ctx.lineTo(g1[0],g1[1]);ctx.stroke();ctx.setLineDash([]);
+ var ang=Math.atan2(g1[1]-g0[1],g1[0]-g0[0]),ah=8;
+ ctx.beginPath();ctx.moveTo(g1[0],g1[1]);ctx.lineTo(g1[0]-ah*Math.cos(ang-0.5),g1[1]-ah*Math.sin(ang-0.5));ctx.moveTo(g1[0],g1[1]);ctx.lineTo(g1[0]-ah*Math.cos(ang+0.5),g1[1]-ah*Math.sin(ang+0.5));ctx.stroke();
+ ctx.fillStyle=mut;ctx.font='600 9px sans-serif';ctx.textAlign='center';ctx.fillText(trVal('mirada',LANG),g1[0],g1[1]+(g1[1]>cy?12:-7));ctx.textAlign='start';}
 // esfera de órbita 3D para la CÁMARA: sujeto al centro, cámara orbitando; arrastra para mover en 3D
 function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
  const c=sceneCols(),D=Math.PI/180,cx=W/2,cy=H/2,R=Math.min(W,H)*0.38,vt=20*D;
@@ -3887,7 +3921,7 @@ function drawCamSphere(cv,camYaw,camPitch,subjYaw){if(!cv)return;const ctx=cv.ge
  ctx.font='9px sans-serif';ctx.textAlign='center';ctx.globalAlpha=.85;ctx.fillStyle=c.txt;
  const hb=camPitch>=45?'cenital':camPitch>=18?'picado':camPitch<=-18?'contrapicado':'nivel';
  ctx.fillText('cámara · '+hb, cx, H-5);ctx.globalAlpha=1;ctx.textAlign='start';}
-function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else if(ang3dShape==='mann')drawMannequin($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
+function ang3dDraw(){if(ang3dMode==='cam')drawCamSphere($('ang3dCv'),ang3dCam.yaw,ang3dCam.pitch,ang3dSubj.yaw);else if(ang3dShape==='mann')drawMannequin($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else if(ang3dShape==='cube')drawCubeCv($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch);else drawHead($('ang3dCv'),ang3dSubj.yaw,ang3dSubj.pitch)}
 function ang3dUpd(){ang3dDraw();const t=$('ang3dTxt');if(t)t.textContent=ang3dDesc().short;}
 function ang3dSnap(){const cv=$('ang3dCv');try{return cv.toDataURL('image/png').split(',')[1]}catch(e){return null}}
 $('ang3dOn').onchange=()=>{const on=$('ang3dOn').checked;$('ang3dBox').classList.toggle('hide',!on);$('ang3dHint').classList.toggle('hide',!on);if(on){ang3dRenderPresets();ang3dUpd()}};
