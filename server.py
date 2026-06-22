@@ -3039,7 +3039,7 @@ function lbNavigate(dir){
  const ni=idx+dir;if(ni<0||ni>=cards.length)return;   // sin dar la vuelta
  const c=cards[ni];
  if(lbScope==='gal'){openLb('/file?name='+encodeURIComponent(c.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),c.dataset.p||'',c.dataset.file);lbScope='gal';lbCurFile=c.dataset.file;lbSyncNav()}
- else{const it=shelfItems.find(x=>x.file===c.dataset.shelf);if(it){openLb('/shelffile?name='+encodeURIComponent(it.file),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}}
+ else{openLb('/shelffile?name='+encodeURIComponent(c.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),'','');lbScope='shelf';lbCurFile=c.dataset.shelf;lbSyncNav()}}
 async function useHistRefs(it){   // carga en el panel las referencias guardadas con esa imagen del historial
  if(!it||!Array.isArray(it.refs)||!it.refs.length)return 0;
  const sb=it._sub||it.sub||'';const out=[];
