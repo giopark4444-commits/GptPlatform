@@ -1023,6 +1023,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
 .gal.selmode .gcard.sel::after{background:var(--accent);border-color:var(--accent);content:'✓';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .gal.selmode .gcard.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.gal.selmode{user-select:none}
+.gmarq{position:fixed;border:1.5px solid var(--accent);background:var(--accent-dim);z-index:50;pointer-events:none;border-radius:4px;display:none}
 .galbulk{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:6px;
  padding:9px 12px;background:var(--surface);border:1px solid var(--line2);border-radius:16px;
  box-shadow:0 18px 44px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.14);font-size:12.5px;
@@ -2944,6 +2946,7 @@ function renderGal(){const items=galFiltered();
  $('galCount').textContent=items.length||''}
 // ===== selección múltiple del historial =====
 let selMode=false;const selFiles=new Set();
+let galMarqueed=false,galMarq=null,galMqStart=null,galMqMoved=false;
 function selFileSub(f){const c=$('gal').querySelector('.gcard[data-file="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
 // destinos de "Mover": cada proyecto (raíz) + cada subproyecto de cada proyecto
 function moveTargets(){const out=[];const list=Object.keys(window.SUBS||{});
@@ -3064,8 +3067,30 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
  e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+// Marquee: arrastrar un recuadro con el mouse para seleccionar varias (solo en modo selección)
+$('gal').addEventListener('pointerdown',e=>{
+ if(!selMode||e.button!==0)return;
+ if(e.target.closest('a,button'))return;
+ const card=e.target.closest('.gcard');
+ // si arrancas sobre una ya seleccionada, deja el arrastre nativo (mover la selección a Referencias)
+ if(card&&selFiles.has(card.dataset.file))return;
+ e.preventDefault();galMqStart={x:e.clientX,y:e.clientY};galMqMoved=false;});
+window.addEventListener('pointermove',e=>{
+ if(!selMode||!galMqStart)return;
+ const dx=e.clientX-galMqStart.x,dy=e.clientY-galMqStart.y;
+ if(!galMqMoved&&Math.abs(dx)+Math.abs(dy)<6)return;
+ galMqMoved=true;e.preventDefault();
+ if(!galMarq){galMarq=document.createElement('div');galMarq.className='gmarq';document.body.appendChild(galMarq);}
+ const x1=Math.min(e.clientX,galMqStart.x),y1=Math.min(e.clientY,galMqStart.y),x2=Math.max(e.clientX,galMqStart.x),y2=Math.max(e.clientY,galMqStart.y);
+ galMarq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';
+ $('gal').querySelectorAll('.gcard').forEach(c=>{const r=c.getBoundingClientRect();
+  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!selFiles.has(c.dataset.file)){selFiles.add(c.dataset.file);c.classList.add('sel');}});
+ renderBulk();});
+function endGalMarq(){if(!galMqStart)return;if(galMarq){galMarq.remove();galMarq=null;}if(galMqMoved)galMarqueed=true;galMqStart=null;galMqMoved=false;}
+window.addEventListener('pointerup',endGalMarq);
+window.addEventListener('pointercancel',endGalMarq);
 $('gal').onclick=async e=>{
- if(selMode){const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
+ if(selMode){if(galMarqueed){galMarqueed=false;return}const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
   star=e.target.closest('.gstar'),up=e.target.closest('.gup'),lib=e.target.closest('.glib'),
