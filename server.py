@@ -1024,6 +1024,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
+.gcard .upov{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(10,10,12,.66);backdrop-filter:blur(2px);color:#fff;font-size:11.5px;line-height:1.35;text-align:center;padding:8px}
+.gcard .upov small{opacity:.7;font-size:10px}
+.upspin{width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
@@ -3129,12 +3132,14 @@ $('gal').onclick=async e=>{
   it.fav=!it.fav;star.classList.toggle('fav',it.fav);
   fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav,project:curProj(),sub:cardSub})});
   if($('galFavBtn').classList.contains('on'))renderGal();return}
- if(up){up.classList.add('busy');toast('Mejorando 2× con IA · ~30s…');
+ if(up){const ucard=up.closest('.gcard');const ov=document.createElement('div');ov.className='upov';
+  ov.innerHTML='<div class="upspin"></div><span>Mejorando 2×…<br><small>puede tardar hasta ~1 min</small></span>';
+  if(ucard)ucard.appendChild(ov);up.classList.add('busy');toast('Mejorando 2× con IA · puede tardar hasta ~1 min…');
   try{const d=await(await fetch('/upscale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,project:curProj(),sub:cardSub,save_desktop:$('saveDesk').checked})})).json();
    if(d.error)toast(d.error,'bad');
-   else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Lista en '+d.size)}
-  }catch(x){toast(String(x),'bad')}
-  up.classList.remove('busy');return}
+   else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Mejorada 2× lista · '+d.size+' ✓')}
+  }catch(x){toast('No se pudo mejorar: '+String(x&&x.message||x),'bad')}
+  ov.remove();up.classList.remove('busy');return}
  if(cp){const it=hist.find(x=>x.file===card.dataset.file)||{};$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);const n=await useHistRefs(it);toast(n?('Prompt + '+n+' referencia(s) cargadas'):'Prompt copiado');return}
  if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
