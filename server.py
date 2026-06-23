@@ -1551,7 +1551,7 @@ html,body{overflow-x:hidden}
     </button>
   </div>
   <div class="right">
-    <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">$0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
+    <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">aprox. $0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
     <button class="ghost" id="trashBtn" title="Papelera — restaurar imágenes borradas"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>Papelera</button>
     <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
     <button class="ghost" id="setBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes</button>
@@ -1714,7 +1714,7 @@ html,body{overflow-x:hidden}
       </div></details>
 
     <div class="meta"><span class="mono" id="ratio">3:2</span><span class="valid ok" id="valid">válido</span></div>
-    <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">~$0.00</span></div>
+    <div class="estbar"><span>Costo estimado</span><span class="num" id="estv">aprox. $0.00</span></div>
     <button class="primary" id="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span id="goTxt">Generar</span></button>
     <p class="hint" id="saveWhere"></p>
     <p class="hint">Lado 512–3840 · múltiplos de 16 · 0.65–8.29 MP · ratio ≤3:1. El estimado es aproximado; el costo real aparece al terminar. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
@@ -1815,7 +1815,7 @@ html,body{overflow-x:hidden}
         </div>
       </div>
 
-      <div class="estbar"><span>Costo estimado</span><span class="num" id="ttsEst">~$0.0000</span></div>
+      <div class="estbar"><span>Costo estimado</span><span class="num" id="ttsEst">aprox. $0.0000</span></div>
       <button class="primary" id="ttsGo"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><span id="ttsGoTxt">Generar voz</span></button>
       <p class="hint">OpenAI: máx 4096 caracteres; instrucciones de tono solo con <span class="mono">gpt-4o-mini-tts</span>. ElevenLabs cobra en créditos de tu plan. Se guarda en historial y tu carpeta. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
     </div>
@@ -1844,7 +1844,7 @@ html,body{overflow-x:hidden}
         <input type="range" id="sttTemp" min="0" max="1" step="0.1" value="0">
       </div>
       <label class="check"><input type="checkbox" id="sttTrad"> Traducir al inglés (whisper-1)</label>
-      <div class="estbar" style="margin-top:14px"><span>Costo estimado</span><span class="num" id="sttEst">~$0.006/min</span></div>
+      <div class="estbar" style="margin-top:14px"><span>Costo estimado</span><span class="num" id="sttEst">aprox. $0.006/min</span></div>
       <button class="primary" id="sttGo"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg><span id="sttGoTxt">Transcribir</span></button>
       <p class="hint">SRT/VTT y JSON con tiempos usan <span class="mono">whisper-1</span> (se ajusta solo). La traducción siempre sale en inglés. La transcripción se guarda como archivo en historial y tu carpeta.</p>
     </div>
@@ -1996,7 +1996,7 @@ html,body{overflow-x:hidden}
         <p class="hint">LatentSync mueve los labios del video para que digan el audio nuevo. Combo: genera una voz en Audio y aplícala aquí.</p>
       </div>
 
-      <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">~$—</span></div>
+      <div class="estbar"><span>Costo estimado</span><span class="num" id="vidEst">aprox. $—</span></div>
       <button class="primary" id="vidGo"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg><span id="vidGoTxt">Generar video</span></button>
       <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
     </div>
@@ -2234,7 +2234,7 @@ $('keySave').onclick=async()=>{const k=$('keyInput').value.trim();if(!k)return;$
  else{$('keyMsg').textContent=(r.error||'clave inválida')}};
 
 function bumpSess(c,n=1){sessCost+=c||0;sessN+=n;
- $('sessCostV').textContent='$'+sessCost.toFixed(4);$('sessNV').textContent=sessN}
+ $('sessCostV').textContent='aprox. $'+sessCost.toFixed(4);$('sessNV').textContent=sessN}
 let lastImgMode=localStorage.getItem('studio_imgmode')||'crear';
 function setMode(m){mode=m;
  const aud=m==='audio',vid=m==='video',img=!aud&&!vid;
@@ -2256,7 +2256,8 @@ $('mAudio').onclick=()=>setMode('audio');$('mVideo').onclick=()=>setMode('video'
 function gcd(a,b){return b?gcd(b,a%b):a}function fr(a,b){const g=gcd(a,b);return(a/g)+':'+(b/g)}
 function snap(v){return Math.round(v/16)*16}
 function estTokens(){const W=+$('w').value,H=+$('h').value,MP=W*H/1e6,q=$('quality').value;
- let t;if(q==='low'||q==='auto')t=129+64*MP;else if(q==='medium')t=1150+577*MP;else t=4600+2308*MP;
+ // 'auto' factura como 'medium' (a veces sube a 'high'); validado con tokens reales de OpenAI
+ let t;if(q==='low')t=129+64*MP;else if(q==='medium'||q==='auto')t=1150+577*MP;else t=4600+2308*MP;
  // gpt-image-2 cobra MENOS los no-cuadrados; factor lado corto/largo calibrado con la tabla oficial
  // (cuadrado → ×1 sin cambio; 1024×1536 high → $0.165, exacto)
  t*=Math.min(W,H)/Math.max(W,H);
@@ -2275,7 +2276,7 @@ function validate(){const W=+$('w').value,H=+$('h').value,long=Math.max(W,H),mp=
   const pd=projects[$('projSel').value];
   if($('useVis').checked&&pd&&pd.refs)toks+=pd.refs.length*REF_IMG_TOKENS;
   est+=toks*8/1e6;}
- $('estv').textContent='~$'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok;
+ $('estv').textContent='aprox. $'+est.toFixed(est<0.1?4:3)+(n>1?' ×'+n:'');$('go').disabled=!ok;
  try{batchEst()}catch(e){}}
 let selRes=0;
 function clearRes(){selRes=0;document.querySelectorAll('.rchip').forEach(x=>x.classList.remove('on'))}
@@ -3134,7 +3135,7 @@ function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lb
   if(it.size)tags.push('<span><b>Resolución</b>'+esc(it.size)+'</span>');
   if(it.quality)tags.push('<span><b>Calidad</b>'+esc(QL[it.quality]||it.quality)+'</span>');
   if(it.mode)tags.push('<span><b>Modo</b>'+(it.mode==='editar'?'Editar':'Crear')+'</span>');
-  if(typeof it.cost==='number')tags.push('<span><b>Costo</b>$'+(it.cost||0).toFixed(4)+'</span>');
+  if(typeof it.cost==='number')tags.push('<span><b>Costo</b>aprox. $'+(it.cost||0).toFixed(4)+'</span>');
   if(it.output_tokens)tags.push('<span><b>Tokens</b>'+it.output_tokens+'</span>');
   if(it.ts)tags.push('<span>'+esc(it.ts)+'</span>');
   m.innerHTML=tags.join('');m.classList.toggle('hide',!tags.length)}
@@ -3227,7 +3228,7 @@ async function run(){
    renderStrip();showResult(0);
    $('resbar').classList.remove('hide');
    bumpSess(d.cost||0,results.length);
-   let ctxt='<b>$'+(d.cost||0).toFixed(4)+'</b>';
+   let ctxt='<b>aprox. $'+(d.cost||0).toFixed(4)+'</b>';
    // desglose salida (imagen) vs entrada (texto + referencias) cuando hubo imágenes de entrada
    if((d.in_img_tokens||0)>0)ctxt+=' <span style="color:var(--mut)">(salida $'+(d.out_cost||0).toFixed(4)
      +' + entrada $'+(d.in_cost||0).toFixed(4)+')</span>';
@@ -3278,7 +3279,7 @@ enterGen('musPrompt','musGo',runMUS); // música
 enterGen('sttPrompt','sttGo',runSTT); // transcribir (contexto opcional)
 function batchLines(){return $('batchTxt').value.split('\n').map(l=>l.trim()).filter(Boolean);}
 function batchEst(){const lines=batchLines().length,n=+$('n').value,imgs=lines*n,tot=imgs*estTokens()*30/1e6;
- $('batchEst').textContent=lines?imgs+(imgs>1?' imágenes':' imagen')+' ('+lines+'×'+n+') · ~$'+tot.toFixed(tot<0.1?4:2):'—';}
+ $('batchEst').textContent=lines?imgs+(imgs>1?' imágenes':' imagen')+' ('+lines+'×'+n+') · aprox. $'+tot.toFixed(tot<0.1?4:2):'—';}
 $('batchTxt').addEventListener('input',batchEst);
 $('batchGo').onclick=async()=>{
  const lines=batchLines();
@@ -3386,7 +3387,7 @@ function ttsEstCalc(){const n=$('ttsText').value.length;$('ttsCount').textConten
   $('ttsEst').textContent='≈'+cr+' créditos';return}
  const m=$('ttsModel').value;
  const est=m==='tts-1'?n*15/1e6:m==='tts-1-hd'?n*30/1e6:n/950*0.015;
- $('ttsEst').textContent='~$'+est.toFixed(4)}
+ $('ttsEst').textContent='aprox. $'+est.toFixed(4)}
 $('ttsText').oninput=ttsEstCalc;
 $('ttsModel').onchange=()=>{const mini=$('ttsModel').value==='gpt-4o-mini-tts';
  $('instrBox').classList.toggle('dim',!mini);$('speedBox').classList.toggle('dim',mini);ttsEstCalc()};
@@ -3394,7 +3395,7 @@ $('ttsModel').onchange();
 $('ttsSpeed').oninput=()=>$('speedv').textContent=(+$('ttsSpeed').value).toFixed(2)+'×';
 function showAudResult(d,title){$('audPlayer').src=d.audio;
  $('audTitle').textContent=title;
- $('audCost').innerHTML=d.credits!==undefined?'<b>'+d.credits+' cr</b>':'<b>$'+(d.cost||0).toFixed(4)+'</b>';
+ $('audCost').innerHTML=d.credits!==undefined?'<b>'+d.credits+' cr</b>':'<b>aprox. $'+(d.cost||0).toFixed(4)+'</b>';
  $('audDl').href=d.audio;$('audDl').setAttribute('download',d.file||'audio.mp3');
  $('audEmpty').classList.add('hide');$('audResult').classList.remove('hide');
  $('audPlayer').play().catch(()=>{})}
@@ -3510,7 +3511,7 @@ $('cloneGo').onclick=async()=>{
 // --- transcripción ---
 let sttFile=null,sttDur=0;
 function sttEstCalc(){const p={'whisper-1':0.006,'gpt-4o-transcribe':0.006,'gpt-4o-mini-transcribe':0.003}[$('sttModel').value]||0.006;
- $('sttEst').textContent=sttDur?'~$'+(sttDur*p).toFixed(4):'~$'+p.toFixed(3)+'/min'}
+ $('sttEst').textContent=sttDur?'aprox. $'+(sttDur*p).toFixed(4):'aprox. $'+p.toFixed(3)+'/min'}
 async function setSttFile(f){
  if(f.size>25*1024*1024){toast(f.name+' supera 25MB (límite de OpenAI)','bad');return}
  sttFile={name:f.name,b64:await fileToB64(f)};sttDur=0;
@@ -3638,7 +3639,7 @@ function vidEstCalc(){let est=null,note='';
  else{const auto=$('sdDur').value==='auto',secs=auto?8:+$('sdDur').value;
   est=secs*(VID_RATES[$('sdTier').value][$('sdRes').value]||0.3);
   if(auto)note=' (auto ≈8s)'}
- $('vidEst').textContent=est!==null?'~$'+est.toFixed(2)+note:note}
+ $('vidEst').textContent=est!==null?'aprox. $'+est.toFixed(2)+note:note}
 ['sdTier','sdRes','sdDur','klTier','klDur','klGenAud','ohVer'].forEach(id=>$(id).onchange=vidEstCalc);
 $('klCfg').oninput=()=>$('klCfgV').textContent=(+$('klCfg').value).toFixed(2);
 $('ohVer').addEventListener('change',()=>{const v15=$('ohVer').value==='omnihuman';
@@ -3778,7 +3779,7 @@ function klMultiList(){return $('klMulti').value.split('\n').map(l=>l.trim()).fi
  if(m[1]&&(+m[1].trim())>0)o.duration=String(Math.round(+m[1].trim()));return o})}
 async function runVID(){
  if(!falReady){toast('Conecta tu clave de fal.ai','bad');return}
- const est=parseFloat(($('vidEst').textContent.match(/[\d.]+/)||[0])[0])||0;
+ const est=parseFloat(($('vidEst').textContent.match(/\d[\d.]*/)||[0])[0])||0;
  let body={cost_est:est,project:$('projSel').value,sub:activeSub,save_desktop:$('saveDesk').checked,
   use_memory:$('vidUseMem').checked},title='';
  if(vidTab==='sd'){
