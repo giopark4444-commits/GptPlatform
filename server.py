@@ -1010,7 +1010,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
-.sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:4px;padding:5px;opacity:0;
+.sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;justify-content:flex-end;gap:4px;padding:5px;opacity:0;
  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 70%);transition:.15s}
 .scard:hover .sov{opacity:1}
 .shelfgrid.selmode{user-select:none}
@@ -1063,7 +1063,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
-.cardshare{position:absolute;bottom:6px;right:6px;width:28px;height:28px;border-radius:8px;border:0;background:rgba(12,12,14,.62);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s,background .15s;z-index:3}
+.cardshare{position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:8px;border:0;background:rgba(12,12,14,.62);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(-4px);transition:opacity .15s,transform .15s,background .15s;z-index:4}
 .gcard:hover .cardshare,.scard:hover .cardshare{opacity:1;transform:none}
 .cardshare:hover{background:var(--accent)}
 .cardshare svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
@@ -3407,7 +3407,9 @@ function renderStrip(){const s=$('strip');
  s.classList.remove('hide')}
 $('strip').onclick=e=>{const b=e.target.closest('.sth');if(b)showResult(+b.dataset.i)};
 
-function updGenChip(){const n=activeJobs;$('genChip').classList.toggle('hide',n<=0);
+function updGenChip(){const n=activeJobs;const gchip=$('genChip');
+ if(n>0&&gchip.parentNode!==document.body)document.body.appendChild(gchip);   // fixed real al viewport (la columna .an tiene transform y rompía el fixed)
+ gchip.classList.toggle('hide',n<=0);
  if(n>0)$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…';
  // feedback inmediato en el propio botón (aunque ya haya un resultado en el lienzo)
  const go=$('go'),gt=$('goTxt');
