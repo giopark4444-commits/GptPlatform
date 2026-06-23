@@ -1063,9 +1063,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
 .bakprog{margin-top:12px}
 .bakprogbar{height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
-.bakprogfill{height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .15s ease}
-.bakprogfill.indet{width:38%;transition:none;animation:bakindet 1.05s ease-in-out infinite}
-@keyframes bakindet{0%{margin-left:-38%}100%{margin-left:100%}}
+.bakprogfill{height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .2s ease}
 .bakprogtxt{display:block;margin-top:7px;font-size:12px;color:var(--mut);font-family:var(--mono)}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
@@ -2291,16 +2289,17 @@ async function streamDownload(url,name,prepLabel){
   try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Archivo .zip',accept:{'application/zip':['.zip']}}]});writable=await h.createWritable();}
   catch(e){if(e&&e.name==='AbortError')return; /* el usuario canceló */ writable=null;}
  }
- prog.classList.remove('hide');fill.classList.add('indet');fill.style.width='';        // barra animada mientras el servidor arma el zip
- const t0=performance.now();txt.textContent=prepLabel||'Preparando…';
- let prepTimer=setInterval(()=>{txt.textContent=(prepLabel||'Preparando…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},300);
+ prog.classList.remove('hide');fill.classList.remove('indet');fill.style.width='0%';
+ const t0=performance.now();let shown=0;txt.textContent=prepLabel||'Preparando…';
+ // mientras el servidor arma el zip, la barra ya se va llenando (asíntota hacia ~90%, nunca se detiene)
+ let prepTimer=setInterval(()=>{shown+=(90-shown)*0.045;fill.style.width=shown.toFixed(1)+'%';txt.textContent=(prepLabel||'Preparando…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},180);
  try{
   const resp=await fetch(url);if(!resp.ok)throw new Error('HTTP '+resp.status);
-  clearInterval(prepTimer);prepTimer=null;fill.classList.remove('indet');fill.style.width='0%';   // ya hay bytes → porcentaje real
+  clearInterval(prepTimer);prepTimer=null;
   const total=+(resp.headers.get('Content-Length')||0),reader=resp.body.getReader(),chunks=[];let received=0;
   for(;;){const {done,value}=await reader.read();if(done)break;received+=value.length;
    if(writable)await writable.write(value);else chunks.push(value);
-   if(total){const pct=Math.round(received/total*100);fill.style.width=pct+'%';txt.textContent=pct+'% · '+fmtMB(received)+' / '+fmtMB(total);}
+   if(total){const pct=received/total*100;shown=Math.max(shown,pct);fill.style.width=shown.toFixed(1)+'%';txt.textContent=Math.round(shown)+'% · '+fmtMB(received)+' / '+fmtMB(total);}
    else{txt.textContent='Descargando… '+fmtMB(received);}}
   if(writable){await writable.close();}
   else{const blob=new Blob(chunks,{type:'application/zip'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
