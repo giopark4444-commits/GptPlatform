@@ -789,6 +789,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .seg button kbd{margin-left:2px}
 .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;flex:0 1 auto;min-width:0;flex-wrap:wrap;row-gap:6px;justify-content:flex-end}
 .sess{font-size:12px;color:var(--mut)}.sess b{color:var(--txt);font-weight:500}
+.sessfoot{margin-top:20px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:6px;align-items:center;justify-content:center}
 .ghost{display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--line2);color:var(--mut);
  border-radius:9px;padding:7px 12px;font-size:12px;cursor:pointer;transition:.18s}
 .ghost:hover{color:var(--txt);border-color:var(--mut)}
@@ -1562,7 +1563,6 @@ html,body{overflow-x:hidden}
     </button>
   </div>
   <div class="right">
-    <span class="sess" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">aprox. $0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></span>
     <button class="ghost" id="trashBtn" title="Papelera — restaurar imágenes borradas"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>Papelera</button>
     <button class="ghost" id="bakBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.5 19a4.5 4.5 0 0 0 .4-8.98 6 6 0 0 0-11.8 1.18A4 4 0 0 0 6.5 19h11z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>Backup</button>
     <button class="ghost" id="setBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes</button>
@@ -2012,6 +2012,7 @@ html,body{overflow-x:hidden}
       <p class="hint">El video se genera en la nube de fal y tarda 1–5 min; puedes seguir usando la app mientras. Se guarda en historial y tu carpeta. <kbd>↵</kbd> genera · <kbd>⇧</kbd><kbd>↵</kbd> salto de línea.</p>
     </div>
    </div>
+   <div class="sess sessfoot" id="sessTot"><span>Sesión</span> <b class="mono" id="sessCostV">aprox. $0.0000</b> · <b class="mono" id="sessNV">0</b> <span>gen</span></div>
   </div>
 
   <!-- CENTRO -->
@@ -2732,7 +2733,7 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
-  return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}" draggable="${c.name?'true':'false'}" title="${c.name?'Arrástrame sobre otro proyecto para volverme subproyecto':''}">
+  return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}" draggable="${c.name?'true':'false'}" title="${c.name?'Arrástrame para reordenar · para anidar usa «Convertir en sub de…»':''}">
    <div class="projcard">${cov}</div>
    <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div>${subrow}</div>`}).join('');}
 async function renameProject(old,nw){nw=(nw||'').trim();
@@ -2791,27 +2792,45 @@ $('projGrid').addEventListener('change',async e=>{const sc=e.target.closest('.su
  if(r&&r.error){toast(r.error,'bad');sc.value='';return}
  const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('Convertido en subproyecto de "'+dest+'" ✓')});
 // arrastrar una tarjeta de proyecto sobre otra → convertir en subproyecto
+// FLIP: anima a los demás elementos para que "abran espacio" al reordenar
+function flipMove(container,sel,mutate){
+ const els=[...container.querySelectorAll(sel)],pos=new Map();
+ els.forEach(el=>pos.set(el,el.getBoundingClientRect()));
+ mutate();
+ els.forEach(el=>{if(el.classList.contains('pdrag'))return;const a=pos.get(el);if(!a)return;
+  const b=el.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top;
+  if(dx||dy){el.style.transition='none';el.style.transform='translate('+dx+'px,'+dy+'px)';
+   requestAnimationFrame(()=>{el.style.transition='transform .22s cubic-bezier(.2,.7,.3,1)';el.style.transform='';});}});}
 $('projGrid').addEventListener('dragstart',e=>{
  const chip=e.target.closest('.subchipp');
  if(chip&&!e.target.closest('button')){const pit=chip.closest('.projitem');e.dataTransfer.setData('text/x-sub',chip.dataset.sub||'');e.dataTransfer.effectAllowed='move';window.__subDrag={proj:pit?pit.dataset.name:'',key:chip.dataset.sub};chip.classList.add('pdrag');return}
  const it=e.target.closest('.projitem');if(!it||!it.dataset.name)return;
  if(e.target.closest('button,select,input,.subrow')){e.preventDefault();return}
- e.dataTransfer.setData('text/x-studio-proj',it.dataset.name);e.dataTransfer.effectAllowed='move';it.classList.add('pdrag')});
-$('projGrid').addEventListener('dragend',()=>{[...$('projGrid').querySelectorAll('.pdrag,.dropt,.subdropt')].forEach(x=>x.classList.remove('pdrag','dropt','subdropt'));window.__subDrag=null});
+ e.dataTransfer.setData('text/x-studio-proj',it.dataset.name);e.dataTransfer.effectAllowed='move';it.classList.add('pdrag');window.__projMoved=false;window.__projReordered=false});
+$('projGrid').addEventListener('dragend',()=>{[...$('projGrid').querySelectorAll('.pdrag,.dropt,.subdropt')].forEach(x=>x.classList.remove('pdrag','dropt','subdropt'));window.__subDrag=null;
+ if(window.__projMoved&&!window.__projReordered){loadProjects().then(openProjModal);}  // arrastre cancelado a mitad: restaurar orden real
+ window.__projMoved=false;window.__projReordered=false});
 $('projGrid').addEventListener('dragover',e=>{const types=[...e.dataTransfer.types];
  if(types.indexOf('text/x-sub')>=0){const chip=e.target.closest('.subchipp');if(!chip||!window.__subDrag)return;const pit=chip.closest('.projitem');if(!pit||pit.dataset.name!==window.__subDrag.proj)return;e.preventDefault();[...$('projGrid').querySelectorAll('.subdropt')].forEach(x=>x.classList.remove('subdropt'));if(chip.dataset.sub!==window.__subDrag.key)chip.classList.add('subdropt');return}
- if(types.indexOf('text/x-studio-proj')<0)return;const it=e.target.closest('.projitem');if(!it)return;const src=e.dataTransfer.getData('text/x-studio-proj');e.preventDefault();[...$('projGrid').querySelectorAll('.dropt')].forEach(x=>x.classList.remove('dropt'));if(it.dataset.name!==src||it.classList.contains('pdrag'))it.classList.toggle('dropt',!it.classList.contains('pdrag'))});
+ if(types.indexOf('text/x-studio-proj')<0)return;e.preventDefault();
+ const dragging=$('projGrid').querySelector('.projitem.pdrag');if(!dragging)return;
+ const it=e.target.closest('.projitem');if(!it||it===dragging||!it.dataset.name)return;
+ const r=it.getBoundingClientRect(),after=e.clientX>(r.left+r.width/2),ref=after?it.nextElementSibling:it;
+ if(ref!==dragging&&dragging.nextElementSibling!==ref){
+  flipMove($('projGrid'),'.projitem',()=>{$('projGrid').insertBefore(dragging,ref)});window.__projMoved=true;}});
 $('projGrid').addEventListener('dragleave',e=>{const it=e.target.closest('.projitem');if(it&&!it.contains(e.relatedTarget))it.classList.remove('dropt');const ch=e.target.closest('.subchipp');if(ch&&!ch.contains(e.relatedTarget))ch.classList.remove('subdropt')});
 $('projGrid').addEventListener('drop',async e=>{
  if([...e.dataTransfer.types].indexOf('text/x-sub')>=0&&window.__subDrag){e.preventDefault();const sd=window.__subDrag;const chip=e.target.closest('.subchipp');[...$('projGrid').querySelectorAll('.subdropt,.pdrag')].forEach(x=>x.classList.remove('subdropt','pdrag'));if(!chip)return;const pit=chip.closest('.projitem');if(!pit||pit.dataset.name!==sd.proj)return;const tgt=chip.dataset.sub;if(tgt===sd.key)return;
   const ord=[...pit.querySelectorAll('.subchipp')].map(c=>c.dataset.sub).filter(k=>k!==sd.key);const i=ord.indexOf(tgt);ord.splice(i<0?ord.length:i,0,sd.key);
   const r=await(await fetch('/suborder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:sd.proj,order:ord})})).json();
   if(r&&r.error){toast(r.error,'bad')}else{await loadProjects();openProjModal();toast('Subproyectos reordenados')}return}});
-$('projGrid').addEventListener('drop',async e=>{const src=e.dataTransfer.getData('text/x-studio-proj');if(!src)return;e.preventDefault();const it=e.target.closest('.projitem');[...$('projGrid').querySelectorAll('.dropt,.pdrag')].forEach(x=>x.classList.remove('dropt','pdrag'));if(!it)return;const dest=it.dataset.name;if(dest===src)return;
- if(!confirm('¿Convertir "'+src+'" en subproyecto de "'+(dest||genLabel)+'"? Se moverá su carpeta y su contenido.'))return;
- const r=await(await fetch('/subconvert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:src,dest:dest})})).json();
- if(r&&r.error){toast(r.error,'bad');return}
- const wasActive=$('projSel').value===src;await loadProjects();if(wasActive){$('projSel').value=dest;activeSub='';await switchProject()}openProjModal();toast('"'+src+'" → subproyecto de "'+(dest||genLabel)+'" ✓')});
+$('projGrid').addEventListener('drop',async e=>{const src=e.dataTransfer.getData('text/x-studio-proj');if(!src)return;e.preventDefault();
+ [...$('projGrid').querySelectorAll('.pdrag,.dropt')].forEach(x=>x.classList.remove('pdrag','dropt'));
+ window.__projReordered=true;
+ const order=[...$('projGrid').querySelectorAll('.projitem')].map(x=>x.dataset.name).filter(n=>n);
+ const r=await(await fetch('/projorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order})})).json();
+ await loadProjects();openProjModal();
+ toast((r&&r.error)?r.error:'Proyectos reordenados ✓',(r&&r.error)?'bad':'')});
 $('saveProj').onclick=async()=>{const n=$('projSel').value;if(!projects[n])return;
  stashStyle();
  await fetch('/project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,style:projects[n].style||'',style_video:projects[n].style_video||''})});
@@ -5845,7 +5864,8 @@ class H(BaseHTTPRequestHandler):
                  "/stage": self.h_stage, "/setproject": self.h_setproject,
                  "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
                  "/subdel": self.h_subdel, "/subconvert": self.h_subconvert,
-                 "/subpromote": self.h_subpromote, "/suborder": self.h_suborder}.get(self.path)
+                 "/subpromote": self.h_subpromote, "/suborder": self.h_suborder,
+                 "/projorder": self.h_projorder}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -6010,6 +6030,24 @@ class H(BaseHTTPRequestHandler):
         with LOCK:
             save_json(base / "_order.json", order)
         return self._json({"ok": True, "subs": list_subs(proj)})
+
+    def h_projorder(self):
+        # guarda el orden personalizado (arrastrable) de los proyectos = orden de claves en proyectos.json
+        b = self._body()
+        order = [str(k) for k in (b.get("order") or []) if k and not is_general(k)]
+        with LOCK:
+            raw = load_json(PROJ_JSON, {})
+            new = {}
+            if "general" in raw:
+                new["general"] = raw["general"]      # General se inyecta aparte; su posición no afecta
+            for k in order:
+                if k in raw and k not in new:
+                    new[k] = raw[k]
+            for k, v in raw.items():                  # cualquier clave no listada va al final, en su orden
+                if k not in new:
+                    new[k] = v
+            save_json(PROJ_JSON, new)
+        return self._json({"ok": True})
 
     def h_subcreate(self):
         b = self._body()
