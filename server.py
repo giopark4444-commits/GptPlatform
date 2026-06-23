@@ -1064,6 +1064,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .bakprog{margin-top:12px}
 .bakprogbar{height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .bakprogfill{height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .15s ease}
+.bakprogfill.indet{width:38%;transition:none;animation:bakindet 1.05s ease-in-out infinite}
+@keyframes bakindet{0%{margin-left:-38%}100%{margin-left:100%}}
 .bakprogtxt{display:block;margin-top:7px;font-size:12px;color:var(--mut);font-family:var(--mono)}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
@@ -2289,9 +2291,12 @@ async function streamDownload(url,name,prepLabel){
   try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Archivo .zip',accept:{'application/zip':['.zip']}}]});writable=await h.createWritable();}
   catch(e){if(e&&e.name==='AbortError')return; /* el usuario canceló */ writable=null;}
  }
- prog.classList.remove('hide');fill.style.width='0%';txt.textContent=prepLabel||'Preparando…';
+ prog.classList.remove('hide');fill.classList.add('indet');fill.style.width='';        // barra animada mientras el servidor arma el zip
+ const t0=performance.now();txt.textContent=prepLabel||'Preparando…';
+ let prepTimer=setInterval(()=>{txt.textContent=(prepLabel||'Preparando…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},300);
  try{
   const resp=await fetch(url);if(!resp.ok)throw new Error('HTTP '+resp.status);
+  clearInterval(prepTimer);prepTimer=null;fill.classList.remove('indet');fill.style.width='0%';   // ya hay bytes → porcentaje real
   const total=+(resp.headers.get('Content-Length')||0),reader=resp.body.getReader(),chunks=[];let received=0;
   for(;;){const {done,value}=await reader.read();if(done)break;received+=value.length;
    if(writable)await writable.write(value);else chunks.push(value);
@@ -2301,7 +2306,7 @@ async function streamDownload(url,name,prepLabel){
   else{const blob=new Blob(chunks,{type:'application/zip'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
   fill.style.width='100%';txt.textContent='Listo ✓ · '+fmtMB(received);toast('Copia guardada ✓');
   setTimeout(()=>prog.classList.add('hide'),3000);
- }catch(e){txt.textContent='Error: '+(e&&e.message||e);toast('No se pudo descargar: '+(e&&e.message||e),'bad');}
+ }catch(e){if(prepTimer)clearInterval(prepTimer);fill.classList.remove('indet');txt.textContent='Error: '+(e&&e.message||e);toast('No se pudo descargar: '+(e&&e.message||e),'bad');}
 }
 $('bakZip').onclick=()=>streamDownload('/backup.zip','studio-backup.zip','Preparando respaldo organizado…');
 $('bakClone').onclick=()=>streamDownload('/clone.zip','gio-studio-copia-exacta.zip','Preparando copia exacta…');
