@@ -2824,6 +2824,8 @@ async function imagesFromDT(dt){const out=[];
  const uri=dt.getData('text/x-studio-b64'),hist=dt.getData('text/x-studio-file'),shelf=dt.getData('text/x-studio-shelf');
  const fsub=dt.getData('text/x-studio-filesub')||'';
  if(multi){try{const arr=JSON.parse(multi);for(const e of arr){const b=await(await fetch('/file?name='+encodeURIComponent(e.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(e.sub||''))).blob();out.push({name:e.file,b64:await blobToB64(b)})}return out}catch(_){}}
+ const multiShelf=dt.getData('text/x-studio-shelfs');
+ if(multiShelf){try{const arr=JSON.parse(multiShelf);for(const it of arr){const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(it.sub||''))).blob();out.push({name:it.file,b64:await blobToB64(b)})}return out}catch(_){}}
  if(uri){const c=uri.indexOf(',');out.push({name:'generada.png',b64:c>=0?uri.slice(c+1):uri});}
  else if(hist){const b=await(await fetch('/file?name='+encodeURIComponent(hist)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(fsub))).blob();out.push({name:hist,b64:await blobToB64(b)});}
  else if(shelf){const ssub=dt.getData('text/x-studio-shelfsub')||'';const b=await(await fetch('/shelffile?name='+encodeURIComponent(shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub))).blob();out.push({name:shelf,b64:await blobToB64(b)});}
@@ -2922,7 +2924,7 @@ window.addEventListener('focus',()=>{pollAll();if(!selMode)loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();if(!selMode)loadGal();}});
 function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
- const drg=selMode?'false':'true';  // en modo selección las tarjetas NO se arrastran, así el recuadro (marquee) recibe los eventos de puntero
+ const drg=(selMode&&!selFiles.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
@@ -3082,6 +3084,8 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
 $('gal').addEventListener('pointerdown',e=>{
  if(!selMode||e.button!==0)return;
  if(e.target.closest('a,button'))return;
+ const card=e.target.closest('.gcard');
+ if(card&&selFiles.has(card.dataset.file))return;  // arrastrar una YA seleccionada = sacar la selección a Referencias (drag nativo)
  e.preventDefault();galMqStart={x:e.clientX,y:e.clientY};galMqMoved=false;});
 window.addEventListener('pointermove',e=>{
  if(!selMode||!galMqStart)return;
@@ -3092,7 +3096,7 @@ window.addEventListener('pointermove',e=>{
  const x1=Math.min(e.clientX,galMqStart.x),y1=Math.min(e.clientY,galMqStart.y),x2=Math.max(e.clientX,galMqStart.x),y2=Math.max(e.clientY,galMqStart.y);
  galMarq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';
  $('gal').querySelectorAll('.gcard').forEach(c=>{const r=c.getBoundingClientRect();
-  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!selFiles.has(c.dataset.file)){selFiles.add(c.dataset.file);c.classList.add('sel');}});
+  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!selFiles.has(c.dataset.file)){selFiles.add(c.dataset.file);c.classList.add('sel');c.draggable=true;}});
  renderBulk();});
 function endGalMarq(){if(!galMqStart)return;if(galMarq){galMarq.remove();galMarq=null;}if(galMqMoved)galMarqueed=true;galMqStart=null;galMqMoved=false;}
 window.addEventListener('pointerup',endGalMarq);
@@ -3102,8 +3106,8 @@ $('gal').onclick=async e=>{
    const cards=[...$('gal').querySelectorAll('.gcard')],idx=cards.indexOf(card);
    if(e.shiftKey&&galAnchor>=0&&galAnchor<cards.length){  // Shift: seleccionar el rango de punta a punta
     const lo=Math.min(galAnchor,idx),hi=Math.max(galAnchor,idx);
-    for(let i=lo;i<=hi;i++){selFiles.add(cards[i].dataset.file);cards[i].classList.add('sel');}
-   }else{const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');galAnchor=idx;}
+    for(let i=lo;i<=hi;i++){selFiles.add(cards[i].dataset.file);cards[i].classList.add('sel');cards[i].draggable=true;}
+   }else{const f=card.dataset.file;const now=!selFiles.has(f);if(now)selFiles.add(f);else selFiles.delete(f);card.classList.toggle('sel',now);card.draggable=now;galAnchor=idx;}
    renderBulk()}return}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
@@ -4321,7 +4325,7 @@ async function loadShelf(){const subs=curSubs();
 let shelfSelMode=false;const shelfSel=new Set();
 let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false,shAnchor=-1;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
- const drg=shelfSelMode?'false':'true';  // en modo selección las tarjetas NO se arrastran, así el recuadro recibe los eventos de puntero
+ const drg=(shelfSelMode&&!shelfSel.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
@@ -4359,8 +4363,8 @@ $('shelfGrid').onclick=async e=>{
    const cards=[...$('shelfGrid').querySelectorAll('.scard')],idx=cards.indexOf(card);
    if(e.shiftKey&&shAnchor>=0&&shAnchor<cards.length){  // Shift: seleccionar el rango de punta a punta
     const lo=Math.min(shAnchor,idx),hi=Math.max(shAnchor,idx);
-    for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');}
-   }else{const f=card.dataset.shelf;if(shelfSel.has(f))shelfSel.delete(f);else shelfSel.add(f);card.classList.toggle('sel');shAnchor=idx;}
+    for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');cards[i].draggable=true;}
+   }else{const f=card.dataset.shelf;const now=!shelfSel.has(f);if(now)shelfSel.add(f);else shelfSel.delete(f);card.classList.toggle('sel',now);card.draggable=now;shAnchor=idx;}
    renderShelfBulk()}return}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  const smv=e.target.closest('.smove');
@@ -4385,6 +4389,9 @@ $('shelfGrid').onclick=async e=>{
   if(it){openLb('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
+ if(shelfSelMode&&shelfSel.size>1&&shelfSel.has(card.dataset.shelf)){
+  const arr=[...$('shelfGrid').querySelectorAll('.scard')].filter(c=>shelfSel.has(c.dataset.shelf)).map(c=>({file:c.dataset.shelf,sub:c.dataset.sub||''}));
+  e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true)});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
 const ANGSEC_TYPES=['text/x-studio-shelf','text/x-studio-file','text/x-studio-files'];
@@ -4426,6 +4433,8 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
 $('shelfGrid').addEventListener('pointerdown',e=>{
  if(!shelfSelMode||e.button!==0)return;
  if(e.target.closest('a,button'))return;
+ const card=e.target.closest('.scard');
+ if(card&&shelfSel.has(card.dataset.shelf))return;  // arrastrar una YA seleccionada = sacar la selección a Referencias (drag nativo)
  e.preventDefault();shMqStart={x:e.clientX,y:e.clientY};shMqMoved=false;});
 window.addEventListener('pointermove',e=>{
  if(!shelfSelMode||!shMqStart)return;
@@ -4436,7 +4445,7 @@ window.addEventListener('pointermove',e=>{
  const x1=Math.min(e.clientX,shMqStart.x),y1=Math.min(e.clientY,shMqStart.y),x2=Math.max(e.clientX,shMqStart.x),y2=Math.max(e.clientY,shMqStart.y);
  shMarq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';
  $('shelfGrid').querySelectorAll('.scard').forEach(c=>{const r=c.getBoundingClientRect();
-  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!shelfSel.has(c.dataset.shelf)){shelfSel.add(c.dataset.shelf);c.classList.add('sel');}});
+  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!shelfSel.has(c.dataset.shelf)){shelfSel.add(c.dataset.shelf);c.classList.add('sel');c.draggable=true;}});
  renderShelfBulk();});
 function endShMarq(){if(!shMqStart)return;if(shMarq){shMarq.remove();shMarq=null;}if(shMqMoved)shMarqueed=true;shMqStart=null;shMqMoved=false;}
 window.addEventListener('pointerup',endShMarq);
