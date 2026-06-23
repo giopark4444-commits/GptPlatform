@@ -975,6 +975,12 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:4px;padding:5px;opacity:0;
  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 70%);transition:.15s}
 .scard:hover .sov{opacity:1}
+.shelfgrid.selmode{user-select:none}
+.shelfgrid.selmode .scard{cursor:pointer}
+.shelfgrid.selmode .scard .sov{display:none}
+.shelfgrid.selmode .scard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
+.shelfgrid.selmode .scard.sel::after{background:var(--accent);border-color:var(--accent);content:'✓';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.shelfgrid.selmode .scard.sel{outline:2px solid var(--accent);outline-offset:-2px}
 .sbtn{width:24px;height:24px;border-radius:7px;border:0;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);
  display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
 .sbtn svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2}
@@ -2030,6 +2036,7 @@ html,body{overflow-x:hidden}
       <div class="shelfhead">
         <span class="shelftitle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Mis imágenes <span class="shelfsub">· siempre a la mano, en tu equipo</span></span>
         <div style="display:flex;gap:7px;flex:none">
+        <button class="ghost sm" id="shelfSelBtn" title="Seleccionar varias (arrastra un recuadro o haz clic)"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>
         <button class="ghost sm" id="shelfAll" title="Ver todas en una ventana"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button>
         <button class="ghost sm" id="shelfAddBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Cargar</button>
         </div>
@@ -2042,6 +2049,7 @@ html,body{overflow-x:hidden}
       <input type="file" id="shelfFile" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" multiple hidden>
       <div class="subchips" id="shelfSubChips"></div>
       <div class="shelfgrid" id="shelfGrid"></div>
+      <div class="galbulk hide" id="shelfBulk"></div>
       <div class="shelfempty" id="shelfEmpty">Arrastra imágenes aquí o pulsa «Cargar». Se guardan en tu equipo, no en OpenAI. Pasa el cursor sobre una para usarla como referencia, describirla, descargarla o quitarla.</div>
     </div>
    </div>
@@ -3024,7 +3032,9 @@ function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hid
   pushUndo({label:k+' borrada(s)',
    undo:async()=>{for(const g of groups){await jpost('/restoreitems',{src:'history',project:proj,sub:g.sub,items:g.items})}await loadGal();},
    redo:async()=>{for(const g of groups){const r=await jpost('/deleteitems',{src:'history',files:g.items.map(u=>(u.entry||{}).file).filter(Boolean),project:proj,sub:g.sub});if(r&&r.undo)g.items=r.undo}await loadGal();}})}}
-$('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();renderGal();renderBulk()};
+$('galSelBtn').onclick=()=>{selMode=!selMode;selFiles.clear();
+ if(selMode&&typeof shelfSelMode!=='undefined'&&shelfSelMode){shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');renderShelf();renderShelfBulk();}
+ renderGal();renderBulk()};
 // ===== Deshacer / Rehacer (⌘Z / ⇧⌘Z) =====
 let undoStack=[],redoStack=[];
 async function jpost(u,b){return (await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();}
@@ -4302,8 +4312,11 @@ async function loadShelf(){const subs=curSubs();
   const items=r.items||[];items.forEach(it=>it._sub=g.k);shelfGroups.push({k:g.k,items});if(r.dir&&g.k===(activeSub||''))dir=r.dir;if(r.dir&&!dir)dir=r.dir}catch(e){shelfGroups.push({k:g.k,items:[]})}}
  shelfItems=shelfGroups.length===1?shelfGroups[0].items:[].concat(...shelfGroups.map(g=>g.items));
  if(dir)$('shelfDirLbl').textContent=dir;renderShelf()}
+let shelfSelMode=false;const shelfSel=new Set();
+let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
- return `<div class="scard" title="${esc(it.name||'')}" draggable="true" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="true">
+ const drg=shelfSelMode?'false':'true';  // en modo selección las tarjetas NO se arrastran, así el recuadro recibe los eventos de puntero
+ return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -4311,6 +4324,7 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
   <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
+ $('shelfGrid').classList.toggle('selmode',shelfSelMode);
  if(shelfGroups.length>1){const subs=curSubs();
   $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
    const inner=(g.items||[]).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
@@ -4334,7 +4348,9 @@ $('shelfAddBtn').onclick=()=>$('shelfFile').click();
 $('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...shelfSubs].join(',')));window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj())+sp,'_blank','noopener')};
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
  if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
-$('shelfGrid').onclick=async e=>{const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
+$('shelfGrid').onclick=async e=>{
+ if(shelfSelMode){if(shMarqueed){shMarqueed=false;return}const card=e.target.closest('.scard');if(card){const f=card.dataset.shelf;if(shelfSel.has(f))shelfSel.delete(f);else shelfSel.add(f);card.classList.toggle('sel');renderShelfBulk()}return}
+ const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  const smv=e.target.closest('.smove');
  if(smv){e.stopPropagation();const f=smv.dataset.file;openShelfMovePop(smv,f,shelfFileSub(f));return;}
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;const ssub=shelfFileSub(it.file);
@@ -4372,6 +4388,47 @@ $('shelfGrid').addEventListener('drop',async e=>{const sec=e.target.closest('.sh
  const imgs=await imagesFromDT(e.dataTransfer);   // imagen(es) del historial → copiar a Mis imágenes de esa sección
  if(imgs.length)await shelfAddTo(imgs,tgtSub);});
 $('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'))});
+// ── Mis imágenes: modo selección (clic + arrastre de recuadro) ──────────────
+$('shelfSelBtn').onclick=()=>{shelfSelMode=!shelfSelMode;shelfSel.clear();
+ if(shelfSelMode&&selMode){selMode=false;selFiles.clear();renderGal();renderBulk();}  // evita dos barras a la vez
+ $('shelfSelBtn').classList.toggle('on',shelfSelMode);renderShelf();renderShelfBulk();};
+function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classList.add('hide');return}
+ if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport
+ bar.classList.remove('hide');
+ bar.innerHTML='<span class="gbcount">'+shelfSel.size+' seleccionada'+(shelfSel.size===1?'':'s')+'</span>'
+  +'<button id="shBulkAll" title="Seleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todo</button>'
+  +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
+  +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
+  +'<button id="shBulkExit">Salir</button>';
+ $('shBulkAll').onclick=()=>{[...document.querySelectorAll('#shelfGrid .scard')].forEach(c=>shelfSel.add(c.dataset.shelf));renderShelf();renderShelfBulk()};
+ $('shBulkNone').onclick=()=>{shelfSel.clear();renderShelf();renderShelfBulk()};
+ $('shBulkExit').onclick=()=>{shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');renderShelf();renderShelfBulk()};
+ $('shBulkDel').onclick=async(e)=>{const b=e.currentTarget;if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
+  if(!b.classList.contains('arm')){b.classList.add('arm');b.lastChild.textContent='¿Quitar '+shelfSel.size+'?';setTimeout(()=>{b.classList.remove('arm');renderShelfBulk()},2600);return}
+  const proj=curProj();const byd={};for(const f of shelfSel){const s=shelfFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+  const groups=[];for(const s of Object.keys(byd)){const r=await jpost('/deleteitems',{src:'shelf',files:byd[s],project:proj,sub:s});if(r&&r.undo)groups.push({sub:s,items:r.undo})}
+  const k=shelfSel.size;shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');await loadShelf();renderShelfBulk();toast(k+' quitada(s) de Mis imágenes · ⌘Z para deshacer');
+  pushUndo({label:k+' quitada(s) de Mis imágenes',
+   undo:async()=>{for(const g of groups){await jpost('/restoreitems',{src:'shelf',project:proj,sub:g.sub,items:g.items})}await loadShelf();},
+   redo:async()=>{for(const g of groups){const r=await jpost('/deleteitems',{src:'shelf',files:g.items.map(u=>(u.entry||{}).file).filter(Boolean),project:proj,sub:g.sub});if(r&&r.undo)g.items=r.undo}await loadShelf();}})};}
+$('shelfGrid').addEventListener('pointerdown',e=>{
+ if(!shelfSelMode||e.button!==0)return;
+ if(e.target.closest('a,button'))return;
+ e.preventDefault();shMqStart={x:e.clientX,y:e.clientY};shMqMoved=false;});
+window.addEventListener('pointermove',e=>{
+ if(!shelfSelMode||!shMqStart)return;
+ const dx=e.clientX-shMqStart.x,dy=e.clientY-shMqStart.y;
+ if(!shMqMoved&&Math.abs(dx)+Math.abs(dy)<6)return;
+ shMqMoved=true;e.preventDefault();
+ if(!shMarq){shMarq=document.createElement('div');shMarq.className='gmarq';document.body.appendChild(shMarq);}
+ const x1=Math.min(e.clientX,shMqStart.x),y1=Math.min(e.clientY,shMqStart.y),x2=Math.max(e.clientX,shMqStart.x),y2=Math.max(e.clientY,shMqStart.y);
+ shMarq.style.cssText='position:fixed;left:'+x1+'px;top:'+y1+'px;width:'+(x2-x1)+'px;height:'+(y2-y1)+'px;display:block';
+ $('shelfGrid').querySelectorAll('.scard').forEach(c=>{const r=c.getBoundingClientRect();
+  if(!(r.right<x1||r.left>x2||r.bottom<y1||r.top>y2)&&!shelfSel.has(c.dataset.shelf)){shelfSel.add(c.dataset.shelf);c.classList.add('sel');}});
+ renderShelfBulk();});
+function endShMarq(){if(!shMqStart)return;if(shMarq){shMarq.remove();shMarq=null;}if(shMqMoved)shMarqueed=true;shMqStart=null;shMqMoved=false;}
+window.addEventListener('pointerup',endShMarq);
+window.addEventListener('pointercancel',endShMarq);
 // soltar una imagen (del historial o del estante) sobre un CHIP de subproyecto → archivarla ahí (siempre visible)
 $('shelfSubChips').addEventListener('dragover',e=>{const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const c=e.target.closest('.subchip');if(!c||c.dataset.k==='all')return;e.preventDefault();e.stopPropagation();[...$('shelfSubChips').querySelectorAll('.chipdropt')].forEach(x=>x.classList.remove('chipdropt'));c.classList.add('chipdropt')});
 $('shelfSubChips').addEventListener('dragleave',e=>{const c=e.target.closest('.subchip');if(c&&!c.contains(e.relatedTarget))c.classList.remove('chipdropt')});
