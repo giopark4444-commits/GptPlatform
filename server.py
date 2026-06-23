@@ -923,9 +923,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  overflow:hidden;background:var(--surface);position:relative;
  background-image:linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%),linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%);
  background-size:24px 24px;background-position:0 0,12px 12px}
-.genchip{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:8px;
- background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line2);border-radius:20px;
- padding:6px 13px;font-size:12px;color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.18)}
+.genchip{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;
+ background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:20px;
+ padding:8px 16px;font-size:12.5px;font-weight:500;color:var(--txt);box-shadow:0 8px 28px rgba(0,0,0,.28)}
+.genchip:not(.hide){animation:genchipin .25s ease}
+@keyframes genchipin{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 .genchip .gcdot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:gcpulse 1s ease-in-out infinite}
 @keyframes gcpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 .dzhi{outline:2px dashed var(--accent)!important;outline-offset:3px;border-radius:10px;background:var(--accent-dim)!important;transition:.12s}
@@ -1061,6 +1063,14 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
+.cardshare{position:absolute;bottom:6px;right:6px;width:28px;height:28px;border-radius:8px;border:0;background:rgba(12,12,14,.62);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s,background .15s;z-index:3}
+.gcard:hover .cardshare,.scard:hover .cardshare{opacity:1;transform:none}
+.cardshare:hover{background:var(--accent)}
+.cardshare svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.gal.selmode .cardshare,.shelfgrid.selmode .cardshare{display:none}
+.sharepop{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 16px 44px rgba(0,0,0,.32);display:flex;flex-direction:column;gap:2px;min-width:210px}
+.sharepop button{display:block;width:100%;background:none;border:0;color:var(--txt);text-align:left;padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer}
+.sharepop button:hover{background:var(--accent-dim);color:var(--accent)}
 .bakprog{margin-top:12px}
 .bakprogbar{position:relative;height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .bakprogbar::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line);opacity:.7;z-index:2}
@@ -2210,6 +2220,7 @@ html,body{overflow-x:hidden}
     <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
     <button id="lbPose"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Ángulos 3D</button>
     <button id="lbFull" title="Ver la imagen en toda la pantalla (Esc para salir)"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Pantalla completa</button>
+    <button id="lbShare" title="Compartir · WhatsApp, Telegram, redes…"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Compartir</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
     </div>
   </div>
@@ -2979,6 +2990,7 @@ $('prefThumbs').onclick=async e=>{const b=e.target.closest('.x');const n=$('proj
 // ===== historial =====
 const GDL='<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
 const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const GSHARE='<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>';
@@ -3062,7 +3074,8 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
-   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
+   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div>
+   <button class="cardshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button></div>`}
 function renderGal(){const items=galFiltered();
  if(histGroups.length>1){
   const subs=curSubs();
@@ -3250,6 +3263,8 @@ $('gal').onclick=async e=>{
     for(let i=lo;i<=hi;i++){selFiles.add(cards[i].dataset.file);cards[i].classList.add('sel');cards[i].draggable=true;}
    }else{const f=card.dataset.file;const now=!selFiles.has(f);if(now)selFiles.add(f);else selFiles.delete(f);card.classList.toggle('sel',now);card.draggable=now;galAnchor=idx;}
    renderBulk()}return}
+ const gsh=e.target.closest('.cardshare');
+ if(gsh){e.stopPropagation();const c=e.target.closest('.gcard');if(c){openSharePop(gsh,'/file?name='+encodeURIComponent(c.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),c.dataset.file);}return;}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
   star=e.target.closest('.gstar'),lib=e.target.closest('.glib'),
@@ -3341,6 +3356,32 @@ function toggleFull(el){const d=document;
  if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);return}
  const fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)fn.call(el);}
 $('lbFull').onclick=e=>{e.stopPropagation();toggleFull($('lbImg'))};
+$('lbShare').onclick=e=>{e.stopPropagation();openSharePop(e.currentTarget,$('lbImg').src,$('lightbox').dataset.file||'imagen.png')};
+// ── Compartir imagen: sistema (Web Share) / WhatsApp / Telegram / X / copiar / descargar ──
+async function _imgBlob(u){if(u.startsWith('data:')){return await(await fetch(u)).blob();}return await(await fetch(u)).blob();}
+async function _copyImg(u){try{let b=await _imgBlob(u);
+ if(b.type!=='image/png'){const bm=await createImageBitmap(b);const c=document.createElement('canvas');c.width=bm.width;c.height=bm.height;c.getContext('2d').drawImage(bm,0,0);b=await new Promise(r=>c.toBlob(r,'image/png'));}
+ await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);return true;}catch(e){return false;}}
+async function _nativeShare(u,fn){try{const b=await _imgBlob(u);const f=new File([b],fn||'imagen.png',{type:b.type||'image/png'});
+ if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Imagen · Gio Studio'});return true;}}catch(e){if(e&&e.name==='AbortError')return true;}return false;}
+function closeSharePop(){const p=$('sharePop');if(p)p.remove();document.removeEventListener('click',_shareOutside,true)}
+function _shareOutside(e){if(!e.target.closest('#sharePop')&&!e.target.closest('.cardshare'))closeSharePop()}
+function openSharePop(anchor,url,filename){closeSharePop();
+ const pop=document.createElement('div');pop.className='sharepop';pop.id='sharePop';
+ const opts=[['sys','Compartir (apps del sistema)…'],['wa','WhatsApp'],['tg','Telegram'],['x','X (Twitter)'],['copy','Copiar imagen'],['dl','Descargar']];
+ pop.innerHTML=opts.map(o=>'<button data-k="'+o[0]+'">'+o[1]+'</button>').join('');
+ document.body.appendChild(pop);
+ const r=anchor.getBoundingClientRect();
+ pop.style.left=Math.max(8,Math.min(r.right-pop.offsetWidth,window.innerWidth-pop.offsetWidth-8))+'px';
+ let top=r.bottom+6;if(top+pop.offsetHeight>window.innerHeight-8)top=Math.max(8,r.top-pop.offsetHeight-6);pop.style.top=top+'px';
+ pop.onclick=async e=>{const b=e.target.closest('button');if(!b)return;e.stopPropagation();const k=b.dataset.k;closeSharePop();
+  if(k==='sys'){if(!await _nativeShare(url,filename))toast('Tu navegador no permite compartir archivos aquí; usa «Copiar imagen»','bad');return;}
+  if(k==='dl'){const a=document.createElement('a');a.href=url;a.download=filename||'imagen.png';document.body.appendChild(a);a.click();a.remove();return;}
+  if(k==='copy'){const ok=await _copyImg(url);toast(ok?'Imagen copiada ✓ · pégala donde quieras':'No se pudo copiar la imagen',ok?'':'bad');return;}
+  const ok=await _copyImg(url),links={wa:'https://web.whatsapp.com/',tg:'https://web.telegram.org/',x:'https://twitter.com/intent/tweet'},nm={wa:'WhatsApp',tg:'Telegram',x:'X'}[k];
+  window.open(links[k],'_blank','noopener');
+  toast(ok?('Imagen copiada — pégala con ⌘V en '+nm):('Abre '+nm+' y adjunta la imagen'));};
+ setTimeout(()=>document.addEventListener('click',_shareOutside,true),0);}
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
  e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
@@ -4479,7 +4520,8 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
-  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div>
+  <button class="cardshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').classList.toggle('selmode',shelfSelMode);
@@ -4514,6 +4556,8 @@ $('shelfGrid').onclick=async e=>{
     for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');cards[i].draggable=true;}
    }else{const f=card.dataset.shelf;const now=!shelfSel.has(f);if(now)shelfSel.add(f);else shelfSel.delete(f);card.classList.toggle('sel',now);card.draggable=now;shAnchor=idx;}
    renderShelfBulk()}return}
+ const ssh=e.target.closest('.cardshare');
+ if(ssh){e.stopPropagation();const c=e.target.closest('.scard');if(c){const ssub=c.dataset.sub||'';openSharePop(ssh,'/shelffile?name='+encodeURIComponent(c.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),c.dataset.shelf);}return;}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  const smv=e.target.closest('.smove');
  if(smv){e.stopPropagation();const f=smv.dataset.file;openShelfMovePop(smv,f,shelfFileSub(f));return;}
