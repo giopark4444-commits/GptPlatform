@@ -530,6 +530,11 @@ def _backup_add_scope(z, base, proj, sub):
         for p in sorted(hdir.iterdir()):
             if not _backup_skip(p):
                 z.write(p, base + "/Historial/" + p.name)
+        rdir = hdir / "_refs"          # imágenes que se usaron como referencia en cada prompt
+        if rdir.is_dir():
+            for p in sorted(rdir.iterdir()):
+                if not _backup_skip(p):
+                    z.write(p, base + "/Historial/_refs/" + p.name)
     if hist:
         z.writestr(base + "/Historial/_info.json", json.dumps(hist, ensure_ascii=False, indent=1))
     shelf = load_json(sjson, [])
@@ -595,6 +600,29 @@ def build_backup_zip():
         if PROJ_JSON.exists():
             z.write(PROJ_JSON, "_sistema/proyectos.json")
         z.writestr("LÉEME.txt", _backup_readme(manifest))
+    return buf.getvalue()
+
+
+def build_clone_zip():
+    """Copia EXACTA del directorio de datos (~/image-studio) para reimportar TAL CUAL.
+    Incluye todo: imágenes, historial.json (prompts), estante, _refs (referencias),
+    proyectos/subproyectos, estilos, memoria visual, config y biblioteca. Omite
+    papelera, caché de miniaturas y temporales."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in sorted(ROOT.rglob("*")):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(ROOT)
+            if rel.parts and rel.parts[0] in (".papelera", ".thumbs", ".import"):
+                continue
+            if p.name.endswith((".tmp", ".bak")) or p.name == ".DS_Store":
+                continue
+            z.write(p, "image-studio/" + str(rel.as_posix()))
+        z.writestr("CLON.txt",
+                   "Copia EXACTA de Gio Studio.\n"
+                   "Para restaurar: en la app, panel Backup → «Importar copia exacta» y elige este archivo.\n"
+                   "O descomprime la carpeta image-studio/ dentro de ~/image-studio.\n")
     return buf.getvalue()
 
 
@@ -1457,8 +1485,11 @@ html,body{overflow-x:hidden}
   <p id="bakInfo">Cargando…</p>
   <div class="kmsg" id="bakState"></div>
   <button class="primary" id="bakSync" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span id="bakSyncTxt">Sincronizar ahora</span></button>
-  <button class="ghost" id="bakZip" style="width:100%;justify-content:center;padding:11px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip</button>
-  <p class="hint" style="margin-top:12px">El zip incluye <b>todo</b>: el historial y «Mis imágenes» de General y de <b>cada proyecto</b> (con las imágenes reales), estilos/memoria y configuración. Las claves API no se incluyen (se conectan una vez por equipo). En otro Mac: restaura el zip en <span class="mono">~/image-studio</span> o usa "Sincronizar".</p>
+  <button class="ghost" id="bakZip" style="width:100%;justify-content:center;padding:11px;margin-bottom:8px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar respaldo .zip (organizado, legible)</button>
+  <button class="ghost" id="bakClone" style="width:100%;justify-content:center;padding:11px;margin-bottom:8px"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Descargar copia exacta (para reimportar)</button>
+  <button class="primary" id="bakImport" style="width:100%;justify-content:center;padding:11px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><span id="bakImportTxt">Importar copia exacta…</span></button>
+  <input type="file" id="bakImportFile" accept=".zip,application/zip" class="hide">
+  <p class="hint" style="margin-top:12px"><b>Respaldo organizado</b>: carpetas legibles (Historial / Mis imágenes / Subproyectos) con prompts y referencias — para revisar a mano. <b>Copia exacta</b>: clon completo de tus datos (incluye prompts e imágenes de referencia) que con <b>Importar</b> restaura todo <b>tal cual</b>. Las claves API no se incluyen.</p>
 </div></div>
 
 <div class="overlay hide" id="maskModal"><div class="maskbox">
@@ -2246,6 +2277,19 @@ $('bakBtn').onclick=async()=>{$('bakModal').classList.remove('hide');
  $('bakSync').classList.toggle('hide',!s.git)};
 $('bakZip').onclick=()=>{const a=document.createElement('a');a.href='/backup.zip';a.download='studio-backup.zip';
  document.body.appendChild(a);a.click();a.remove();toast('Generando respaldo .zip…')};
+$('bakClone').onclick=()=>{const a=document.createElement('a');a.href='/clone.zip';a.download='gio-studio-copia-exacta.zip';
+ document.body.appendChild(a);a.click();a.remove();toast('Generando copia exacta…')};
+$('bakImport').onclick=()=>$('bakImportFile').click();
+$('bakImportFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ if(!confirm('Importar «'+f.name+'» restaurará tus datos a como están en esa copia (se sobrescriben los archivos que coincidan). ¿Continuar?'))return;
+ const btn=$('bakImport'),txt=$('bakImportTxt');btn.disabled=true;txt.textContent='Importando…';
+ try{const r=await(await fetch('/import',{method:'POST',headers:{'Content-Type':'application/zip'},body:f})).json();
+  if(r.error){toast(r.error,'bad');}
+  else{toast(r.restored+' archivo(s) restaurados ✓ · recargando…');
+   await loadProjects();renderGalChips();renderShelfChips();await loadGal();await loadShelf();
+   setTimeout(()=>location.reload(),900);}
+ }catch(x){toast('No se pudo importar: '+String(x&&x.message||x),'bad');}
+ btn.disabled=false;txt.textContent='Importar copia exacta…';};
 $('bakSync').onclick=async()=>{$('bakSync').disabled=true;$('bakSyncTxt').textContent='Sincronizando…';
  const r=await(await fetch('/datasync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
  $('bakSync').disabled=false;$('bakSyncTxt').textContent='Sincronizar ahora';
@@ -5790,6 +5834,15 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/clone.zip":
+            data = build_clone_zip()    # copia EXACTA de ~/image-studio (reimportable tal cual)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition",
+                             f'attachment; filename="gio-studio-copia-exacta-{time.strftime("%Y%m%d_%H%M")}.zip"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path == "/falstatus":
             return self._json({"ok": bool(fal_key())})
         if self.path.startswith("/videostatus?"):
@@ -5938,7 +5991,8 @@ class H(BaseHTTPRequestHandler):
                  "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
                  "/subdel": self.h_subdel, "/subconvert": self.h_subconvert,
                  "/subpromote": self.h_subpromote, "/suborder": self.h_suborder,
-                 "/projorder": self.h_projorder, "/itemsorder": self.h_itemsorder}.get(self.path)
+                 "/projorder": self.h_projorder, "/itemsorder": self.h_itemsorder,
+                 "/import": self.h_import}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -6103,6 +6157,53 @@ class H(BaseHTTPRequestHandler):
         with LOCK:
             save_json(base / "_order.json", order)
         return self._json({"ok": True, "subs": list_subs(proj)})
+
+    def h_import(self):
+        # restaura una copia EXACTA (clone.zip) dentro de ~/image-studio, tal cual
+        n = int(self.headers.get("Content-Length", 0))
+        if n <= 0:
+            return self._json({"error": "Archivo vacío"})
+        if n > 8 * 1024 * 1024 * 1024:
+            return self._json({"error": "El archivo supera 8GB"})
+        tmpdir = ROOT / ".import"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        zp = tmpdir / ("upload_" + uuid.uuid4().hex + ".zip")
+        remaining = n
+        try:
+            with open(zp, "wb") as f:
+                while remaining > 0:
+                    chunk = self.rfile.read(min(2 * 1024 * 1024, remaining))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+            restored = 0
+            try:
+                zf = zipfile.ZipFile(zp)
+            except Exception:
+                return self._json({"error": "El archivo no es un .zip válido."})
+            with LOCK:
+                with zf:
+                    members = [i for i in zf.infolist() if not i.is_dir() and i.filename.startswith("image-studio/")]
+                    if not members:
+                        return self._json({"error": "Este zip no es una «copia exacta». Descarga «Copia exacta (para importar)» y usa ese archivo."})
+                    for info in members:
+                        rel = info.filename[len("image-studio/"):]
+                        if not rel or rel.startswith("/") or ".." in rel.split("/"):
+                            continue
+                        dest = (ROOT / rel).resolve()
+                        if not str(dest).startswith(str(ROOT.resolve())):   # anti path-traversal
+                            continue
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(info) as src, open(dest, "wb") as out:
+                            shutil.copyfileobj(src, out)
+                        restored += 1
+            return self._json({"ok": True, "restored": restored})
+        finally:
+            try:
+                zp.unlink()
+            except Exception:
+                pass
 
     def h_itemsorder(self):
         # guarda el orden personalizado (arrastrable) de las imágenes del historial o del estante
