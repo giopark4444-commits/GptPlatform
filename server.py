@@ -1032,6 +1032,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
+.gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
@@ -2803,10 +2804,30 @@ function flipMove(container,sel,mutate){
  const els=[...container.querySelectorAll(sel)],pos=new Map();
  els.forEach(el=>pos.set(el,el.getBoundingClientRect()));
  mutate();
- els.forEach(el=>{if(el.classList.contains('pdrag'))return;const a=pos.get(el);if(!a)return;
+ els.forEach(el=>{if(el.classList.contains('pdrag')||el.classList.contains('reordering'))return;const a=pos.get(el);if(!a)return;
   const b=el.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top;
   if(dx||dy){el.style.transition='none';el.style.transform='translate('+dx+'px,'+dy+'px)';
    requestAnimationFrame(()=>{el.style.transition='transform .22s cubic-bezier(.2,.7,.3,1)';el.style.transform='';});}});}
+// ── Reordenar imágenes arrastrando (FLIP) — compartido por Historial y Mis imágenes ──
+let reorderDrag=null;
+function gridReorderStart(card,grid,sel,attr,src){card.classList.add('reordering');reorderDrag={grid,card,sel,attr,src,sub:card.dataset.sub||'',moved:false,persisted:false};}
+function gridReorderOver(e,grid,sel){if(!reorderDrag||reorderDrag.grid!==grid)return;
+ const t=e.target.closest(sel);if(!t||t===reorderDrag.card)return;
+ if((t.dataset.sub||'')!==reorderDrag.sub)return;            // solo dentro del mismo grupo/subproyecto
+ const d=reorderDrag.card,cont=t.parentElement;if(cont!==d.parentElement)return;
+ e.preventDefault();
+ const r=t.getBoundingClientRect(),after=e.clientX>(r.left+r.width/2),ref=after?t.nextElementSibling:t;
+ if(ref!==d&&d.nextElementSibling!==ref){flipMove(cont,sel,()=>{cont.insertBefore(d,ref)});reorderDrag.moved=true;}}
+function persistGridOrder(rd){const cont=rd.card.parentElement;const order=[...cont.querySelectorAll(rd.sel)].map(c=>c.dataset[rd.attr]).filter(Boolean);
+ fetch('/itemsorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:rd.src,project:curProj(),sub:rd.sub||'',order})});}
+function gridReorderDrop(e,grid,alwaysBlock){if(!reorderDrag||reorderDrag.grid!==grid)return;
+ if(!reorderDrag.moved&&!alwaysBlock)return;   // en el estante, sin reorder real deja pasar el movimiento entre secciones
+ e.preventDefault();e.stopPropagation();
+ if(reorderDrag.moved){reorderDrag.persisted=true;persistGridOrder(reorderDrag);toast('Orden actualizado');}}
+function gridReorderEnd(){if(!reorderDrag)return;reorderDrag.card.classList.remove('reordering');
+ if(reorderDrag.moved&&!reorderDrag.persisted){if(reorderDrag.src==='shelf')loadShelf();else loadGal();}
+ reorderDrag=null;}
+window.addEventListener('dragend',gridReorderEnd);
 $('projGrid').addEventListener('dragstart',e=>{
  const chip=e.target.closest('.subchipp');
  if(chip&&!e.target.closest('button')){const pit=chip.closest('.projitem');e.dataTransfer.setData('text/x-sub',chip.dataset.sub||'');e.dataTransfer.effectAllowed='move';window.__subDrag={proj:pit?pit.dataset.name:'',key:chip.dataset.sub};chip.classList.add('pdrag');return}
@@ -3105,7 +3126,10 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
   e.dataTransfer.setData('text/x-studio-files',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
- e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+ e.dataTransfer.effectAllowed='copy';markDropZones(true);
+ if(!selMode)gridReorderStart(card,$('gal'),'.gcard','file','history');});
+$('gal').addEventListener('dragover',e=>gridReorderOver(e,$('gal'),'.gcard'));
+$('gal').addEventListener('drop',e=>gridReorderDrop(e,$('gal'),true));
 // Marquee: arrastrar un recuadro con el mouse para seleccionar varias (solo en modo selección)
 $('gal').addEventListener('pointerdown',e=>{
  if(!selMode||e.button!==0)return;
@@ -4425,12 +4449,24 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
  if(shelfSelMode&&shelfSel.size>1&&shelfSel.has(card.dataset.shelf)){
   const arr=[...$('shelfGrid').querySelectorAll('.scard')].filter(c=>shelfSel.has(c.dataset.shelf)).map(c=>({file:c.dataset.shelf,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
- e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true)});
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
+ if(!shelfSelMode)gridReorderStart(card,$('shelfGrid'),'.scard','shelf','shelf');});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
 const ANGSEC_TYPES=['text/x-studio-shelf','text/x-studio-file','text/x-studio-files'];
-$('shelfGrid').addEventListener('dragover',e=>{const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
+$('shelfGrid').addEventListener('dragover',e=>{
+ if(reorderDrag&&reorderDrag.grid===$('shelfGrid')){gridReorderOver(e,$('shelfGrid'),'.scard');if(e.defaultPrevented){[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));return;}}
+ const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
 $('shelfGrid').addEventListener('dragleave',e=>{const sec=e.target.closest('.shelfsec');if(sec&&!sec.contains(e.relatedTarget))sec.classList.remove('secdrop')});
-$('shelfGrid').addEventListener('drop',async e=>{const sec=e.target.closest('.shelfsec');if(!sec)return;
+$('shelfGrid').addEventListener('drop',async e=>{
+ if(reorderDrag&&reorderDrag.grid===$('shelfGrid')){
+  const sc=e.target.closest('.shelfsec'),tsub=sc?(sc.dataset.sub||''):'';
+  if(reorderDrag.moved||!sc||tsub===reorderDrag.sub){   // reorder, o soltar en el mismo grupo: bloquear (no ir a Referencias)
+   e.preventDefault();e.stopPropagation();
+   if(reorderDrag.moved){reorderDrag.persisted=true;persistGridOrder(reorderDrag);toast('Orden actualizado');}
+   [...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));return;}
+  // si no, es soltar en OTRA sección → cae al movimiento de abajo
+ }
+ const sec=e.target.closest('.shelfsec');if(!sec)return;
  const shelfFile=e.dataTransfer.getData('text/x-studio-shelf'),histFile=e.dataTransfer.getData('text/x-studio-file'),histMulti=e.dataTransfer.getData('text/x-studio-files');
  if(!shelfFile&&!histFile&&!histMulti)return;
  e.preventDefault();e.stopPropagation();
@@ -5878,7 +5914,7 @@ class H(BaseHTTPRequestHandler):
                  "/subcreate": self.h_subcreate, "/subrename": self.h_subrename,
                  "/subdel": self.h_subdel, "/subconvert": self.h_subconvert,
                  "/subpromote": self.h_subpromote, "/suborder": self.h_suborder,
-                 "/projorder": self.h_projorder}.get(self.path)
+                 "/projorder": self.h_projorder, "/itemsorder": self.h_itemsorder}.get(self.path)
             if h:
                 return h()
         except Exception as e:
@@ -6043,6 +6079,21 @@ class H(BaseHTTPRequestHandler):
         with LOCK:
             save_json(base / "_order.json", order)
         return self._json({"ok": True, "subs": list_subs(proj)})
+
+    def h_itemsorder(self):
+        # guarda el orden personalizado (arrastrable) de las imágenes del historial o del estante
+        b = self._body()
+        src = b.get("src", "history")
+        pr = self._proj(b)
+        sb = self._sub(b)
+        order = [os.path.basename(str(f)) for f in (b.get("order") or []) if f]
+        jp = pshelf_json(pr, sb) if src == "shelf" else phist_json(pr, sb)
+        with LOCK:
+            items = load_json(jp, [])
+            pos = {f: i for i, f in enumerate(order)}
+            items.sort(key=lambda it: pos.get(it.get("file"), len(order) + 1))  # estable: lo no listado va al final en su orden
+            save_json(jp, items)
+        return self._json({"ok": True})
 
     def h_projorder(self):
         # guarda el orden personalizado (arrastrable) de los proyectos = orden de claves en proyectos.json
