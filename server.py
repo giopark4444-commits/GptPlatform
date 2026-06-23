@@ -1056,6 +1056,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .galeye{flex-wrap:wrap;row-gap:7px}
 .galeye #galCount{margin-left:6px}
 .galactions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.galsort{background:var(--surface);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:5px 8px;font-size:12px;font-family:inherit;cursor:pointer;flex:none;max-width:150px}
+.galsort:hover{border-color:var(--mut)}
 .magic{float:right;background:none;border:0;color:var(--faint);cursor:pointer;padding:0 2px;line-height:1;transition:.15s}
 .magic:hover{color:var(--accent)}
 .magic svg{width:13px;height:13px}
@@ -2126,7 +2128,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
+      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><select id="galSort" class="ghost sm galsort" title="Organizar las imágenes del historial"><option value="">Organizar ▾</option><option value="new">Fecha de creación · recientes primero</option><option value="old">Fecha de creación · antiguas primero</option><option value="name">Nombre del prompt (A→Z)</option></select><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <div class="subchips" id="galSubChips"></div>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
@@ -3116,6 +3118,17 @@ async function loadGal(){const subs=curSubs();
  hist=histGroups.length===1?histGroups[0].items:[].concat(...histGroups.map(g=>g.items));
  renderGal();renderAud()}
 $('galMore').onclick=()=>{shown+=30;renderGal()};
+function _sortKeyCreation(it){const m=(it.file||'').match(/(\d{8})_(\d{6})/);return m?(m[1]+m[2]):((it.ts||'').replace(/\D/g,''));}
+async function organizeHist(mode){if(!mode)return;
+ for(const g of histGroups){const items=[...g.items];
+  if(mode==='new')items.sort((a,b)=>_sortKeyCreation(b).localeCompare(_sortKeyCreation(a)));
+  else if(mode==='old')items.sort((a,b)=>_sortKeyCreation(a).localeCompare(_sortKeyCreation(b)));
+  else if(mode==='name')items.sort((a,b)=>String(a.prompt||'').toLowerCase().localeCompare(String(b.prompt||'').toLowerCase()));
+  const order=items.map(it=>it.file);
+  await fetch('/itemsorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'history',project:curProj(),sub:g.k,order})});}
+ await loadGal();
+ toast(mode==='new'?'Ordenado por fecha · recientes primero':mode==='old'?'Ordenado por fecha · antiguas primero':'Ordenado por nombre del prompt');}
+$('galSort').onchange=e=>{const v=e.target.value;e.target.value='';organizeHist(v);};
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(b)})}
 function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('dzhi',on)})}
 window.addEventListener('dragend',()=>markDropZones(false));
