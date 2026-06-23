@@ -1061,6 +1061,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
+.bakprog{margin-top:12px}
+.bakprogbar{height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.bakprogfill{height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .15s ease}
+.bakprogtxt{display:block;margin-top:7px;font-size:12px;color:var(--mut);font-family:var(--mono)}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
@@ -1489,6 +1493,7 @@ html,body{overflow-x:hidden}
   <button class="ghost" id="bakClone" style="width:100%;justify-content:center;padding:11px;margin-bottom:8px"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Descargar copia exacta (para reimportar)</button>
   <button class="primary" id="bakImport" style="width:100%;justify-content:center;padding:11px"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><span id="bakImportTxt">Importar copia exacta…</span></button>
   <input type="file" id="bakImportFile" accept=".zip,application/zip" class="hide">
+  <div class="bakprog hide" id="bakProg"><div class="bakprogbar"><div class="bakprogfill" id="bakProgFill"></div></div><span class="bakprogtxt" id="bakProgTxt"></span></div>
   <p class="hint" style="margin-top:12px"><b>Respaldo organizado</b>: carpetas legibles (Historial / Mis imágenes / Subproyectos) con prompts y referencias — para revisar a mano. <b>Copia exacta</b>: clon completo de tus datos (incluye prompts e imágenes de referencia) que con <b>Importar</b> restaura todo <b>tal cual</b>. Las claves API no se incluyen.</p>
 </div></div>
 
@@ -2275,10 +2280,31 @@ $('bakBtn').onclick=async()=>{$('bakModal').classList.remove('hide');
   ?'<span style="color:var(--ok)">●</span> Sincronización por git activa · pulsa "Sincronizar ahora" en cada equipo'
   :'<span style="color:var(--faint)">●</span> Sin sincronización configurada (usa el respaldo .zip)';
  $('bakSync').classList.toggle('hide',!s.git)};
-$('bakZip').onclick=()=>{const a=document.createElement('a');a.href='/backup.zip';a.download='studio-backup.zip';
- document.body.appendChild(a);a.click();a.remove();toast('Generando respaldo .zip…')};
-$('bakClone').onclick=()=>{const a=document.createElement('a');a.href='/clone.zip';a.download='gio-studio-copia-exacta.zip';
- document.body.appendChild(a);a.click();a.remove();toast('Generando copia exacta…')};
+function fmtMB(b){return (b/1048576).toFixed(b<10485760?1:0)+' MB';}
+async function streamDownload(url,name,prepLabel){
+ const prog=$('bakProg'),fill=$('bakProgFill'),txt=$('bakProgTxt');
+ let writable=null;
+ // dejar elegir DÓNDE guardar (si el navegador lo soporta); si no, descarga normal
+ if(window.showSaveFilePicker){
+  try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Archivo .zip',accept:{'application/zip':['.zip']}}]});writable=await h.createWritable();}
+  catch(e){if(e&&e.name==='AbortError')return; /* el usuario canceló */ writable=null;}
+ }
+ prog.classList.remove('hide');fill.style.width='0%';txt.textContent=prepLabel||'Preparando…';
+ try{
+  const resp=await fetch(url);if(!resp.ok)throw new Error('HTTP '+resp.status);
+  const total=+(resp.headers.get('Content-Length')||0),reader=resp.body.getReader(),chunks=[];let received=0;
+  for(;;){const {done,value}=await reader.read();if(done)break;received+=value.length;
+   if(writable)await writable.write(value);else chunks.push(value);
+   if(total){const pct=Math.round(received/total*100);fill.style.width=pct+'%';txt.textContent=pct+'% · '+fmtMB(received)+' / '+fmtMB(total);}
+   else{txt.textContent='Descargando… '+fmtMB(received);}}
+  if(writable){await writable.close();}
+  else{const blob=new Blob(chunks,{type:'application/zip'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+  fill.style.width='100%';txt.textContent='Listo ✓ · '+fmtMB(received);toast('Copia guardada ✓');
+  setTimeout(()=>prog.classList.add('hide'),3000);
+ }catch(e){txt.textContent='Error: '+(e&&e.message||e);toast('No se pudo descargar: '+(e&&e.message||e),'bad');}
+}
+$('bakZip').onclick=()=>streamDownload('/backup.zip','studio-backup.zip','Preparando respaldo organizado…');
+$('bakClone').onclick=()=>streamDownload('/clone.zip','gio-studio-copia-exacta.zip','Preparando copia exacta…');
 $('bakImport').onclick=()=>$('bakImportFile').click();
 $('bakImportFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
  if(!confirm('Importar «'+f.name+'» restaurará tus datos a como están en esa copia (se sobrescriben los archivos que coincidan). ¿Continuar?'))return;
