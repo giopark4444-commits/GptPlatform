@@ -2914,7 +2914,8 @@ window.addEventListener('focus',()=>{pollAll();if(!selMode)loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();if(!selMode)loadGal();}});
 function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
- return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="true"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="true">
+ const drg=selMode?'false':'true';  // en modo selección las tarjetas NO se arrastran, así el recuadro (marquee) recibe los eventos de puntero
+ return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
@@ -3071,9 +3072,6 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
 $('gal').addEventListener('pointerdown',e=>{
  if(!selMode||e.button!==0)return;
  if(e.target.closest('a,button'))return;
- const card=e.target.closest('.gcard');
- // si arrancas sobre una ya seleccionada, deja el arrastre nativo (mover la selección a Referencias)
- if(card&&selFiles.has(card.dataset.file))return;
  e.preventDefault();galMqStart={x:e.clientX,y:e.clientY};galMqMoved=false;});
 window.addEventListener('pointermove',e=>{
  if(!selMode||!galMqStart)return;
