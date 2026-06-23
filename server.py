@@ -944,6 +944,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lbmeta.hide{display:none}
 .lbmeta span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.82);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:2px 8px}
 .lbmeta span b{color:rgba(255,255,255,.55);font-weight:400;margin-right:3px}
+.lbrefs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lbrefs.hide{display:none}
+.lbrefs .lbrefslbl{font-size:10.5px;color:rgba(255,255,255,.55);margin-right:2px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.lbrefs img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.22);cursor:zoom-in;transition:.14s}
+.lbrefs img:hover{border-color:#fff;transform:translateY(-1px)}
 .lbbtns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .lbbar button,.lbbar a{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line2);
  color:var(--txt);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;flex:none}
@@ -2156,6 +2161,7 @@ html,body{overflow-x:hidden}
   <img id="lbImg" src="" alt="Vista completa">
   <div class="lbbar" id="lbBar">
     <span class="lbprompt" id="lbPrompt"></span>
+    <div class="lbrefs hide" id="lbRefs"></div>
     <div class="lbmeta hide" id="lbMeta"></div>
     <div class="lbbtns">
     <button id="lbUse"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Usar prompt</button>
@@ -3197,7 +3203,16 @@ function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lb
   if(it.ts)tags.push('<span>'+esc(it.ts)+'</span>');
   m.innerHTML=tags.join('');m.classList.toggle('hide',!tags.length)}
  else m.classList.add('hide');
+ // imágenes que se usaron como referencia para generar esta del historial
+ const rf=$('lbRefs');
+ if(it&&Array.isArray(it.refs)&&it.refs.length){const sb=it._sub||it.sub||'';
+  rf.innerHTML='<span class="lbrefslbl">Referencias usadas</span>'+it.refs.map(r=>{
+   const u='/reffile?name='+encodeURIComponent(r.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(sb);
+   return '<img src="'+u+'" data-refsrc="'+esc(u)+'" title="'+esc(r.name||r.file)+' · clic para ampliar" alt="" loading="lazy">';}).join('');
+  rf.classList.remove('hide');}
+ else{rf.innerHTML='';rf.classList.add('hide');}
  $('lightbox').classList.remove('hide');lbSyncNav()}
+$('lbRefs').onclick=e=>{const im=e.target.closest('img[data-refsrc]');if(!im)return;e.stopPropagation();openLb(im.dataset.refsrc,'',null)};
 function lbSyncNav(){const pv=$('lbPrev'),nx=$('lbNext');
  if(!lbScope||!lbCurFile){pv.classList.add('off');nx.classList.add('off');return}
  const sel=lbScope==='gal'?'#gal .gcard':'#shelfGrid .scard',attr=lbScope==='gal'?'file':'shelf';
