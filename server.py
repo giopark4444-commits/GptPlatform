@@ -948,9 +948,9 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .lbbar button:hover,.lbbar a:hover{border-color:var(--mut)}
 .lbbar svg{width:13px;height:13px}
 .mini{display:inline-block;border:1px solid currentColor;border-radius:1.5px;opacity:.65;flex:none}
-.empty{color:var(--faint);font-size:13px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;max-width:420px}
+.empty{color:var(--faint);font-size:13px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;max-width:none}
 .empty svg{width:30px;height:30px;stroke-width:1.3;opacity:.6}
-.empty .kbdhint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint)}
+.empty .kbdhint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);white-space:nowrap;flex-wrap:nowrap}
 .empty .errmsg{color:var(--bad);line-height:1.5;max-width:380px;overflow-wrap:anywhere}
 .retry{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line2);color:var(--txt);
  border-radius:13px;padding:17px 36px;font-size:17px;font-weight:500;cursor:pointer;transition:.15s;margin-top:6px}
@@ -1556,7 +1556,7 @@ html,body{overflow-x:hidden}
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <select id="projSel" class="hide"></select>
-    <select id="subSel" class="subsel" title="Subproyecto activo — lo que generes va aquí"></select>
+    <select id="subSel" class="subsel hide" title="Subproyecto activo — lo que generes va aquí"></select>
     <button class="projbtn" id="promptLibBtn" title="Biblioteca de prompts — guarda tus prompts favoritos y los que sirven, por categorías (abre en pestaña aparte)">
       <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span>Prompt Library</span>
