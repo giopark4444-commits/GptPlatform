@@ -909,6 +909,8 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .fbtn:hover{background:var(--elev);border-color:var(--mut)}.fbtn svg{width:16px;height:16px}
 .lightbox{position:fixed;inset:0;background:rgba(5,5,6,.93);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:var(--z-lightbox);cursor:zoom-out;padding:30px 30px 90px}
 .lightbox img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
+#lbImg:fullscreen{width:100vw;height:100vh;max-width:100vw;max-height:100vh;object-fit:contain;border-radius:0;box-shadow:none;background:#000}
+#lbImg:-webkit-full-screen{width:100vw;height:100vh;max-width:100vw;max-height:100vh;object-fit:contain;border-radius:0;box-shadow:none;background:#000}
 .lightbox .mclose{position:fixed;top:18px;right:18px;width:36px;height:36px;background:rgba(16,16,18,.85);backdrop-filter:blur(8px)}
 .lbnav{position:fixed;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(16,16,18,.7);border:1px solid rgba(255,255,255,.14);color:#fff;cursor:pointer;backdrop-filter:blur(8px);transition:.15s;z-index:1}
 .lbnav:hover{background:rgba(40,40,44,.92);border-color:rgba(255,255,255,.3)}
@@ -2163,6 +2165,7 @@ html,body{overflow-x:hidden}
     <button id="lbLib"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>A la biblioteca</button>
     <button id="lbDesc"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7z"/></svg>Describir</button>
     <button id="lbPose"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Ángulos 3D</button>
+    <button id="lbFull" title="Ver la imagen en toda la pantalla (Esc para salir)"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Pantalla completa</button>
     <a id="lbDl" download><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Descargar</a>
     </div>
   </div>
@@ -3217,6 +3220,10 @@ $('lightbox').onclick=()=>$('lightbox').classList.add('hide');
 $('lbBar').onclick=e=>e.stopPropagation();
 $('lbPrev').onclick=e=>{e.stopPropagation();lbNavigate(-1)};
 $('lbNext').onclick=e=>{e.stopPropagation();lbNavigate(1)};
+function toggleFull(el){const d=document;
+ if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);return}
+ const fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)fn.call(el);}
+$('lbFull').onclick=e=>{e.stopPropagation();toggleFull($('lbImg'))};
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
  e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
@@ -4727,6 +4734,8 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .glb{position:fixed;inset:0;background:rgba(5,5,6,.94);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:80;padding:30px 30px 100px;cursor:zoom-out}
 .glb.show{display:flex}
 .glb>img{max-width:94vw;max-height:84vh;border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.7)}
+#glbImg:fullscreen{width:100vw;height:100vh;max-width:100vw;max-height:100vh;object-fit:contain;border-radius:0;box-shadow:none;background:#000}
+#glbImg:-webkit-full-screen{width:100vw;height:100vh;max-width:100vw;max-height:100vh;object-fit:contain;border-radius:0;box-shadow:none;background:#000}
 .glbx{position:fixed;top:18px;right:18px;width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.2);
  background:rgba(16,16,18,.85);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .glbx svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round}
@@ -4961,9 +4970,10 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt,tile.dataset.sub);"
           "});});"
           "glb.addEventListener('click',function(e){if(e.target===glb||e.target.closest('#glbClose'))closeLb();});"
-          "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mv&&mv.style.display!=='none'){closeMv();}else if(selMode){exitSel();}else{closeLb();}}});"
+          "document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(document.fullscreenElement||document.webkitFullscreenElement){return;}if(mv&&mv.style.display!=='none'){closeMv();}else if(selMode){exitSel();}else{closeLb();}}});"
           "document.getElementById('glbRef').onclick=function(){stageRef(curFile);};"
           "glbCopy.onclick=function(){copyP(curPrompt);};"
+          "document.getElementById('glbFull').onclick=function(){var d=document,el=glbImg;if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);return;}var fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)fn.call(el);};"
           "var gfdir=document.getElementById('gfdir'),gfpick=document.getElementById('gfpick');"
           "if(gfpick)gfpick.onclick=async function(){gt('Abriendo selector de carpeta…');"
           "try{var r=await(await fetch('/pickfolder')).json();"
@@ -5079,6 +5089,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
             '<button class="gbtn" id="glbRef">' + GPL + 'Usar como referencia</button>'
             + ('<button class="gbtn" id="glbMove">' + GMV + 'Mover a proyecto</button>' if move_targets else '') +
             '<button class="gbtn" id="glbCopy">' + GCP + 'Copiar prompt</button>'
+            '<button class="gbtn" id="glbFull"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Pantalla completa</button>'
             '<a class="gbtn" id="glbDl" download>' + GDL + 'Descargar</a>'
             '</div></div></div>'
             '<div class="gtoast" id="gtoast"></div>'
