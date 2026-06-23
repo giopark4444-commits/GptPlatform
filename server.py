@@ -2254,7 +2254,7 @@ function refTokens(w,h){if(!w||!h)return REF_IMG_TOKENS;return Math.min(1536,Mat
 function ensureRefTokens(){refs.filter(r=>r.tok===undefined).forEach(r=>{r.tok=null;
  const im=new Image();im.onload=()=>{r.tok=refTokens(im.naturalWidth,im.naturalHeight);validate();};
  im.onerror=()=>{r.tok=REF_IMG_TOKENS;validate();};im.src='data:image/png;base64,'+r.b64;});}
-let results=[],active=0,lastResult=null,activeJobs=0;
+let results=[],active=0,lastResult=null,activeJobs=0,genTimer=null,genT0=0;
 let hist=[],shown=30,cmpA=null;
 function openCmp(fa,fb){
  $('cmpA').src='/file?name='+encodeURIComponent(fa);
@@ -3405,7 +3405,9 @@ $('strip').onclick=e=>{const b=e.target.closest('.sth');if(b)showResult(+b.datas
 function updGenChip(){const n=activeJobs;const gchip=$('genChip');
  if(n>0&&gchip.parentNode!==document.body)document.body.appendChild(gchip);   // fixed real al viewport (la columna .an tiene transform y rompía el fixed)
  gchip.classList.toggle('hide',n<=0);
- if(n>0)$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…';
+ const lbl=()=>{const s=Math.round((Date.now()-genT0)/1000);return(activeJobs>1?('Generando '+activeJobs+'… '):'Generando… ')+'('+s+'s)';};
+ if(n>0){if(!genTimer){genT0=Date.now();genTimer=setInterval(()=>{if(activeJobs>0)$('genChipTxt').textContent=lbl();},500);}$('genChipTxt').textContent=n>1?('Generando '+n+'…'):'Generando…';}
+ else if(genTimer){clearInterval(genTimer);genTimer=null;}
  // feedback inmediato en el propio botón (aunque ya haya un resultado en el lienzo)
  const go=$('go'),gt=$('goTxt');
  if(go){go.classList.toggle('busy',n>0);if(gt)gt.textContent=n>0?(n>1?('Generando '+n+'…'):'Generando…'):'Generar';}
@@ -3437,9 +3439,10 @@ async function run(){
  const showSpin = activeJobs===0 && $('resultImg').classList.contains('hide');
  if(showSpin){$('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');}
  activeJobs++;updGenChip();
+ const ac=new AbortController(),killer=setTimeout(()=>{try{ac.abort()}catch(_){}} ,360000);  // red de seguridad: nunca quedarse pegado
  try{
   let d;
-  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ac.signal});
   if(willStream&&resp.body&&(resp.headers.get('content-type')||'').includes('ndjson')){
    const reader=resp.body.getReader(),dec=new TextDecoder();let buf='';
    const ext=fmt==='jpeg'?'jpeg':fmt;
@@ -3469,7 +3472,10 @@ async function run(){
     +(d.via_visual?' · memoria visual':'');
    if(activeJobs>1)toast('Imagen lista');
    loadGal()}
- }catch(e){toast(String(e&&e.message||e||'Error'),'bad');if(showSpin&&activeJobs===1)err(e)}
+ }catch(e){
+  if(e&&e.name==='AbortError'){toast('La generación tardó demasiado y se canceló. Revisa tu conexión e intenta de nuevo.','bad');if(showSpin&&activeJobs===1)err('Tardó demasiado · cancelado')}
+  else{toast(String(e&&e.message||e||'Error'),'bad');if(showSpin&&activeJobs===1)err(e)}}
+ clearTimeout(killer);
  activeJobs--;updGenChip();
  // si ya no queda nada generando y el lienzo quedó en spinner sin resultado, vuelve a vacío
  if(activeJobs===0&&!$('spinner').classList.contains('hide')&&!$('resultImg').src)showState('empty');
