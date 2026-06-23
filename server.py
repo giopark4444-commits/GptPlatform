@@ -3336,6 +3336,11 @@ function openLb(src,p,file){lbScope=null;lbCurFile=null;$('lbImg').src=src;$('lb
    return '<img src="'+u+'" data-refsrc="'+esc(u)+'" title="'+esc(r.name||r.file)+' · clic para ampliar" alt="" loading="lazy">';}).join('');
   rf.classList.remove('hide');}
  else{rf.innerHTML='';rf.classList.add('hide');}
+ // resolución real del archivo (útil sobre todo en Mis imágenes, que no tiene ficha de historial)
+ const showRes=()=>{const im=$('lbImg'),w=im.naturalWidth,h=im.naturalHeight;if(!w||!h||it)return;
+  m.innerHTML='<span><b>Resolución</b>'+w+'×'+h+' px</span>';m.classList.remove('hide');};
+ $('lbImg').onload=showRes;
+ if($('lbImg').complete)showRes();
  $('lightbox').classList.remove('hide');lbSyncNav()}
 $('lbRefs').onclick=e=>{const im=e.target.closest('img[data-refsrc]');if(!im)return;e.stopPropagation();openLb(im.dataset.refsrc,'',null)};
 function lbSyncNav(){const pv=$('lbPrev'),nx=$('lbNext');
@@ -4921,6 +4926,8 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .glbbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;cursor:default;
  background:rgba(16,16,18,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px 14px;max-width:min(760px,92vw)}
 .glbp{font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.85);white-space:pre-wrap;word-break:break-word;max-height:24vh;overflow-y:auto;user-select:text;-webkit-user-select:text;cursor:text}
+.glbres{font-family:ui-monospace,monospace;font-size:11px;color:rgba(255,255,255,.82);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:2px 8px;align-self:flex-start}
+.glbres:empty{display:none}
 .glbp:empty{display:none}
 .glbbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .gbtn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;
@@ -5127,6 +5134,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "var glb=document.getElementById('glb'),glbImg=document.getElementById('glbImg'),glbP=document.getElementById('glbP'),glbDl=document.getElementById('glbDl'),glbCopy=document.getElementById('glbCopy');"
           "var curFile='',curPrompt='',curSub='';"
           "function openLb(file,prompt,s){curFile=file;curPrompt=prompt||'';curSub=(s!==undefined&&s!==null)?s:subOf(file);var u=BASE+encodeURIComponent(file)+pqOf(curSub);"
+          "var glbRes=document.getElementById('glbRes');if(glbRes){glbRes.textContent='';glbImg.onload=function(){var w=glbImg.naturalWidth,h=glbImg.naturalHeight;glbRes.textContent=(w&&h)?(w+'\\u00d7'+h+' px'):'';};}"
           "glbImg.src=u;glbP.textContent=curPrompt;glbDl.href=u;glbDl.setAttribute('download',file);glbCopy.style.display=curPrompt?'':'none';glb.classList.add('show');}"
           "function closeLb(){glb.classList.remove('show');glbImg.src='';}"
           "var GRIDS=[].slice.call(document.querySelectorAll('.grid'));"
@@ -5274,7 +5282,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
                '<button class="gselx" id="gselcancel" title="Salir de selección (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>')
             + '<div class="glb" id="glb"><button class="glbx" id="glbClose" title="Cerrar (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'
             '<img id="glbImg" alt="">'
-            '<div class="glbbar"><span class="glbp" id="glbP"></span><div class="glbbtns">'
+            '<div class="glbbar"><span class="glbp" id="glbP"></span><span class="glbres" id="glbRes"></span><div class="glbbtns">'
             '<button class="gbtn" id="glbRef">' + GPL + 'Usar como referencia</button>'
             + ('<button class="gbtn" id="glbMove">' + GMV + 'Mover a proyecto</button>' if move_targets else '') +
             '<button class="gbtn" id="glbCopy">' + GCP + 'Copiar prompt</button>'
