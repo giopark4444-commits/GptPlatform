@@ -2955,7 +2955,7 @@ function renderGal(){const items=galFiltered();
  $('galCount').textContent=items.length||''}
 // ===== selección múltiple del historial =====
 let selMode=false;const selFiles=new Set();
-let galMarqueed=false,galMarq=null,galMqStart=null,galMqMoved=false;
+let galMarqueed=false,galMarq=null,galMqStart=null,galMqMoved=false,galAnchor=-1;
 function selFileSub(f){const c=$('gal').querySelector('.gcard[data-file="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
 // destinos de "Mover": cada proyecto (raíz) + cada subproyecto de cada proyecto
 function moveTargets(){const out=[];const list=Object.keys(window.SUBS||{});
@@ -3098,7 +3098,13 @@ function endGalMarq(){if(!galMqStart)return;if(galMarq){galMarq.remove();galMarq
 window.addEventListener('pointerup',endGalMarq);
 window.addEventListener('pointercancel',endGalMarq);
 $('gal').onclick=async e=>{
- if(selMode){if(galMarqueed){galMarqueed=false;return}const card=e.target.closest('.gcard');if(card){const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');renderBulk()}return}
+ if(selMode){if(galMarqueed){galMarqueed=false;return}const card=e.target.closest('.gcard');if(card){
+   const cards=[...$('gal').querySelectorAll('.gcard')],idx=cards.indexOf(card);
+   if(e.shiftKey&&galAnchor>=0&&galAnchor<cards.length){  // Shift: seleccionar el rango de punta a punta
+    const lo=Math.min(galAnchor,idx),hi=Math.max(galAnchor,idx);
+    for(let i=lo;i<=hi;i++){selFiles.add(cards[i].dataset.file);cards[i].classList.add('sel');}
+   }else{const f=card.dataset.file;if(selFiles.has(f))selFiles.delete(f);else selFiles.add(f);card.classList.toggle('sel');galAnchor=idx;}
+   renderBulk()}return}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
   star=e.target.closest('.gstar'),up=e.target.closest('.gup'),lib=e.target.closest('.glib'),
@@ -4313,7 +4319,7 @@ async function loadShelf(){const subs=curSubs();
  shelfItems=shelfGroups.length===1?shelfGroups[0].items:[].concat(...shelfGroups.map(g=>g.items));
  if(dir)$('shelfDirLbl').textContent=dir;renderShelf()}
 let shelfSelMode=false;const shelfSel=new Set();
-let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false;
+let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false,shAnchor=-1;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
  const drg=shelfSelMode?'false':'true';  // en modo selección las tarjetas NO se arrastran, así el recuadro recibe los eventos de puntero
  return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
@@ -4349,7 +4355,13 @@ $('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+e
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
  if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
 $('shelfGrid').onclick=async e=>{
- if(shelfSelMode){if(shMarqueed){shMarqueed=false;return}const card=e.target.closest('.scard');if(card){const f=card.dataset.shelf;if(shelfSel.has(f))shelfSel.delete(f);else shelfSel.add(f);card.classList.toggle('sel');renderShelfBulk()}return}
+ if(shelfSelMode){if(shMarqueed){shMarqueed=false;return}const card=e.target.closest('.scard');if(card){
+   const cards=[...$('shelfGrid').querySelectorAll('.scard')],idx=cards.indexOf(card);
+   if(e.shiftKey&&shAnchor>=0&&shAnchor<cards.length){  // Shift: seleccionar el rango de punta a punta
+    const lo=Math.min(shAnchor,idx),hi=Math.max(shAnchor,idx);
+    for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');}
+   }else{const f=card.dataset.shelf;if(shelfSel.has(f))shelfSel.delete(f);else shelfSel.add(f);card.classList.toggle('sel');shAnchor=idx;}
+   renderShelfBulk()}return}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  const smv=e.target.closest('.smove');
  if(smv){e.stopPropagation();const f=smv.dataset.file;openShelfMovePop(smv,f,shelfFileSub(f));return;}
