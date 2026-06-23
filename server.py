@@ -1062,8 +1062,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
 .bakprog{margin-top:12px}
-.bakprogbar{height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.bakprogbar{position:relative;height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.bakprogbar::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line);opacity:.7;z-index:2}
 .bakprogfill{height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .2s ease}
+.bakprogfill.prep{background:#c79a4e}   /* Paso 1/2 (Preparando) en un color distinto al de descarga */
 .bakprogtxt{display:block;margin-top:7px;font-size:12px;color:var(--mut);font-family:var(--mono)}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
@@ -2289,23 +2291,25 @@ async function streamDownload(url,name,prepLabel){
   try{const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Archivo .zip',accept:{'application/zip':['.zip']}}]});writable=await h.createWritable();}
   catch(e){if(e&&e.name==='AbortError')return; /* el usuario canceló */ writable=null;}
  }
- prog.classList.remove('hide');fill.classList.remove('indet');fill.style.width='0%';
- const t0=performance.now();let shown=0;txt.textContent=prepLabel||'Preparando…';
- // mientras el servidor arma el zip, la barra ya se va llenando (asíntota hacia ~90%, nunca se detiene)
- let prepTimer=setInterval(()=>{shown+=(90-shown)*0.045;fill.style.width=shown.toFixed(1)+'%';txt.textContent=(prepLabel||'Preparando…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},180);
+ prog.classList.remove('hide');fill.classList.add('prep');fill.style.width='0%';
+ // PASO 1/2 · Preparando: el servidor arma el zip; la barra llena la PRIMERA mitad (asíntota hacia 48%)
+ const t0=performance.now();let shown=0;txt.textContent='Paso 1/2 · '+(prepLabel||'Preparando copia…');
+ let prepTimer=setInterval(()=>{shown+=(48-shown)*0.06;fill.style.width=shown.toFixed(1)+'%';txt.textContent='Paso 1/2 · '+(prepLabel||'Preparando copia…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},180);
  try{
   const resp=await fetch(url);if(!resp.ok)throw new Error('HTTP '+resp.status);
   clearInterval(prepTimer);prepTimer=null;
+  // PASO 2/2 · Descargando: barra de acento llenando la SEGUNDA mitad (50%→100%)
+  fill.classList.remove('prep');shown=50;fill.style.width='50%';txt.textContent='Paso 2/2 · Descargando…';
   const total=+(resp.headers.get('Content-Length')||0),reader=resp.body.getReader(),chunks=[];let received=0;
   for(;;){const {done,value}=await reader.read();if(done)break;received+=value.length;
    if(writable)await writable.write(value);else chunks.push(value);
-   if(total){const pct=received/total*100;shown=Math.max(shown,pct);fill.style.width=shown.toFixed(1)+'%';txt.textContent=Math.round(shown)+'% · '+fmtMB(received)+' / '+fmtMB(total);}
-   else{txt.textContent='Descargando… '+fmtMB(received);}}
+   if(total){const dl=received/total;shown=Math.max(shown,50+dl*50);fill.style.width=shown.toFixed(1)+'%';txt.textContent='Paso 2/2 · Descargando · '+Math.round(dl*100)+'% · '+fmtMB(received)+' / '+fmtMB(total);}
+   else{txt.textContent='Paso 2/2 · Descargando… '+fmtMB(received);}}
   if(writable){await writable.close();}
   else{const blob=new Blob(chunks,{type:'application/zip'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
   fill.style.width='100%';txt.textContent='Listo ✓ · '+fmtMB(received);toast('Copia guardada ✓');
   setTimeout(()=>prog.classList.add('hide'),3000);
- }catch(e){if(prepTimer)clearInterval(prepTimer);fill.classList.remove('indet');txt.textContent='Error: '+(e&&e.message||e);toast('No se pudo descargar: '+(e&&e.message||e),'bad');}
+ }catch(e){if(prepTimer)clearInterval(prepTimer);fill.classList.remove('prep');txt.textContent='Error: '+(e&&e.message||e);toast('No se pudo descargar: '+(e&&e.message||e),'bad');}
 }
 $('bakZip').onclick=()=>streamDownload('/backup.zip','studio-backup.zip','Preparando respaldo organizado…');
 $('bakClone').onclick=()=>streamDownload('/clone.zip','gio-studio-copia-exacta.zip','Preparando copia exacta…');
