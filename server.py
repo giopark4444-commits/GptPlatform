@@ -4768,6 +4768,7 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:22px 26px}
 .tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid #e3dccb;background:#fffdf6;
  box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .18s,box-shadow .18s,border-color .18s}
+.tile.gdragging{opacity:.35}
 .tile:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.13);border-color:#cfc4ac}
 .tile>img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .acts{position:absolute;top:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap;max-width:108px;justify-content:flex-end;opacity:0;transition:opacity .15s}
@@ -4928,7 +4929,7 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
         btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
-        return ('<figure class="tile" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
+        return ('<figure class="tile" draggable="true" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
                 + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
                 '<img src="' + u + '&thumb=1" loading="lazy" alt="">'
                 '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
@@ -5076,13 +5077,23 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "g.addEventListener('pointerup',endMarq);g.addEventListener('pointercancel',endMarq);"
           "});"
           "function endMarq(){if(!mqStart)return;if(marq){marq.remove();marq=null;}if(mqMoved)window.__marqueed=true;mqStart=null;mqMoved=false;}"
+          "var rdTile=null,rdMoved=false;"
+          "function gflip(container,mutate){var els=[].slice.call(container.querySelectorAll('.tile')),pos=new Map();els.forEach(function(el){pos.set(el,el.getBoundingClientRect());});mutate();els.forEach(function(el){if(el===rdTile)return;var a=pos.get(el);if(!a)return;var b=el.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top;if(dx||dy){el.style.transition='none';el.style.transform='translate('+dx+'px,'+dy+'px)';requestAnimationFrame(function(){el.style.transition='transform .22s cubic-bezier(.2,.7,.3,1)';el.style.transform='';});}});}"
+          "function persistTileOrder(cont){var order=[].slice.call(cont.querySelectorAll('.tile')).map(function(t){return t.dataset.file;});var ft=cont.querySelector('.tile');var sub=(ft&&ft.dataset.sub)||'';fetch('/itemsorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,project:PROJ,sub:sub,order:order})}).then(function(){gt('Orden actualizado');});}"
+          "GRIDS.forEach(function(g){"
+          "g.addEventListener('dragstart',function(e){if(selMode)return;var t=e.target.closest('.tile');if(!t)return;rdTile=t;rdMoved=false;t.classList.add('gdragging');try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','');}catch(_){}});"
+          "g.addEventListener('dragover',function(e){if(!rdTile)return;var t=e.target.closest('.tile');if(!t||t===rdTile)return;if(t.parentElement!==rdTile.parentElement)return;e.preventDefault();var r=t.getBoundingClientRect(),after=e.clientX>(r.left+r.width/2),ref=after?t.nextElementSibling:t;if(ref!==rdTile&&rdTile.nextElementSibling!==ref){gflip(rdTile.parentElement,function(){rdTile.parentElement.insertBefore(rdTile,ref);});rdMoved=true;}});"
+          "g.addEventListener('drop',function(e){if(!rdTile)return;e.preventDefault();e.stopPropagation();if(rdMoved)persistTileOrder(rdTile.parentElement);});"
+          "});"
+          "document.addEventListener('dragend',function(){if(rdTile)rdTile.classList.remove('gdragging');rdTile=null;rdMoved=false;});"
           "var selbtn=document.getElementById('gselbtn'),selbar=document.getElementById('gselbar'),seln=document.getElementById('gseln');"
           "function selFiles(){return Object.keys(selSet);}"
           "function selTiles(){return selFiles().map(function(f){return selSet[f];});}"
           "function updSel(){var n=selFiles().length;if(seln)seln.textContent=n;if(selbar)selbar.classList.toggle('show',selMode);}"
           "function toggleSel(tile){var f=tile.dataset.file;if(selSet[f]){delete selSet[f];tile.classList.remove('gsel');}else{selSet[f]=tile;tile.classList.add('gsel');}updSel();}"
-          "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();if(selbtn)selbtn.classList.remove('on');var _ga=document.getElementById('gselall');if(_ga&&_ga.lastChild)_ga.lastChild.textContent='Todas';}"
-          "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);if(!selMode)exitSel();else updSel();};"
+          "function setTilesDrag(on){allTiles().forEach(function(t){t.draggable=on;});}"
+          "function exitSel(){selMode=false;lastSelIdx=null;window.__marqueed=false;document.body.classList.remove('selmode');for(var k in selSet){if(selSet[k])selSet[k].classList.remove('gsel');}selSet={};updSel();setTilesDrag(true);if(selbtn)selbtn.classList.remove('on');var _ga=document.getElementById('gselall');if(_ga&&_ga.lastChild)_ga.lastChild.textContent='Todas';}"
+          "if(selbtn)selbtn.onclick=function(){selMode=!selMode;document.body.classList.toggle('selmode',selMode);selbtn.classList.toggle('on',selMode);setTilesDrag(!selMode);if(!selMode)exitSel();else updSel();};"
           "var gselall=document.getElementById('gselall');"
           "if(gselall)gselall.onclick=function(){var ts=allTiles();var all=ts.length&&ts.every(function(t){return selSet[t.dataset.file]});if(all){ts.forEach(function(t){delete selSet[t.dataset.file];t.classList.remove('gsel')})}else{ts.forEach(function(t){if(!selSet[t.dataset.file]){selSet[t.dataset.file]=t;t.classList.add('gsel')}})}lastSelIdx=null;updSel();if(gselall.lastChild)gselall.lastChild.textContent=all?'Todas':'Ninguna';};"
           "var gcopyall=document.getElementById('gcopyall');"
