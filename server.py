@@ -3368,7 +3368,7 @@ function closeSharePop(){const p=$('sharePop');if(p)p.remove();document.removeEv
 function _shareOutside(e){if(!e.target.closest('#sharePop')&&!e.target.closest('.gshare')&&!e.target.closest('.sshare'))closeSharePop()}
 function openSharePop(anchor,url,filename){closeSharePop();
  const pop=document.createElement('div');pop.className='sharepop';pop.id='sharePop';
- const opts=[['sys','Compartir (apps del sistema)…'],['wa','WhatsApp'],['tg','Telegram'],['x','X (Twitter)'],['copy','Copiar imagen'],['dl','Descargar']];
+ const opts=[['sys','Compartir (apps del sistema)…'],['wa','WhatsApp'],['tg','Telegram'],['ig','Instagram'],['fb','Facebook'],['x','X (Twitter)'],['copy','Copiar imagen'],['dl','Descargar']];
  pop.innerHTML=opts.map(o=>'<button data-k="'+o[0]+'">'+o[1]+'</button>').join('');
  document.body.appendChild(pop);
  const r=anchor.getBoundingClientRect();
@@ -3378,7 +3378,7 @@ function openSharePop(anchor,url,filename){closeSharePop();
   if(k==='sys'){if(!await _nativeShare(url,filename))toast('Tu navegador no permite compartir archivos aquí; usa «Copiar imagen»','bad');return;}
   if(k==='dl'){const a=document.createElement('a');a.href=url;a.download=filename||'imagen.png';document.body.appendChild(a);a.click();a.remove();return;}
   if(k==='copy'){const ok=await _copyImg(url);toast(ok?'Imagen copiada ✓ · pégala donde quieras':'No se pudo copiar la imagen',ok?'':'bad');return;}
-  const ok=await _copyImg(url),links={wa:'https://web.whatsapp.com/',tg:'https://web.telegram.org/',x:'https://twitter.com/intent/tweet'},nm={wa:'WhatsApp',tg:'Telegram',x:'X'}[k];
+  const ok=await _copyImg(url),links={wa:'https://web.whatsapp.com/',tg:'https://web.telegram.org/',ig:'https://www.instagram.com/',fb:'https://www.facebook.com/',x:'https://twitter.com/intent/tweet'},nm={wa:'WhatsApp',tg:'Telegram',ig:'Instagram',fb:'Facebook',x:'X'}[k];
   window.open(links[k],'_blank','noopener');
   toast(ok?('Imagen copiada — pégala con ⌘V en '+nm):('Abre '+nm+' y adjunta la imagen'));};
  setTimeout(()=>document.addEventListener('click',_shareOutside,true),0);}
@@ -5962,8 +5962,12 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"voices": [], "error": str(e)})
         if self.path.startswith("/file?"):
-            q = parse_qs(urlparse(self.path).query)
-            fp = phist_dir(self._proj(), self._sub()) / os.path.basename(q.get("name", [""])[0])
+            q = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+            # si la petición especifica project, el sub AUSENTE significa raíz ("") — no el subproyecto activo
+            pr = q.get("project", [None])[0]; sb = q.get("sub", [""])[0]
+            if pr is None:
+                pr, sb = ACTIVE_PROJ, ACTIVE_SUB
+            fp = phist_dir(pr, sb) / os.path.basename(q.get("name", [""])[0])
             if q.get("thumb") and fp.is_file():
                 tp = thumb_for(fp)
                 if tp:
@@ -6015,8 +6019,11 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": f"No pude abrir el selector: {e}"})
         if self.path.startswith("/shelffile?"):
-            q = parse_qs(urlparse(self.path).query)
-            fp = pshelf_dir(self._proj(), self._sub()) / os.path.basename(q.get("name", [""])[0])
+            q = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+            pr = q.get("project", [None])[0]; sb = q.get("sub", [""])[0]
+            if pr is None:
+                pr, sb = ACTIVE_PROJ, ACTIVE_SUB
+            fp = pshelf_dir(pr, sb) / os.path.basename(q.get("name", [""])[0])
             if q.get("thumb") and fp.is_file():
                 tp = thumb_for(fp)
                 if tp:
