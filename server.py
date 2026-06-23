@@ -6182,6 +6182,7 @@ class H(BaseHTTPRequestHandler):
                 zf = zipfile.ZipFile(zp)
             except Exception:
                 return self._json({"error": "El archivo no es un .zip válido."})
+            root_resolved = ROOT.resolve()
             with LOCK:
                 with zf:
                     members = [i for i in zf.infolist() if not i.is_dir() and i.filename.startswith("image-studio/")]
@@ -6191,9 +6192,12 @@ class H(BaseHTTPRequestHandler):
                         rel = info.filename[len("image-studio/"):]
                         if not rel or rel.startswith("/") or ".." in rel.split("/"):
                             continue
+                        # frontera robusta: resolve() canoniza symlinks y relative_to no se deja engañar por prefijos
                         dest = (ROOT / rel).resolve()
-                        if not str(dest).startswith(str(ROOT.resolve())):   # anti path-traversal
-                            continue
+                        try:
+                            dest.relative_to(root_resolved)
+                        except ValueError:
+                            continue   # la ruta real cae fuera de ~/image-studio → se descarta
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         with zf.open(info) as src, open(dest, "wb") as out:
                             shutil.copyfileobj(src, out)
