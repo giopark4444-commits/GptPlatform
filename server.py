@@ -1027,9 +1027,6 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
-.gcard .upov{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(10,10,12,.66);backdrop-filter:blur(2px);color:#fff;font-size:11.5px;line-height:1.35;text-align:center;padding:8px}
-.gcard .upov small{opacity:.7;font-size:10px}
-.upspin{width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 .gal.selmode .gcard{cursor:pointer}
 .gal.selmode .gcard .gfloat{display:none}
 .gal.selmode .gcard::after{content:'';position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(12,12,14,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25);z-index:2}
@@ -2878,7 +2875,6 @@ const GCP='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx=
 const GPL='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 const GTR='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3-3.3L6.7 19.3l1.5-6-4.7-4 6.1-.4z"/></svg>';
-const GUP='<svg viewBox="0 0 24 24"><path d="M21 3h-6m6 0v6m0-6L13 11"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>';
 const GCM='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/></svg>';
 const GIT='<svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 const GLB='<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M11 7h5"/></svg>';
@@ -2952,7 +2948,6 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
  const drg=(selMode&&!selFiles.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
-   <button class="gfbtn gup" title="Mejorar 2× (upscale)">${GUP}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
    <a class="gfbtn" href="/file?name=${fn}${pq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
@@ -3136,7 +3131,7 @@ $('gal').onclick=async e=>{
    renderBulk()}return}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
-  star=e.target.closest('.gstar'),up=e.target.closest('.gup'),lib=e.target.closest('.glib'),
+  star=e.target.closest('.gstar'),lib=e.target.closest('.glib'),
   cmp=e.target.closest('.gcmp'),iter=e.target.closest('.giter'),card=e.target.closest('.gcard');
  if(lib){const p=(hist.find(x=>x.file===card.dataset.file)||{}).prompt||card.dataset.p||'';
   if(!p.trim()){toast('Esta imagen no tiene prompt','bad');return}
@@ -3154,14 +3149,6 @@ $('gal').onclick=async e=>{
   it.fav=!it.fav;star.classList.toggle('fav',it.fav);
   fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav,project:curProj(),sub:cardSub})});
   if($('galFavBtn').classList.contains('on'))renderGal();return}
- if(up){const ucard=up.closest('.gcard');const ov=document.createElement('div');ov.className='upov';
-  ov.innerHTML='<div class="upspin"></div><span>Mejorando 2×…<br><small>puede tardar hasta ~1 min</small></span>';
-  if(ucard)ucard.appendChild(ov);up.classList.add('busy');toast('Mejorando 2× con IA · puede tardar hasta ~1 min…');
-  try{const d=await(await fetch('/upscale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:card.dataset.file,project:curProj(),sub:cardSub,save_desktop:$('saveDesk').checked})})).json();
-   if(d.error)toast(d.error,'bad');
-   else{await loadGal();openLb('/file?name='+encodeURIComponent(d.file),'[mejorada 2×]',d.file);toast('Mejorada 2× lista · '+d.size+' ✓')}
-  }catch(x){toast('No se pudo mejorar: '+String(x&&x.message||x),'bad')}
-  ov.remove();up.classList.remove('busy');return}
  if(cp){const it=hist.find(x=>x.file===card.dataset.file)||{};$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);const n=await useHistRefs(it);toast(n?('Prompt + '+n+' referencia(s) cargadas'):'Prompt copiado');return}
  if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
