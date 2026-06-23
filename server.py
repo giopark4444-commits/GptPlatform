@@ -1010,7 +1010,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
-.sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;justify-content:flex-end;gap:4px;padding:5px;opacity:0;
+.sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:4px;padding:5px;opacity:0;
  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 70%);transition:.15s}
 .scard:hover .sov{opacity:1}
 .shelfgrid.selmode{user-select:none}
@@ -1063,11 +1063,6 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
-.cardshare{position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:8px;border:0;background:rgba(12,12,14,.62);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transform:translateY(-4px);transition:opacity .15s,transform .15s,background .15s;z-index:4}
-.gcard:hover .cardshare,.scard:hover .cardshare{opacity:1;transform:none}
-.cardshare:hover{background:var(--accent)}
-.cardshare svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
-.gal.selmode .cardshare,.shelfgrid.selmode .cardshare{display:none}
 .sharepop{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 16px 44px rgba(0,0,0,.32);display:flex;flex-direction:column;gap:2px;min-width:210px}
 .sharepop button{display:block;width:100%;background:none;border:0;color:var(--txt);text-align:left;padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer}
 .sharepop button:hover{background:var(--accent-dim);color:var(--accent)}
@@ -3073,9 +3068,9 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
    <button class="gfbtn gcopy" title="Copiar prompt + cargar las referencias que se usaron">${GCP}</button>
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
+   <button class="gfbtn gshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
-   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div>
-   <button class="cardshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button></div>`}
+   <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
 function renderGal(){const items=galFiltered();
  if(histGroups.length>1){
   const subs=curSubs();
@@ -3263,7 +3258,7 @@ $('gal').onclick=async e=>{
     for(let i=lo;i<=hi;i++){selFiles.add(cards[i].dataset.file);cards[i].classList.add('sel');cards[i].draggable=true;}
    }else{const f=card.dataset.file;const now=!selFiles.has(f);if(now)selFiles.add(f);else selFiles.delete(f);card.classList.toggle('sel',now);card.draggable=now;galAnchor=idx;}
    renderBulk()}return}
- const gsh=e.target.closest('.cardshare');
+ const gsh=e.target.closest('.gshare');
  if(gsh){e.stopPropagation();const c=e.target.closest('.gcard');if(c){openSharePop(gsh,'/file?name='+encodeURIComponent(c.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(c.dataset.sub||''),c.dataset.file);}return;}
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
@@ -3365,7 +3360,7 @@ async function _copyImg(u){try{let b=await _imgBlob(u);
 async function _nativeShare(u,fn){try{const b=await _imgBlob(u);const f=new File([b],fn||'imagen.png',{type:b.type||'image/png'});
  if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Imagen · Gio Studio'});return true;}}catch(e){if(e&&e.name==='AbortError')return true;}return false;}
 function closeSharePop(){const p=$('sharePop');if(p)p.remove();document.removeEventListener('click',_shareOutside,true)}
-function _shareOutside(e){if(!e.target.closest('#sharePop')&&!e.target.closest('.cardshare'))closeSharePop()}
+function _shareOutside(e){if(!e.target.closest('#sharePop')&&!e.target.closest('.gshare')&&!e.target.closest('.sshare'))closeSharePop()}
 function openSharePop(anchor,url,filename){closeSharePop();
  const pop=document.createElement('div');pop.className='sharepop';pop.id='sharePop';
  const opts=[['sys','Compartir (apps del sistema)…'],['wa','WhatsApp'],['tg','Telegram'],['x','X (Twitter)'],['copy','Copiar imagen'],['dl','Descargar']];
@@ -3416,6 +3411,8 @@ function updGenChip(){const n=activeJobs;const gchip=$('genChip');
  if(go){go.classList.toggle('busy',n>0);if(gt)gt.textContent=n>0?(n>1?('Generando '+n+'…'):'Generando…'):'Generar';}
  // atenúa el resultado actual mientras se genera, para que se note que está trabajando
  if($('resultImg'))$('resultImg').classList.toggle('gen-busy',n>0)}
+// el chip "Generando" debe vivir en <body>: su columna tiene transform y eso rompe el position:fixed
+try{document.body.appendChild($('genChip'))}catch(e){}
 async function run(){
  const prompt=$('prompt').value.trim();if(!prompt){toast('Escribe el prompt','bad');$('prompt').focus();return}
  const proj=$('projSel').value,pdata=projects[proj];
@@ -4522,8 +4519,8 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
-  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div>
-  <button class="cardshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button></div>`}
+  <button class="sbtn sshare" data-file="${esc(it.file)}" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').classList.toggle('selmode',shelfSelMode);
@@ -4558,7 +4555,7 @@ $('shelfGrid').onclick=async e=>{
     for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');cards[i].draggable=true;}
    }else{const f=card.dataset.shelf;const now=!shelfSel.has(f);if(now)shelfSel.add(f);else shelfSel.delete(f);card.classList.toggle('sel',now);card.draggable=now;shAnchor=idx;}
    renderShelfBulk()}return}
- const ssh=e.target.closest('.cardshare');
+ const ssh=e.target.closest('.sshare');
  if(ssh){e.stopPropagation();const c=e.target.closest('.scard');if(c){const ssub=c.dataset.sub||'';openSharePop(ssh,'/shelffile?name='+encodeURIComponent(c.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),c.dataset.shelf);}return;}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
  const smv=e.target.closest('.smove');
