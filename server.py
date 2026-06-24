@@ -898,7 +898,11 @@ input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
  padding:14px;color:var(--mut);font-size:12.5px;cursor:pointer;background:var(--surface);transition:.16s;text-align:center}
 .drop:hover,.drop.hot{border-color:var(--accent);color:var(--txt);background:var(--surface2)}
 .thumbs{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
-.thumb{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1px solid var(--line2)}
+.thumb{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1px solid var(--line2);cursor:grab}
+.thumb:active{cursor:grabbing}
+.thumb.dragging{opacity:.35}
+.thumb.over-l{box-shadow:inset 3px 0 0 var(--accent)}
+.thumb.over-r{box-shadow:inset -3px 0 0 var(--accent)}
 .thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
 .thumb .x{position:absolute;top:2px;right:2px;width:17px;height:17px;border:0;border-radius:5px;background:rgba(0,0,0,.6);
  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -2517,7 +2521,7 @@ $('trashGrid').onclick=async e=>{const rest=e.target.closest('.trest'),del=e.tar
  if(rest){const t=rest.dataset.t;const r=await tpost('/trashrestore',{token:t});if(r&&r.ok){toast('Restaurada ✓');if(typeof loadGal==='function')loadGal();if(typeof loadShelf==='function')loadShelf();renderTrash()}else toast((r&&r.error)||'No se pudo restaurar','bad');return}
  if(del){const t=del.dataset.t;if(!del.classList.contains('arm')){del.classList.add('arm');toast('Clic otra vez para borrar para siempre','bad');setTimeout(()=>del.classList.remove('arm'),2500);return}await tpost('/trashdelete',{token:t});renderTrash();return}};
 $('trashEmpty').onclick=async()=>{const b=$('trashEmpty');if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='¿Vaciar todo?';setTimeout(()=>{b.classList.remove('arm');b.textContent='Vaciar papelera'},2500);return}await tpost('/trashdelete',{all:true});b.classList.remove('arm');b.textContent='Vaciar papelera';renderTrash();toast('Papelera vaciada')};
-function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" data-i="${i}"><img src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
+function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" draggable="true" data-i="${i}"><img draggable="false" src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Arrastra para reordenar · clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
 // formatos que acepta OpenAI para entrada de imagen
 const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
 // ===== video → fotogramas de referencia (gpt-image-2 no acepta video) =====
@@ -2602,12 +2606,31 @@ $('drop').onclick=()=>$('files').click();
 $('files').onchange=e=>{routeRefFiles(e.target.files,'local');e.target.value=''};
 $('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs();return}
  const t=e.target.closest('.thumb');if(t){const r=refs[+t.dataset.i];if(r)openLb('data:image/png;base64,'+r.b64,'',null)}};
-['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('hot')}));
+// ===== reordenar referencias arrastrándolas =====
+let refDragFrom=null;
+function clearRefDragMarks(){[...$('thumbs').querySelectorAll('.thumb')].forEach(t=>t.classList.remove('over-l','over-r'))}
+$('thumbs').addEventListener('dragstart',e=>{const t=e.target.closest('.thumb');if(!t)return;
+ refDragFrom=+t.dataset.i;t.classList.add('dragging');
+ try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/x-studio-reorder','1')}catch(_){}});
+$('thumbs').addEventListener('dragover',e=>{if(refDragFrom===null)return;e.preventDefault();e.stopPropagation();
+ try{e.dataTransfer.dropEffect='move'}catch(_){}
+ const t=e.target.closest('.thumb');clearRefDragMarks();
+ if(t&&+t.dataset.i!==refDragFrom){const r=t.getBoundingClientRect();
+  t.classList.add(e.clientX<r.left+r.width/2?'over-l':'over-r')}});
+$('thumbs').addEventListener('drop',e=>{if(refDragFrom===null)return;e.preventDefault();e.stopPropagation();
+ const t=e.target.closest('.thumb');clearRefDragMarks();
+ if(t){let to=+t.dataset.i;const r=t.getBoundingClientRect();if(e.clientX>=r.left+r.width/2)to++;
+  const item=refs.splice(refDragFrom,1)[0];if(to>refDragFrom)to--;refs.splice(to,0,item);renderThumbs();
+  validate();if(typeof updGenChip==='function')updGenChip();}
+ refDragFrom=null});
+$('thumbs').addEventListener('dragend',()=>{refDragFrom=null;clearRefDragMarks();
+ [...$('thumbs').querySelectorAll('.dragging')].forEach(t=>t.classList.remove('dragging'))});
+['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{if(refDragFrom!==null)return;e.preventDefault();$('drop').classList.add('hot')}));
 ['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('hot')}));
 // arrastrar a cualquier parte de la ventana
-window.addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('hot')});
+window.addEventListener('dragover',e=>{if(refDragFrom!==null)return;e.preventDefault();$('drop').classList.add('hot')});
 window.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop').classList.remove('hot')});
-window.addEventListener('drop',async e=>{e.preventDefault();$('drop').classList.remove('hot');
+window.addEventListener('drop',async e=>{if(refDragFrom!==null){refDragFrom=null;return}e.preventDefault();$('drop').classList.remove('hot');
  const dt=e.dataTransfer;if(!dt)return;
  const audF=[...dt.files].find(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|wav|webm|ogg|oga|flac|mpga)$/i.test(f.name));
  if(audF){setSttFile(audF);return}
