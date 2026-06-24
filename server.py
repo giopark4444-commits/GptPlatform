@@ -1066,7 +1066,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .cdots,.cpick{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:5px;z-index:3}
 .gcard .cdots,.gcard .cpick{bottom:30px}
 .cdots{pointer-events:none;transition:opacity .15s}
-.cdot{width:10px;height:10px;border-radius:50%;opacity:.72;box-shadow:0 0 0 1.5px rgba(0,0,0,.4)}
+.cdot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(0,0,0,.4)}
 .cpick{z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;padding:5px 7px;background:rgba(12,12,14,.5);backdrop-filter:blur(6px);border-radius:999px}
 .gcard:hover .cpick,.scard:hover .cpick{opacity:1;pointer-events:auto}
 .gcard:hover .cdots,.scard:hover .cdots{opacity:0}
@@ -4976,7 +4976,7 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .tile:hover .acts{opacity:1}
 .cdots,.cpick{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;display:flex;gap:5px;z-index:3}
 .cdots{pointer-events:none;transition:opacity .15s}
-.cdot{width:11px;height:11px;border-radius:50%;opacity:.72;box-shadow:0 0 0 1.6px rgba(0,0,0,.4)}
+.cdot{width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 1.6px rgba(0,0,0,.4)}
 .cpick{z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;padding:5px 7px;background:rgba(12,12,14,.5);backdrop-filter:blur(6px);border-radius:999px}
 .tile:hover .cpick{opacity:1;pointer-events:auto}
 .tile:hover .cdots{opacity:0}
