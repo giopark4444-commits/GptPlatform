@@ -6078,9 +6078,21 @@ class H(BaseHTTPRequestHandler):
                 final_b64 = ev.get("b64_json") or final_b64
                 usage = ev.get("usage") or usage
         if not final_b64:
-            self._emit({"type": "error", "error": "El streaming no devolvió la imagen final."})
-            return
+            return False   # sin imagen final → el llamador reintenta sin streaming
         res = self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model_used)
+        self._emit({"type": "done", "result": res})
+        return True
+
+    def _stream_fallback(self, url, payload_or_body, hdr, meta, model_used, via_visual=False):
+        # el streaming se cayó (o no entregó imagen): reintenta SIN streaming para que la imagen no se pierda
+        data_bytes = payload_or_body if isinstance(payload_or_body, (bytes, bytearray)) else json.dumps(payload_or_body).encode()
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, data=data_bytes, headers=hdr), timeout=240) as r:
+                data = json.loads(r.read())
+        except Exception as e:
+            self._stream_err(e)
+            return
+        res = self._save_results(data, meta, via_visual, model_used)
         self._emit({"type": "done", "result": res})
 
     def _stream_err(self, e):
@@ -7199,12 +7211,16 @@ class H(BaseHTTPRequestHandler):
             payload["stream"] = True
             payload["partial_images"] = partial
             self._stream_open()
+            ok = False
             try:
                 req = urllib.request.Request(API_GEN, data=json.dumps(payload).encode(), headers={**hdr, "Accept": "text/event-stream"})
                 with urllib.request.urlopen(req, timeout=300) as r:
-                    self._pump_sse(r, meta, model)
-            except Exception as e:
-                self._stream_err(e)
+                    ok = self._pump_sse(r, meta, model)
+            except Exception:
+                ok = False   # conexión SSE caída → respaldo sin streaming
+            if not ok:
+                fb = {k: v for k, v in payload.items() if k not in ("stream", "partial_images")}
+                self._stream_fallback(API_GEN, fb, hdr, meta, model)
             return
         try:
             with urllib.request.urlopen(urllib.request.Request(API_GEN, data=json.dumps(payload).encode(),
@@ -7279,22 +7295,27 @@ class H(BaseHTTPRequestHandler):
                 "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
         stream = partial > 0 and int(b.get("n", 1)) == 1
-        if stream:
-            field("stream", "true")
-            field("partial_images", str(partial))
-        parts.append(f"--{boundary}--\r\n".encode())
+        closing = f"--{boundary}--\r\n".encode()
+        nostream_body = b"".join(parts) + closing   # cuerpo sin streaming (para respaldo y modo normal)
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
         if stream:   # preview en vivo (imágenes parciales)
+            field("stream", "true")
+            field("partial_images", str(partial))
+            parts.append(closing)
+            stream_body = b"".join(parts)
             self._stream_open()
+            ok = False
             try:
-                req = urllib.request.Request(API_EDIT, data=b"".join(parts), headers={**hdr, "Accept": "text/event-stream"})
+                req = urllib.request.Request(API_EDIT, data=stream_body, headers={**hdr, "Accept": "text/event-stream"})
                 with urllib.request.urlopen(req, timeout=300) as r:
-                    self._pump_sse(r, meta, model)
-            except Exception as e:
-                self._stream_err(e)
+                    ok = self._pump_sse(r, meta, model)
+            except Exception:
+                ok = False   # conexión SSE caída → respaldo sin streaming
+            if not ok:
+                self._stream_fallback(API_EDIT, nostream_body, hdr, meta, model, via_visual)
             return
         try:
-            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts), headers=hdr), timeout=300) as r:
+            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=nostream_body, headers=hdr), timeout=300) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
