@@ -6,6 +6,8 @@ Sistema visual del Estudio (app local, una sola página servida por `server.py`)
 
 Dark, refinado y utilitario (referencia mental: Linear / Vercel / Arc). Fondo casi negro con un brillo ámbar muy sutil arriba a la derecha. El acento ámbar se usa con moderación: estados activos, valores numéricos y el costo. La acción primaria es blanca (alto contraste sobre el negro).
 
+> La app ofrece **6 temas seleccionables en Ajustes** (3 oscuros: Carbón, Medianoche, Neón · 3 claros: Día, Bruma, Crema). La paleta de abajo es el **tema oscuro por defecto**; los demás reusan los mismos tokens con otros valores.
+
 Estrategia de color: **Restrained** (neutros tintados + un acento ≤10%).
 
 ## Color Palette
