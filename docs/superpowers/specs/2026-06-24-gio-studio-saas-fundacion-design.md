@@ -18,8 +18,18 @@ sub-proyecto 1.**
 
 - **Cobro:** modelo de **créditos con margen** (Gio pone la llave de OpenAI y revende por uso).
   La facturación automática (Stripe/Dodo) se difiere a un sub-proyecto posterior.
-- **Almacenamiento:** Gio aloja las generaciones en object storage por defecto; el export a
-  Drive/Dropbox del usuario se difiere a un sub-proyecto posterior.
+- **Almacenamiento (modelo Free vs Premium):**
+  - **Historial:** SIEMPRE en object storage del SaaS (visible en todos los dispositivos, incl. iPhone).
+  - **"Mis imágenes" en Free:** carpeta **local** conectada — solo en **Chrome/Edge de escritorio**
+    (File System Access API); los archivos se quedan en el disco del usuario, no se suben. En
+    Safari/Firefox/iPhone/iPad NO está disponible en Free (se muestra un aviso para conectar desde
+    escritorio Chromium o pasarse a Premium).
+  - **Premium:** se sube TODO a la nube (historial + "Mis imágenes") → visible en todos los
+    dispositivos, incl. iPhone.
+  - **Opción adicional (sub-proyecto posterior):** conector OAuth a **Google Drive / Dropbox** como
+    fuente alternativa de "Mis imágenes". Da una carpeta multiplataforma (funciona en Safari/iPhone/
+    iPad) sin Premium y sin que Gio aloje nada (las imágenes quedan en la nube del propio usuario).
+    No entra en el v1; queda como sub-proyecto opcional.
 - **Alcance v1:** **solo imagen** (gpt-image-2). Audio y video, después.
 - **Primer hito:** **beta privada** — cuentas + datos por usuario + galería en la nube + créditos
   asignados a mano. **Sin** cobro automático todavía.
@@ -72,7 +82,7 @@ Todas las tablas con **RLS por `auth.uid() = user_id`** (aislamiento total entre
 
 | Tabla | Para qué | Campos clave |
 |---|---|---|
-| `profiles` | usuario | `id` (=auth user), `email`, `display_name`, `role`, `created_at` |
+| `profiles` | usuario | `id` (=auth user), `email`, `display_name`, `role`, `plan`(free/premium), `created_at` |
 | `credits` | saldo | `user_id`, `balance_usd`, `updated_at` |
 | `credit_ledger` | auditoría de cargos/abonos | `id`, `user_id`, `delta_usd`, `reason`, `generation_id`, `created_at` |
 | `projects` | "memoria de proyecto" | `id`, `user_id`, `name`, `memory_text`, `created_at` |
@@ -212,5 +222,7 @@ re-clonar a ciegas ni perder las adaptaciones del SaaS. Mecanismo:
 
 - Cobro automático y autoservicio (Stripe/Dodo, compra de créditos, registro abierto).
 - Anti-abuso/hardening (rate limits, topes, moderación, detección de fraude).
-- Export a Drive/Dropbox (OAuth, bring-your-own-storage).
+- Conector Google Drive/Dropbox (OAuth) como fuente alternativa de "Mis imágenes" (lectura
+  multiplataforma, incl. iPhone) y export/respaldo. Opción deseada por Gio, pero su propio
+  sub-proyecto; no entra en v1.
 - Audio y video.
