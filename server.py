@@ -4758,6 +4758,14 @@ $('shelfGrid').addEventListener('click',e=>{
  target.forEach(cd=>{if(allSel)shelfSel.delete(cd.dataset.shelf);else shelfSel.add(cd.dataset.shelf)});
  renderShelf();renderShelfBulk();
 },true);
+// salir del modo selección de Mis imágenes al hacer clic fuera (no en el estante, la barra de acciones o un popup)
+function exitShelfSel(){if(!shelfSelMode)return;shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');renderShelf();renderShelfBulk();}
+document.addEventListener('click',e=>{
+ if(!shelfSelMode||shMarqueed)return;
+ if(e.target.closest('#shelf')||e.target.closest('#shelfBulk')||e.target.closest('.movepop')||e.target.closest('.sharepop'))return;
+ exitShelfSel();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&shelfSelMode){const t=(document.activeElement||{}).tagName;if(t==='INPUT'||t==='TEXTAREA')return;exitShelfSel();}});
 // ── Mis imágenes: modo selección (clic + arrastre de recuadro) ──────────────
 $('shelfSelBtn').onclick=()=>{shelfSelMode=!shelfSelMode;shelfSel.clear();
  if(shelfSelMode&&selMode){selMode=false;selFiles.clear();renderGal();renderBulk();}  // evita dos barras a la vez
