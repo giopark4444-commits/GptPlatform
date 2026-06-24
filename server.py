@@ -923,11 +923,11 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  overflow:hidden;background:var(--surface);position:relative;
  background-image:linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%),linear-gradient(45deg,rgba(255,255,255,.012) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.012) 75%);
  background-size:24px 24px;background-position:0 0,12px 12px}
-.genchip{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;
+.genchip{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;
  background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line2);border-radius:20px;
  padding:8px 16px;font-size:12.5px;font-weight:500;color:var(--txt);box-shadow:0 8px 28px rgba(0,0,0,.28)}
 .genchip:not(.hide){animation:genchipin .25s ease}
-@keyframes genchipin{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes genchipin{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
 .genchip .gcdot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:gcpulse 1s ease-in-out infinite}
 @keyframes gcpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 .dzhi{outline:2px dashed var(--accent)!important;outline-offset:3px;border-radius:10px;background:var(--accent-dim)!important;transition:.12s}
@@ -3135,6 +3135,19 @@ async function shelfMoveOne(file,srcSub,dest,dest_sub,destSrc){const proj=curPro
  pushUndo({label:'1 movida',
   undo:async()=>{const rr=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to);await loadShelf();await loadGal();},
   redo:async()=>{const rr=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to);await loadShelf();await loadGal();}})}
+async function shelfMoveMany(arr,dest_sub){const proj=curProj();
+ const byd={};arr.forEach(it=>{const s=it.sub||'';if(s!==dest_sub)(byd[s]=byd[s]||[]).push(it.file)});
+ const groups=[];let moved=0;
+ for(const s of Object.keys(byd)){const r=await jpost('/moveitem',{src:'shelf',files:byd[s],project:proj,sub:s,dest:proj,dest_sub:dest_sub,dest_src:'shelf',mode:'move'});
+  if(r&&r.error){toast(r.error,'bad');continue}
+  if(r&&r.pairs){moved+=r.pairs.length;groups.push({srcSub:s,names:r.pairs.map(p=>p.to)});}}
+ shelfSelMode=false;shelfSel.clear();renderShelfBulk();await loadShelf();
+ if(!moved){toast('Ya estaban en ese subproyecto');return}
+ const subs=curSubs(),lbl=dest_sub?((subs.find(s=>s.key===dest_sub)||{}).label||dest_sub):'Raíz';
+ toast(moved+' movida(s) a '+lbl+' · ⌘Z para deshacer');
+ pushUndo({label:moved+' movida(s)',
+  undo:async()=>{for(const g of groups){const rr=await jpost('/moveitem',{src:'shelf',files:g.names,project:proj,sub:dest_sub,dest:proj,dest_sub:g.srcSub,dest_src:'shelf',mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to)}await loadShelf();},
+  redo:async()=>{for(const g of groups){const rr=await jpost('/moveitem',{src:'shelf',files:g.names,project:proj,sub:g.srcSub,dest:proj,dest_sub:dest_sub,dest_src:'shelf',mode:'move'});if(rr&&rr.pairs)g.names=rr.pairs.map(x=>x.to)}await loadShelf();}});}
 function openShelfMovePop(anchor,file,srcSub){closeMovePop();
  const tgts=moveTargets();let pdest='shelf';
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
@@ -4617,6 +4630,8 @@ $('shelfGrid').addEventListener('drop',async e=>{
  e.preventDefault();e.stopPropagation();
  [...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));const sh=$('shelf');if(sh)sh.classList.remove('dragover');
  const tgtSub=sec.dataset.sub||'';
+ const multiShelf=e.dataTransfer.getData('text/x-studio-shelfs');   // selección múltiple: mover TODAS
+ if(multiShelf){try{const arr=JSON.parse(multiShelf);if(arr.length>1){await shelfMoveMany(arr,tgtSub);return;}}catch(_){}}
  if(shelfFile){const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';if(srcSub===tgtSub)return;await shelfMoveOne(shelfFile,srcSub,curProj(),tgtSub,'shelf');return;}
  const imgs=await imagesFromDT(e.dataTransfer);   // imagen(es) del historial → copiar a Mis imágenes de esa sección
  if(imgs.length)await shelfAddTo(imgs,tgtSub);});
