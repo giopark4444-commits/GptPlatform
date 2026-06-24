@@ -3155,15 +3155,29 @@ async function bulkMoveTo(dest,dest_sub,destSrc){destSrc=destSrc||'history';
   pushUndo({label:moved+' movida(s)',
    undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadGal();loadShelf();},
    redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadGal();loadShelf();}})}}
-function openMovePop(anchor){closeMovePop();
+// copiar (duplicar) la selección del Historial a otro proyecto/sub (Historial o Mis imágenes), con deshacer
+async function bulkCopyTo(dest,dest_sub,destSrc){destSrc=destSrc||'history';
+ const proj=curProj();const byd={};for(const f of selFiles){const s=selFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+ let done=0;const groups=[];
+ for(const ssub of Object.keys(byd)){
+  const r=await jpost('/moveitem',{src:'history',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,dest_src:destSrc,mode:'copy'});
+  if(r&&r.error){toast(r.error,'bad');continue}
+  if(r&&r.pairs){done+=r.pairs.length;groups.push({srcP:proj,srcS:ssub,srcFiles:byd[ssub],dstP:dest,dstS:dest_sub,dstK:destSrc,names:r.pairs.map(x=>x.to)});}}
+ closeMovePop();selMode=false;selFiles.clear();await loadGal();if(destSrc==='shelf')loadShelf();renderBulk();
+ if(!done){toast('No se pudo copiar','bad');return}
+ toast(done+' copiada(s) a '+(destSrc==='shelf'?'Mis imágenes':'el proyecto')+' · ⌘Z para deshacer');
+ pushUndo({label:done+' copiada(s)',
+  undo:async()=>{for(const g of groups){await jpost('/deleteitems',{src:g.dstK,project:g.dstP,sub:g.dstS,files:g.names})}await loadGal();if(destSrc==='shelf')loadShelf();},
+  redo:async()=>{for(const g of groups){const r=await jpost('/moveitem',{src:'history',files:g.srcFiles,project:g.srcP,sub:g.srcS,dest:g.dstP,dest_sub:g.dstS,dest_src:g.dstK,mode:'copy'});if(r&&r.pairs)g.names=r.pairs.map(x=>x.to)}await loadGal();if(destSrc==='shelf')loadShelf();}})}
+function openMovePop(anchor,mode){mode=mode||'move';closeMovePop();
  const tgts=moveTargets();let pdest='history';
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
- pop.innerHTML='<div class="mphdr">'+trVal('Mover a…',LANG)+'</div><div class="mpdest"><button data-d="history" class="on">'+trVal('Historial',LANG)+'</button><button data-d="shelf">'+trVal('Mis imágenes',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ pop.innerHTML='<div class="mphdr">'+trVal(mode==='copy'?'Copiar a…':'Mover a…',LANG)+'</div><div class="mpdest"><button data-d="history" class="on">'+trVal('Historial',LANG)+'</button><button data-d="shelf">'+trVal('Mis imágenes',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
  document.body.appendChild(pop);
  const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
- pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];bulkMoveTo(t.project,t.sub,pdest)}}
+ pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];(mode==='copy'?bulkCopyTo:bulkMoveTo)(t.project,t.sub,pdest)}}
 // mover UNA imagen de Mis imágenes (estante) a otro proyecto/sub (o al Historial), con deshacer
 async function shelfMoveOne(file,srcSub,dest,dest_sub,destSrc){const proj=curProj();
  if(destSrc==='shelf'&&proj===dest&&srcSub===dest_sub){toast('Ya está en ese lugar');return}
@@ -3212,15 +3226,29 @@ async function bulkShelfMoveTo(dest,dest_sub,destSrc){destSrc=destSrc||'shelf';
  pushUndo({label:moved+' movida(s)',
   undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadShelf();loadGal();},
   redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadShelf();loadGal();}})}
-function openShelfBulkMovePop(anchor){closeMovePop();
+// copiar (duplicar) la selección de Mis imágenes a otro proyecto/sub (Mis imágenes o Historial), con deshacer
+async function bulkShelfCopyTo(dest,dest_sub,destSrc){destSrc=destSrc||'shelf';
+ const proj=curProj();const byd={};for(const f of shelfSel){const s=shelfFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+ let done=0;const groups=[];
+ for(const ssub of Object.keys(byd)){
+  const r=await jpost('/moveitem',{src:'shelf',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,dest_src:destSrc,mode:'copy'});
+  if(r&&r.error){toast(r.error,'bad');continue}
+  if(r&&r.pairs){done+=r.pairs.length;groups.push({srcP:proj,srcS:ssub,srcFiles:byd[ssub],dstP:dest,dstS:dest_sub,dstK:destSrc,names:r.pairs.map(x=>x.to)});}}
+ closeMovePop();shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');await loadShelf();if(destSrc==='history')await loadGal();renderShelfBulk();
+ if(!done){toast('No se pudo copiar','bad');return}
+ toast(done+' copiada(s) a '+(destSrc==='history'?'Historial':'Mis imágenes')+' · ⌘Z para deshacer');
+ pushUndo({label:done+' copiada(s)',
+  undo:async()=>{for(const g of groups){await jpost('/deleteitems',{src:g.dstK,project:g.dstP,sub:g.dstS,files:g.names})}await loadShelf();if(destSrc==='history')loadGal();},
+  redo:async()=>{for(const g of groups){const r=await jpost('/moveitem',{src:'shelf',files:g.srcFiles,project:g.srcP,sub:g.srcS,dest:g.dstP,dest_sub:g.dstS,dest_src:g.dstK,mode:'copy'});if(r&&r.pairs)g.names=r.pairs.map(x=>x.to)}await loadShelf();if(destSrc==='history')loadGal();}})}
+function openShelfBulkMovePop(anchor,mode){mode=mode||'move';closeMovePop();
  const tgts=moveTargets();let pdest='shelf';
  const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
- pop.innerHTML='<div class="mphdr">'+trVal('Mover a…',LANG)+'</div><div class="mpdest"><button data-d="shelf" class="on">'+trVal('Mis imágenes',LANG)+'</button><button data-d="history">'+trVal('Historial',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ pop.innerHTML='<div class="mphdr">'+trVal(mode==='copy'?'Copiar a…':'Mover a…',LANG)+'</div><div class="mpdest"><button data-d="shelf" class="on">'+trVal('Mis imágenes',LANG)+'</button><button data-d="history">'+trVal('Historial',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
  document.body.appendChild(pop);
  const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
- pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];closeMovePop();bulkShelfMoveTo(t.project,t.sub,pdest)}}
+ pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];closeMovePop();(mode==='copy'?bulkShelfCopyTo:bulkShelfMoveTo)(t.project,t.sub,pdest)}}
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
@@ -3229,11 +3257,13 @@ function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hid
   +'<button id="bulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
   +'<button id="bulkMove">'+GCM+'Mover</button>'
+  +'<button id="bulkCopy">'+GCP+'Copiar</button>'
   +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="bulkExit">Salir</button>';
  $('bulkAll').onclick=()=>{[...document.querySelectorAll('#gal .gcard')].forEach(c=>selFiles.add(c.dataset.file));renderGal();renderBulk()};
  $('bulkNone').onclick=()=>{selFiles.clear();renderGal();renderBulk()};
- $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget)};
+ $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget,'move')};
+ $('bulkCopy').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget,'copy')};
  $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
   let n=0;for(const f of selFiles){const it=hist.find(x=>x.file===f);if(it&&(it.prompt||'').trim()){try{await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:it.prompt})});n++}catch(e){}}}
@@ -4778,12 +4808,14 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
   +'<button id="shBulkAll" title="Seleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todo</button>'
   +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="shBulkMove">'+GCM+'Mover</button>'
+  +'<button id="shBulkCopy">'+GCP+'Copiar</button>'
   +'<button id="shBulkShare">'+GSHARE+'Compartir</button>'
   +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="shBulkExit">Salir</button>';
  $('shBulkAll').onclick=()=>{[...document.querySelectorAll('#shelfGrid .scard')].forEach(c=>shelfSel.add(c.dataset.shelf));renderShelf();renderShelfBulk()};
  $('shBulkNone').onclick=()=>{shelfSel.clear();renderShelf();renderShelfBulk()};
- $('shBulkMove').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget)};
+ $('shBulkMove').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'move')};
+ $('shBulkCopy').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'copy')};
  $('shBulkShare').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
   const items=[...shelfSel].map(f=>({url:'/shelffile?name='+encodeURIComponent(f)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(shelfFileSub(f)),filename:f}));
   openSharePopMulti(e.currentTarget,items)};
