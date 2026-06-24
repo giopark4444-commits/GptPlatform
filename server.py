@@ -734,6 +734,16 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .histgrouphdr{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:0 0 8px}
 .shelfsec.secdrop{outline:2px dashed var(--accent);outline-offset:3px;border-radius:10px;background:var(--accent-dim)}
 .shelfsec.secdrop .histgrouphdr{border-color:var(--accent);color:var(--accent)}
+.shelfsec .histgrouphdr{display:flex;align-items:center;gap:10px}
+.shelfsec .histgrouphdr .ghname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secacts{display:flex;align-items:center;gap:7px;flex:none}
+.secdots{display:flex;gap:4px}
+.secdot{width:13px;height:13px;border-radius:50%;border:0;cursor:pointer;padding:0;opacity:.8;transition:.12s}
+.secdot:hover{opacity:1;transform:scale(1.15)}
+.secdot.r{background:#e5484d}.secdot.y{background:#f5b400}.secdot.g{background:#46a758}.secdot.b{background:#3b82f6}
+.secbtn{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--surface);border:1px solid var(--line2);color:var(--mut);cursor:pointer;padding:0}
+.secbtn:hover{color:var(--txt);border-color:var(--mut)}
+.secbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
 .movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
 .movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
 .movepop .mpdest{display:flex;gap:3px;padding:3px;margin:0 4px 6px;background:var(--surface2);border-radius:9px}
@@ -2192,7 +2202,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><span class="cfilt" id="galColFilt" title="Filtrar por color"><button class="cfdot r" data-col="r" title="Rojo"></button><button class="cfdot y" data-col="y" title="Amarillo"></button><button class="cfdot g" data-col="g" title="Verde"></button><button class="cfdot b" data-col="b" title="Azul"></button></span><select id="galSort" class="ghost sm galsort" title="Organizar las imágenes del historial"><option value="">Organizar ▾</option><option value="new">Fecha de creación · recientes primero</option><option value="old">Fecha de creación · antiguas primero</option><option value="name">Nombre del prompt (A→Z)</option></select><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
+      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><span class="cfilt" id="galColFilt" title="Filtrar por color"><button class="cfdot r" data-col="r" title="Rojo"></button><button class="cfdot y" data-col="y" title="Amarillo"></button><button class="cfdot g" data-col="g" title="Verde"></button><button class="cfdot b" data-col="b" title="Azul"></button></span><select id="galSort" class="ghost sm galsort" title="Organizar las imágenes del historial"><option value="">Organizar ▾</option><option value="new">Fecha de creación · recientes primero</option><option value="old">Fecha de creación · antiguas primero</option><option value="name">Nombre del prompt (A→Z)</option></select><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <div class="subchips" id="galSubChips"></div>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
@@ -3043,17 +3053,6 @@ function curProj(){return $('projSel')?($('projSel').value||''):''}
 $('galAll').onclick=()=>{const p=encodeURIComponent(curProj()),fav=$('galFavBtn').classList.contains('on');
  const sp=galSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...galSubs].join(',')));
  window.open('/galeria?'+(fav?'fav=1&':'')+'project='+p+sp,'_blank','noopener');};
-$('galCopyShelf').onclick=async()=>{
- const body=activeSub?{project:curProj(),sub:activeSub}:{project:curProj(),allsubs:true};
- const scope=activeSub?('«'+activeSub+'»'):('todo «'+(curProj()||genLabel)+'» (incluye subproyectos)');
- if(!confirm('¿Copiar todas las imágenes del historial de '+scope+' a Mis imágenes?'))return;
- try{const r=await jpost('/shelfcopyall',body);
-  if(r&&r.ok){loadShelf();const proj=curProj();const created=(r.created||[]).slice();
-   toast(r.added>0?(r.added+' copiada(s) a Mis imágenes ✓'+(created.length?' · ⌘Z para deshacer':'')):'Ya estaban todas en Mis imágenes');
-   if(created.length)pushUndo({label:created.length+' copiada(s) a Mis imágenes',
-    undo:async()=>{const byd={};created.forEach(c=>{(byd[c.sub||'']=byd[c.sub||'']||[]).push(c.file)});for(const s of Object.keys(byd)){await jpost('/deleteitems',{src:'shelf',project:proj,sub:s,files:byd[s]})}loadShelf();},
-    redo:async()=>{const rr=await jpost('/shelfcopyall',body);created.length=0;(rr.created||[]).forEach(c=>created.push(c));loadShelf();}});
-  }else toast((r&&r.error)||'No se pudo copiar','bad');}catch(e){toast('No se pudo copiar','bad')}};
 // las ventanas "Ver todo" dejan imágenes en el servidor (/stage); el estudio las recoge (real, no depende del navegador)
 async function addRefFromServer(src,file,project,sub){try{
  const pq='&project='+encodeURIComponent(project||'')+'&sub='+encodeURIComponent(sub||'');
@@ -3198,6 +3197,30 @@ function openShelfMovePop(anchor,file,srcSub){closeMovePop();
  let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
  pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
  pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];closeMovePop();shelfMoveOne(file,srcSub,t.project,t.sub,pdest)}}
+// mover en LOTE la selección de Mis imágenes a cualquier proyecto/sub (Mis imágenes o Historial)
+async function bulkShelfMoveTo(dest,dest_sub,destSrc){destSrc=destSrc||'shelf';
+ const proj=curProj();const byd={};for(const f of shelfSel){const s=shelfFileSub(f);(byd[s]=byd[s]||[]).push(f)}
+ let moved=0;const groups=[];
+ for(const ssub of Object.keys(byd)){
+  if(destSrc==='shelf'&&proj===dest&&ssub===dest_sub)continue;
+  const r=await jpost('/moveitem',{src:'shelf',files:byd[ssub],project:proj,sub:ssub,dest:dest,dest_sub:dest_sub,dest_src:destSrc,mode:'move'});
+  if(r&&r.error){toast(r.error,'bad');continue}moved+=byd[ssub].length;
+  if(r&&r.pairs)groups.push({a:{p:proj,s:ssub,k:'shelf'},b:{p:dest,s:dest_sub,k:destSrc},names:r.pairs.map(x=>x.to),at:'b'})}
+ closeMovePop();shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');await loadShelf();if(destSrc==='history')await loadGal();renderShelfBulk();
+ if(!moved){toast('Ya estaban en ese lugar');return}
+ toast(moved+' movida(s) · ⌘Z para deshacer');
+ pushUndo({label:moved+' movida(s)',
+  undo:async()=>{for(const g of groups){if(g.at!=='b')continue;const r=await jpost('/moveitem',{src:g.b.k,files:g.names,project:g.b.p,sub:g.b.s,dest:g.a.p,dest_sub:g.a.s,dest_src:g.a.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='a'}}await loadShelf();loadGal();},
+  redo:async()=>{for(const g of groups){if(g.at!=='a')continue;const r=await jpost('/moveitem',{src:g.a.k,files:g.names,project:g.a.p,sub:g.a.s,dest:g.b.p,dest_sub:g.b.s,dest_src:g.b.k,mode:'move'});if(r&&r.pairs){g.names=r.pairs.map(x=>x.to);g.at='b'}}await loadShelf();loadGal();}})}
+function openShelfBulkMovePop(anchor){closeMovePop();
+ const tgts=moveTargets();let pdest='shelf';
+ const pop=document.createElement('div');pop.className='movepop';pop.id='movePop';
+ pop.innerHTML='<div class="mphdr">'+trVal('Mover a…',LANG)+'</div><div class="mpdest"><button data-d="shelf" class="on">'+trVal('Mis imágenes',LANG)+'</button><button data-d="history">'+trVal('Historial',LANG)+'</button></div>'+tgts.map((t,i)=>'<button class="mpopt" data-i="'+i+'">'+esc(t.label)+'</button>').join('');
+ document.body.appendChild(pop);
+ const r=anchor.getBoundingClientRect();const popH=pop.offsetHeight,popW=pop.offsetWidth;
+ let top=r.bottom+6;if(top+popH>window.innerHeight-8)top=Math.max(8,r.top-popH-6);
+ pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-popW-12))+'px';pop.style.top=top+'px';
+ pop.onclick=e=>{const d=e.target.closest('.mpdest button');if(d){pdest=d.dataset.d;[...pop.querySelectorAll('.mpdest button')].forEach(x=>x.classList.toggle('on',x===d));return}const b=e.target.closest('.mpopt');if(!b)return;const t=tgts[+b.dataset.i];closeMovePop();bulkShelfMoveTo(t.project,t.sub,pdest)}}
 function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hide');closeMovePop();return}
  if(bar.parentNode!==document.body)document.body.appendChild(bar);  // fixed relativo al viewport (un ancestro con transform lo descentraba)
  bar.classList.remove('hide');
@@ -3440,6 +3463,26 @@ function openSharePop(anchor,url,filename){closeSharePop();
   const ok=await _copyImg(url),links={wa:'https://web.whatsapp.com/',tg:'https://web.telegram.org/',ig:'https://www.instagram.com/',fb:'https://www.facebook.com/',x:'https://twitter.com/intent/tweet'},nm={wa:'WhatsApp',tg:'Telegram',ig:'Instagram',fb:'Facebook',x:'X'}[k];
   window.open(links[k],'_blank','noopener');
   toast(ok?('Imagen copiada — pégala con ⌘V en '+nm):('Abre '+nm+' y adjunta la imagen'));};
+ setTimeout(()=>document.addEventListener('click',_shareOutside,true),0);}
+async function _nativeShareMany(items){try{const files=[];for(const it of items){const b=await _imgBlob(it.url);files.push(new File([b],it.filename||'imagen.png',{type:b.type||'image/png'}));}
+ if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files,title:'Imágenes · Gio Studio'});return true;}}catch(e){if(e&&e.name==='AbortError')return true;}return false;}
+// compartir una selección (varias imágenes): sistema = todas; redes/copiar = la primera (las redes aceptan una a la vez)
+function openSharePopMulti(anchor,items){closeSharePop();
+ if(items.length<=1){return openSharePop(anchor,items[0].url,items[0].filename);}
+ const pop=document.createElement('div');pop.className='sharepop';pop.id='sharePop';
+ const opts=[['sys','Compartir todas (apps del sistema)…'],['wa','WhatsApp'],['tg','Telegram'],['ig','Instagram'],['fb','Facebook'],['x','X (Twitter)'],['copy','Copiar la primera'],['dl','Descargar todas']];
+ pop.innerHTML=opts.map(o=>'<button data-k="'+o[0]+'">'+o[1]+'</button>').join('');
+ document.body.appendChild(pop);
+ const r=anchor.getBoundingClientRect();
+ pop.style.left=Math.max(8,Math.min(r.right-pop.offsetWidth,window.innerWidth-pop.offsetWidth-8))+'px';
+ let top=r.bottom+6;if(top+pop.offsetHeight>window.innerHeight-8)top=Math.max(8,r.top-pop.offsetHeight-6);pop.style.top=top+'px';
+ pop.onclick=async e=>{const b=e.target.closest('button');if(!b)return;e.stopPropagation();const k=b.dataset.k;closeSharePop();
+  if(k==='sys'){if(!await _nativeShareMany(items))toast('Tu navegador no permite compartir varios archivos aquí; usa «Descargar todas»','bad');return;}
+  if(k==='dl'){for(const it of items){const a=document.createElement('a');a.href=it.url;a.download=it.filename||'imagen.png';document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,120));}return;}
+  if(k==='copy'){const ok=await _copyImg(items[0].url);toast(ok?'Primera imagen copiada ✓ · pégala donde quieras':'No se pudo copiar',ok?'':'bad');return;}
+  const ok=await _copyImg(items[0].url),links={wa:'https://web.whatsapp.com/',tg:'https://web.telegram.org/',ig:'https://www.instagram.com/',fb:'https://www.facebook.com/',x:'https://twitter.com/intent/tweet'},nm={wa:'WhatsApp',tg:'Telegram',ig:'Instagram',fb:'Facebook',x:'X'}[k];
+  window.open(links[k],'_blank','noopener');
+  toast(ok?('Copié la primera — pégala con ⌘V en '+nm+' (las redes aceptan una a la vez)'):('Abre '+nm+' y adjunta las imágenes'));};
  setTimeout(()=>document.addEventListener('click',_shareOutside,true),0);}
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
@@ -4597,9 +4640,11 @@ function renderShelf(){
  $('shelfGrid').classList.toggle('selmode',shelfSelMode);
  const cf=shelfColFilter,passC=it=>!cf.size||((it.colors||[]).some(c=>cf.has(c)));
  if(shelfGroups.length>1){const subs=curSubs();
+  const cn={r:'rojas',y:'amarillas',g:'verdes',b:'azules'};
+  const secActs='<span class="secacts"><span class="secdots">'+IMGCOLS.map(c=>'<button class="secdot '+c+'" data-col="'+c+'" title="Seleccionar las imágenes '+cn[c]+' de este proyecto"></button>').join('')+'</span><button class="secbtn secall" title="Seleccionar todo lo de este proyecto"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button><button class="secbtn secshare" title="Compartir las imágenes de este proyecto">'+GSHARE+'</button></span>';
   $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
    const inner=(g.items||[]).filter(passC).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
-   return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr">${esc(lbl)}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
+   return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr"><span class="ghname">${esc(lbl)}</span>${secActs}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
  }else{
   $('shelfGrid').innerHTML=shelfItems.filter(passC).map(it=>scardHtml(it)).join('');
  }}
@@ -4611,10 +4656,10 @@ async function shelfAddTo(imgs,sub){if(!imgs.length)return;
  await loadShelf();
  const n=imgs.length-(r.skipped?r.skipped.length:0);
  if(n>0){const subs=curSubs();const lbl=sub?((subs.find(s=>s.key===sub)||{}).label||sub):'Raíz';toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en Mis imágenes · '+lbl);}}
-async function shelfAddFiles(files){const imgs=[];let bad=0;
+async function shelfAddFiles(files,sub){const imgs=[];let bad=0;
  for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
- await shelfAddImages(imgs);}
+ await shelfAddTo(imgs,sub===undefined?activeSub:sub);}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
 $('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...shelfSubs].join(',')));window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj())+sp,'_blank','noopener')};
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
@@ -4667,7 +4712,7 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
 const ANGSEC_TYPES=['text/x-studio-shelf','text/x-studio-file','text/x-studio-files'];
 $('shelfGrid').addEventListener('dragover',e=>{
  if(reorderDrag&&reorderDrag.grid===$('shelfGrid')){gridReorderOver(e,$('shelfGrid'),'.scard');if(e.defaultPrevented){[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));return;}}
- const t=[...e.dataTransfer.types];if(!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
+ const t=[...e.dataTransfer.types];if(t.indexOf('Files')<0&&!ANGSEC_TYPES.some(x=>t.indexOf(x)>=0))return;const sec=e.target.closest('.shelfsec');if(!sec)return;e.preventDefault();e.stopPropagation();[...$('shelfGrid').querySelectorAll('.shelfsec.secdrop')].forEach(x=>x.classList.remove('secdrop'));sec.classList.add('secdrop')});
 $('shelfGrid').addEventListener('dragleave',e=>{const sec=e.target.closest('.shelfsec');if(sec&&!sec.contains(e.relatedTarget))sec.classList.remove('secdrop')});
 $('shelfGrid').addEventListener('drop',async e=>{
  if(reorderDrag&&reorderDrag.grid===$('shelfGrid')){
@@ -4680,16 +4725,39 @@ $('shelfGrid').addEventListener('drop',async e=>{
  }
  const sec=e.target.closest('.shelfsec');if(!sec)return;
  const shelfFile=e.dataTransfer.getData('text/x-studio-shelf'),histFile=e.dataTransfer.getData('text/x-studio-file'),histMulti=e.dataTransfer.getData('text/x-studio-files');
- if(!shelfFile&&!histFile&&!histMulti)return;
+ const extFiles=(e.dataTransfer.files&&e.dataTransfer.files.length)?[...e.dataTransfer.files]:[];
+ if(!shelfFile&&!histFile&&!histMulti&&!extFiles.length)return;
  e.preventDefault();e.stopPropagation();
  [...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'));const sh=$('shelf');if(sh)sh.classList.remove('dragover');
  const tgtSub=sec.dataset.sub||'';
+ if(extFiles.length){const vid=extFiles.find(isVideoFile);   // archivos del SO → directo al subproyecto de esta sección
+  if(vid){openVideoFrames(vid,'shelf');const ims=extFiles.filter(f=>!isVideoFile(f));if(ims.length)await shelfAddFiles(ims,tgtSub);if(extFiles.filter(isVideoFile).length>1)toast('Solo proceso un video a la vez','bad');return;}
+  await shelfAddFiles(extFiles,tgtSub);return;}
  const multiShelf=e.dataTransfer.getData('text/x-studio-shelfs');   // selección múltiple: mover TODAS
  if(multiShelf){try{const arr=JSON.parse(multiShelf);if(arr.length>1){await shelfMoveMany(arr,tgtSub);return;}}catch(_){}}
  if(shelfFile){const srcSub=e.dataTransfer.getData('text/x-studio-shelfsub')||'';if(srcSub===tgtSub)return;await shelfMoveOne(shelfFile,srcSub,curProj(),tgtSub,'shelf');return;}
  const imgs=await imagesFromDT(e.dataTransfer);   // imagen(es) del historial → copiar a Mis imágenes de esa sección
  if(imgs.length)await shelfAddTo(imgs,tgtSub);});
 $('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorAll('.secdrop')].forEach(x=>x.classList.remove('secdrop'))});
+// controles en la cabecera de cada sección (proyecto/subproyecto): por color, todo, compartir — solo lo de ESA sección
+function enterShelfSel(){if(!shelfSelMode){shelfSelMode=true;if(selMode){selMode=false;selFiles.clear();renderGal();renderBulk();}$('shelfSelBtn').classList.add('on');}}
+$('shelfGrid').addEventListener('click',e=>{
+ const sd=e.target.closest('.secdot'),sa=e.target.closest('.secall'),ss=e.target.closest('.secshare');
+ if(!sd&&!sa&&!ss)return;
+ e.preventDefault();e.stopPropagation();
+ const sec=e.target.closest('.shelfsec');if(!sec)return;
+ const sub=sec.dataset.sub||'',cards=[...sec.querySelectorAll('.scard')];
+ if(ss){const items=cards.map(cd=>({url:'/shelffile?name='+encodeURIComponent(cd.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(sub),filename:cd.dataset.shelf}));
+  if(!items.length){toast('No hay imágenes en este proyecto','bad');return}openSharePopMulti(ss,items);return;}
+ const cardColors=cd=>[...cd.querySelectorAll('.cdots .cdot')].map(d=>[...d.classList].find(x=>x!=='cdot'));
+ let target=cards;
+ if(sd){const c=sd.dataset.col;target=cards.filter(cd=>cardColors(cd).indexOf(c)>=0);
+  if(!target.length){toast('No hay imágenes de ese color en este proyecto','bad');return}}
+ enterShelfSel();
+ const allSel=target.length&&target.every(cd=>shelfSel.has(cd.dataset.shelf));
+ target.forEach(cd=>{if(allSel)shelfSel.delete(cd.dataset.shelf);else shelfSel.add(cd.dataset.shelf)});
+ renderShelf();renderShelfBulk();
+},true);
 // ── Mis imágenes: modo selección (clic + arrastre de recuadro) ──────────────
 $('shelfSelBtn').onclick=()=>{shelfSelMode=!shelfSelMode;shelfSel.clear();
  if(shelfSelMode&&selMode){selMode=false;selFiles.clear();renderGal();renderBulk();}  // evita dos barras a la vez
@@ -4700,10 +4768,16 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
  bar.innerHTML='<span class="gbcount">'+shelfSel.size+' seleccionada'+(shelfSel.size===1?'':'s')+'</span>'
   +'<button id="shBulkAll" title="Seleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todo</button>'
   +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
+  +'<button id="shBulkMove">'+GCM+'Mover</button>'
+  +'<button id="shBulkShare">'+GSHARE+'Compartir</button>'
   +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="shBulkExit">Salir</button>';
  $('shBulkAll').onclick=()=>{[...document.querySelectorAll('#shelfGrid .scard')].forEach(c=>shelfSel.add(c.dataset.shelf));renderShelf();renderShelfBulk()};
  $('shBulkNone').onclick=()=>{shelfSel.clear();renderShelf();renderShelfBulk()};
+ $('shBulkMove').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget)};
+ $('shBulkShare').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
+  const items=[...shelfSel].map(f=>({url:'/shelffile?name='+encodeURIComponent(f)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(shelfFileSub(f)),filename:f}));
+  openSharePopMulti(e.currentTarget,items)};
  $('shBulkExit').onclick=()=>{shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');renderShelf();renderShelfBulk()};
  $('shBulkDel').onclick=async(e)=>{const b=e.currentTarget;if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
   if(!b.classList.contains('arm')){b.classList.add('arm');b.lastChild.textContent='¿Quitar '+shelfSel.size+'?';setTimeout(()=>{b.classList.remove('arm');renderShelfBulk()},2600);return}
