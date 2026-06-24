@@ -1062,6 +1062,17 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.arm{border-color:var(--bad);background:rgba(229,115,115,.22)}.gfbtn.arm svg{stroke:#ff9b9b}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
+/* etiquetas de color en imágenes (Historial y Mis imágenes) */
+.cdots{position:absolute;top:6px;left:6px;display:flex;gap:3px;z-index:3;pointer-events:none}
+.cdot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.cpick{display:flex;gap:3px;width:100%;justify-content:flex-end;margin-top:1px}
+.cpdot{width:17px;height:17px;border-radius:50%;border:2px solid rgba(255,255,255,.3);cursor:pointer;padding:0;flex:none}
+.cpdot.on,.cpdot:hover{border-color:#fff}
+.cdot.r,.cpdot.r,.cfdot.r{background:#e5484d}.cdot.y,.cpdot.y,.cfdot.y{background:#f5b400}.cdot.g,.cpdot.g,.cfdot.g{background:#46a758}.cdot.b,.cpdot.b,.cfdot.b{background:#3b82f6}
+.cfilt{display:inline-flex;gap:4px;align-items:center;vertical-align:middle;margin:0 2px}
+.cfdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;opacity:.45}
+.cfdot:hover{opacity:.8}.cfdot.on{opacity:1;border-color:var(--txt)}
+.gal.selmode .cdots,.shelfgrid.selmode .cdots{display:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
 .sharepop{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 16px 44px rgba(0,0,0,.32);display:flex;flex-direction:column;gap:2px;min-width:210px}
 .sharepop button{display:block;width:100%;background:none;border:0;color:var(--txt);text-align:left;padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer}
@@ -2089,7 +2100,8 @@ html,body{overflow-x:hidden}
     <div class="shelf" id="shelf">
       <div class="shelfhead">
         <span class="shelftitle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Mis imágenes <span class="shelfsub">· siempre a la mano, en tu equipo</span></span>
-        <div style="display:flex;gap:7px;flex:none">
+        <div style="display:flex;gap:7px;flex:none;align-items:center">
+        <span class="cfilt" id="shelfColFilt" title="Filtrar por color"><button class="cfdot r" data-col="r" title="Rojo"></button><button class="cfdot y" data-col="y" title="Amarillo"></button><button class="cfdot g" data-col="g" title="Verde"></button><button class="cfdot b" data-col="b" title="Azul"></button></span>
         <button class="ghost sm" id="shelfSelBtn" title="Seleccionar varias (arrastra un recuadro o haz clic)"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>
         <button class="ghost sm" id="shelfAll" title="Ver todas en una ventana"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button>
         <button class="ghost sm" id="shelfAddBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Cargar</button>
@@ -2171,7 +2183,7 @@ html,body{overflow-x:hidden}
       <div id="audList"></div>
     </div>
     <div class="sec">
-      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><select id="galSort" class="ghost sm galsort" title="Organizar las imágenes del historial"><option value="">Organizar ▾</option><option value="new">Fecha de creación · recientes primero</option><option value="old">Fecha de creación · antiguas primero</option><option value="name">Nombre del prompt (A→Z)</option></select><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
+      <h3 class="eyebrow galeye"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Historial<span class="mono" id="galCount" style="font-weight:400"></span><span class="galactions"><button class="chip" id="galFavBtn" title="Ver solo favoritas (★)">★</button><span class="cfilt" id="galColFilt" title="Filtrar por color"><button class="cfdot r" data-col="r" title="Rojo"></button><button class="cfdot y" data-col="y" title="Amarillo"></button><button class="cfdot g" data-col="g" title="Verde"></button><button class="cfdot b" data-col="b" title="Azul"></button></span><select id="galSort" class="ghost sm galsort" title="Organizar las imágenes del historial"><option value="">Organizar ▾</option><option value="new">Fecha de creación · recientes primero</option><option value="old">Fecha de creación · antiguas primero</option><option value="name">Nombre del prompt (A→Z)</option></select><button class="ghost sm" id="galSelBtn" title="Seleccionar varias" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button><button class="ghost sm" id="galCopyShelf" title="Copiar todas las imágenes de este historial a Mis imágenes" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button><button class="ghost sm" id="galAll" title="Ver todas en una ventana" style="text-transform:none;white-space:nowrap;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button></span></h3>
       <div class="subchips" id="galSubChips"></div>
       <input type="text" id="galSearch" placeholder="Buscar en prompts…" spellcheck="false">
       <div class="shelffolder" title="Carpeta externa donde se copian las imágenes generadas de este proyecto (además del historial interno)"><span>Carpeta: <b class="mono" id="histDirLbl">…</b></span><button class="linklike" id="histDirEdit">cambiar</button></div>
@@ -2992,14 +3004,25 @@ const GST='<svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.9 6.1.4-4.7 4 1.5 6-5.3
 const GCM='<svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/></svg>';
 const GIT='<svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 const GLB='<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M11 7h5"/></svg>';
+// ===== etiquetas de color (multi-color) en imágenes =====
+const IMGCOLS=['r','y','g','b'];
+let galColFilter=new Set(),shelfColFilter=new Set();
+function colDots(arr){const a=(arr||[]).filter(c=>IMGCOLS.includes(c));return a.length?'<div class="cdots">'+a.map(c=>'<span class="cdot '+c+'"></span>').join('')+'</div>':''}
+function colPick(arr){const s=arr||[];return '<div class="cpick">'+IMGCOLS.map(c=>'<button class="cpdot '+c+(s.includes(c)?' on':'')+'" data-col="'+c+'" title="Etiqueta de color" tabindex="-1"></button>').join('')+'</div>'}
+function toggleCol(arr,c){arr=(arr||[]).slice();const i=arr.indexOf(c);if(i>=0)arr.splice(i,1);else arr.push(c);return arr}
+function updCdots(card,colors){const html=(colors||[]).filter(c=>IMGCOLS.includes(c)).map(c=>'<span class="cdot '+c+'"></span>').join('');let cd=card.querySelector('.cdots');if(html){if(!cd){cd=document.createElement('div');cd.className='cdots';card.insertBefore(cd,card.children[1]||null)}cd.innerHTML=html}else if(cd)cd.remove()}
+function setImgColors(file,colors,scope,sub){fetch('/imgcolors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,colors:colors,scope:scope,project:curProj(),sub:sub||''})}).catch(()=>{})}
 function galFiltered(){const q=$('galSearch').value.trim().toLowerCase();
  const fav=$('galFavBtn').classList.contains('on');
  let imgs=hist.filter(it=>!['tts','stt','sfx','vid'].includes(it.kind));
  if(q)imgs=imgs.filter(it=>(it.prompt||'').toLowerCase().includes(q));
  if(fav)imgs=imgs.filter(it=>it.fav);
+ if(galColFilter.size)imgs=imgs.filter(it=>(it.colors||[]).some(c=>galColFilter.has(c)));
  return imgs}
 $('galSearch').oninput=()=>{shown=30;renderGal()};
 $('galFavBtn').onclick=()=>{$('galFavBtn').classList.toggle('on');shown=30;renderGal()};
+$('galColFilt').onclick=e=>{const b=e.target.closest('.cfdot');if(!b)return;const c=b.dataset.col;if(galColFilter.has(c))galColFilter.delete(c);else galColFilter.add(c);b.classList.toggle('on');shown=30;renderGal()};
+$('shelfColFilt').onclick=e=>{const b=e.target.closest('.cfdot');if(!b)return;const c=b.dataset.col;if(shelfColFilter.has(c))shelfColFilter.delete(c);else shelfColFilter.add(c);b.classList.toggle('on');renderShelf()};
 function curProj(){return $('projSel')?($('projSel').value||''):''}
 $('galAll').onclick=()=>{const p=encodeURIComponent(curProj()),fav=$('galFavBtn').classList.contains('on');
  const sp=galSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...galSubs].join(',')));
@@ -3061,6 +3084,7 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
  const drg=(selMode&&!selFiles.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
+   ${colDots(it.colors)}
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
@@ -3069,7 +3093,7 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
-   <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
+   <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button>${colPick(it.colors)}</div>
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
 function renderGal(){const items=galFiltered();
  if(histGroups.length>1){
@@ -3079,6 +3103,7 @@ function renderGal(){const items=galFiltered();
    const q=$('galSearch').value.trim().toLowerCase();const fav=$('galFavBtn').classList.contains('on');
    if(q)gi=gi.filter(it=>(it.prompt||'').toLowerCase().includes(q));
    if(fav)gi=gi.filter(it=>it.fav);
+   if(galColFilter.size)gi=gi.filter(it=>(it.colors||[]).some(c=>galColFilter.has(c)));
    const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
    const inner=gi.map(it=>gcardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
    return `<div class="histgroup"><div class="histgrouphdr">${esc(lbl)}</div>${inner}</div>`}).join('')
@@ -3293,6 +3318,11 @@ $('gal').onclick=async e=>{
   it.fav=!it.fav;star.classList.toggle('fav',it.fav);
   fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:it.file,fav:it.fav,project:curProj(),sub:cardSub})});
   if($('galFavBtn').classList.contains('on'))renderGal();return}
+ const cpd=e.target.closest('.cpdot');
+ if(cpd){const active=[...card.querySelectorAll('.cpdot.on')].map(x=>x.dataset.col);const next=toggleCol(active,cpd.dataset.col);
+  cpd.classList.toggle('on');updCdots(card,next);
+  const it=hist.find(x=>x.file===card.dataset.file);if(it)it.colors=next;
+  setImgColors(card.dataset.file,next,'hist',cardSub);if(galColFilter.size)renderGal();return}
  if(cp){const it=hist.find(x=>x.file===card.dataset.file)||{};$('prompt').value=card.dataset.p;try{navigator.clipboard.writeText(card.dataset.p)}catch(x){}flash(cp);const n=await useHistRefs(it);toast(n?('Prompt + '+n+' referencia(s) cargadas'):'Prompt copiado');return}
  if(rf){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();refs.push({name:card.dataset.file,b64:await blobToB64(b)});renderThumbs();flash(rf);toast('Añadida como referencia');return}
  if(del){
@@ -4539,21 +4569,23 @@ let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false,shAnchor=-1;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
  const drg=(shelfSelMode&&!shelfSel.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
+  ${colDots(it.colors)}
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
   <button class="sbtn sshare" data-file="${esc(it.file)}" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
-  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button></div></div>`}
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button>${colPick(it.colors)}</div></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').classList.toggle('selmode',shelfSelMode);
+ const cf=shelfColFilter,passC=it=>!cf.size||((it.colors||[]).some(c=>cf.has(c)));
  if(shelfGroups.length>1){const subs=curSubs();
   $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
-   const inner=(g.items||[]).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
+   const inner=(g.items||[]).filter(passC).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
    return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr">${esc(lbl)}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
  }else{
-  $('shelfGrid').innerHTML=shelfItems.map(it=>scardHtml(it)).join('');
+  $('shelfGrid').innerHTML=shelfItems.filter(passC).map(it=>scardHtml(it)).join('');
  }}
 async function shelfAddImages(imgs){return shelfAddTo(imgs,activeSub)}
 async function shelfAddTo(imgs,sub){if(!imgs.length)return;
@@ -4579,6 +4611,12 @@ $('shelfGrid').onclick=async e=>{
     for(let i=lo;i<=hi;i++){shelfSel.add(cards[i].dataset.shelf);cards[i].classList.add('sel');cards[i].draggable=true;}
    }else{const f=card.dataset.shelf;const now=!shelfSel.has(f);if(now)shelfSel.add(f);else shelfSel.delete(f);card.classList.toggle('sel',now);card.draggable=now;shAnchor=idx;}
    renderShelfBulk()}return}
+ const cpd=e.target.closest('.cpdot');
+ if(cpd){e.stopPropagation();const card=e.target.closest('.scard');const f=card.dataset.shelf;
+  const active=[...card.querySelectorAll('.cpdot.on')].map(x=>x.dataset.col);const next=toggleCol(active,cpd.dataset.col);
+  cpd.classList.toggle('on');updCdots(card,next);
+  const it=shelfItems.find(x=>x.file===f);if(it)it.colors=next;
+  setImgColors(f,next,'shelf',shelfFileSub(f));if(shelfColFilter.size)renderShelf();return;}
  const ssh=e.target.closest('.sshare');
  if(ssh){e.stopPropagation();const c=e.target.closest('.scard');if(c){const ssub=c.dataset.sub||'';openSharePop(ssh,'/shelffile?name='+encodeURIComponent(c.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),c.dataset.shelf);}return;}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
@@ -4920,6 +4958,16 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .tile>img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .acts{position:absolute;top:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap;max-width:108px;justify-content:flex-end;opacity:0;transition:opacity .15s}
 .tile:hover .acts{opacity:1}
+.cdots{position:absolute;top:8px;left:8px;display:flex;gap:3px;z-index:3;pointer-events:none}
+.cdot{width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 1.6px rgba(0,0,0,.5)}
+.cpick{display:flex;gap:3px;flex-wrap:wrap;width:100%;justify-content:flex-end}
+.cpdot{width:17px;height:17px;border-radius:50%;border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0}
+.cpdot.on,.cpdot:hover{border-color:#fff}
+.cdot.r,.cpdot.r,.cfdot.r{background:#e5484d}.cdot.y,.cpdot.y,.cfdot.y{background:#f5b400}.cdot.g,.cpdot.g,.cfdot.g{background:#46a758}.cdot.b,.cpdot.b,.cfdot.b{background:#3b82f6}
+.cfilt{margin-left:10px;display:inline-flex;gap:5px;align-items:center}
+.cfdot{width:15px;height:15px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;opacity:.5}
+.cfdot:hover{opacity:.85}.cfdot.on{opacity:1;border-color:#2a2620}
+body.selmode .cdots{display:none}
 .gb{width:30px;height:30px;border-radius:8px;background:rgba(12,12,14,.86);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18);
  color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
 .gb:hover{background:rgba(12,12,14,.96);border-color:rgba(255,255,255,.45)}
@@ -5076,11 +5124,17 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
         if move_targets:
             btns.append('<button class="gb" data-act="move" title="Mover a otro proyecto">' + GMV + '</button>')
         btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
+        cols = [c for c in (it.get("colors") or []) if c in ("r", "y", "g", "b")]
+        btns.append('<span class="cpick">' + "".join(
+            '<button class="cpdot ' + c + (' on' if c in cols else '') + '" data-act="col" data-col="' + c + '" title="Etiqueta de color"></button>'
+            for c in ("r", "y", "g", "b")) + '</span>')
+        cdots = ('<div class="cdots">' + "".join('<span class="cdot ' + c + '"></span>' for c in cols) + '</div>') if cols else ''
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
         return ('<figure class="tile" draggable="true" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
-                + ('1' if favon else '0') + '" data-prompt="' + pa + '">'
+                + ('1' if favon else '0') + '" data-colors="' + ",".join(cols) + '" data-prompt="' + pa + '">'
                 '<img src="' + u + '&thumb=1" loading="lazy" alt="">'
+                + cdots +
                 '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
 
     # cargar cada grupo (raíz + subproyectos seleccionados) y construir su grilla
@@ -5167,7 +5221,12 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "else if(act==='lib'){stageP(tile.dataset.prompt);}"
           "else if(act==='fav'){var on=tile.dataset.fav!=='1';tile.dataset.fav=on?'1':'0';b.classList.toggle('on',on);"
           "try{await fetch('/histfav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,fav:on,project:PROJ,sub:tile.dataset.sub||''})});}catch(x){}"
-          "gt(on?'Marcada como favorita':'Quitada de favoritas');}return;}"
+          "gt(on?'Marcada como favorita':'Quitada de favoritas');}"
+          "else if(act==='col'){var on2=!b.classList.contains('on');b.classList.toggle('on',on2);"
+          "var cols=[].slice.call(tile.querySelectorAll('.cpdot.on')).map(function(x){return x.dataset.col});tile.dataset.colors=cols.join(',');"
+          "var cd=tile.querySelector('.cdots');if(cols.length){if(!cd){cd=document.createElement('div');cd.className='cdots';tile.insertBefore(cd,tile.children[1]||null);}cd.innerHTML=cols.map(function(c){return '<span class=\"cdot '+c+'\"></span>'}).join('');}else if(cd){cd.remove();}"
+          "try{await fetch('/imgcolors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:file,colors:cols,scope:(SRC==='shelf'?'shelf':'hist'),project:PROJ,sub:tile.dataset.sub||''})});}catch(x){}"
+          "applyColFilter();gt(cols.length?'Etiqueta de color actualizada':'Etiquetas quitadas');}return;}"
           "if(e.target.closest('a'))return;"
           "var tile=e.target.closest('.tile');if(tile)openLb(tile.dataset.file,tile.dataset.prompt,tile.dataset.sub);"
           "});});"
@@ -5261,6 +5320,14 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
           "var byS={};for(var i=0;i<files.length;i++){var s=(tiles[i]&&tiles[i].dataset?tiles[i].dataset.sub:'')||'';(byS[s]=byS[s]||[]).push(files[i]);}"
           "var done=0,err='',ug=[];for(var sk in byS){try{var r=await(await fetch('/deleteitems',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:SRC,files:byS[sk],project:PROJ,sub:sk})})).json();if(r&&r.ok){done+=(r.done||byS[sk].length);if(r.undo)ug.push({sub:sk,items:r.undo});}else if(r&&r.error){err=r.error;}}catch(x){err='No se pudo eliminar';}}"
           "if(done){tiles.forEach(function(t){if(t&&t.remove)t.remove();});updCount();exitSel();gLastUndo=async function(){for(var i=0;i<ug.length;i++){await ghpost('/restoreitems',{src:SRC,project:PROJ,sub:ug[i].sub,items:ug[i].items});}gt('Restaurado');setTimeout(function(){location.reload();},400);};gt(done+((done===1)?' eliminada ✓':' eliminadas ✓')+' · ⌘Z para deshacer');}else gt(err||'No se pudo eliminar');};"
+          # --- filtro por color (OR): muestra las imágenes que tengan cualquiera de los colores activos ---
+          "var colF={};"
+          "function applyColFilter(){var act=Object.keys(colF).filter(function(c){return colF[c];});"
+          "allTiles().forEach(function(t){var cs=(t.dataset.colors||'').split(',').filter(Boolean);var show=!act.length||act.some(function(c){return cs.indexOf(c)>=0;});t.style.display=show?'':'none';});"
+          "[].slice.call(document.querySelectorAll('.ggroup')).forEach(function(s){var vis=[].slice.call(s.querySelectorAll('.tile')).filter(function(t){return t.style.display!=='none';}).length;var cc=s.querySelector('.ggroupcount');if(cc)cc.textContent=vis;});"
+          "var c2=document.querySelector('.count');if(c2)c2.textContent=allTiles().filter(function(t){return t.style.display!=='none';}).length+' imágenes';}"
+          "var gcf=document.getElementById('gColFilt');"
+          "if(gcf)gcf.addEventListener('click',function(e){var b=e.target.closest('.cfdot');if(!b)return;var c=b.dataset.col;colF[c]=!colF[c];b.classList.toggle('on',!!colF[c]);applyColFilter();});"
           # --- soltar imágenes externas (Finder/escritorio/otra app) en Mis imágenes ---
           "if(SRC==='shelf'){"
           "window.addEventListener('dragover',function(e){if(e.dataTransfer&&[].slice.call(e.dataTransfer.types||[]).indexOf('Files')>=0){e.preventDefault();document.body.classList.add('gdrop');}});"
@@ -5282,6 +5349,9 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Seleccionar</button>')
             + (('<button class="favtog" id="gcopyall" title="Copiar todas las imágenes de este historial a Mis imágenes">'
                 '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/><path d="M11.5 8.5v4M9.5 10.5h4"/></svg>A Mis imágenes</button>') if not is_shelf else '')
+            + ('<span class="cfilt" id="gColFilt" title="Filtrar por color">'
+               + "".join('<button class="cfdot ' + c + '" data-col="' + c + '" title="Filtrar por color"></button>' for c in ("r", "y", "g", "b"))
+               + '</span>')
             + '</header>'
             + chips_html
             + (('<main class="groups">' + grid + '</main>') if multi else ('<main class="grid">' + grid + '</main>'))
@@ -6089,7 +6159,7 @@ class H(BaseHTTPRequestHandler):
                  "/elsfx": self.h_elsfx, "/elclone": self.h_elclone,
                  "/icloudsync": self.h_icloudsync, "/datasync": self.h_datasync,
                  "/falkey": self.h_falkey, "/video": self.h_video,
-                 "/histfav": self.h_histfav, "/magicprompt": self.h_magicprompt,
+                 "/histfav": self.h_histfav, "/imgcolors": self.h_imgcolors, "/magicprompt": self.h_magicprompt,
                  "/describe": self.h_describe, "/upscale": self.h_upscale,
                  "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
@@ -7609,6 +7679,28 @@ class H(BaseHTTPRequestHandler):
             for it in h:
                 if it.get("file") == f:
                     it["fav"] = bool(b.get("fav"))
+            save_json(jp, h)
+        return self._json({"ok": True})
+
+    def h_imgcolors(self):
+        # etiquetas de color (multi-color) de una imagen, en Historial o Mis imágenes
+        b = self._body()
+        f = os.path.basename(b.get("file", ""))
+        allow = ("r", "y", "g", "b")
+        seen, clean = set(), []
+        for c in (b.get("colors") or []):
+            if c in allow and c not in seen:
+                seen.add(c); clean.append(c)
+        scope = b.get("scope", "hist")
+        jp = pshelf_json(self._proj(b), self._sub(b)) if scope == "shelf" else phist_json(self._proj(b), self._sub(b))
+        with LOCK:
+            h = load_json(jp, [])
+            for it in h:
+                if it.get("file") == f:
+                    if clean:
+                        it["colors"] = clean
+                    else:
+                        it.pop("colors", None)
             save_json(jp, h)
         return self._json({"ok": True})
 
