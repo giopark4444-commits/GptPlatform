@@ -2605,12 +2605,13 @@ async function addFiles(list){let added=0,bad=0;
 $('drop').onclick=()=>$('files').click();
 $('files').onchange=e=>{routeRefFiles(e.target.files,'local');e.target.value=''};
 $('thumbs').onclick=e=>{const b=e.target.closest('.x');
- if(b){flipMove($('thumbs'),()=>{refs.splice(+b.dataset.i,1);renderThumbs()});return}
+ if(b){flipRefs($('thumbs'),()=>{refs.splice(+b.dataset.i,1);renderThumbs()});return}
  const t=e.target.closest('.thumb');if(t){const r=refs[+t.dataset.i];if(r)openLb('data:image/png;base64,'+r.b64,'',null)}};
 // ===== reordenar referencias arrastrándolas, con animación fluida (FLIP) =====
 let refReordering=false;
-// anima los vecinos desde su posición previa hasta la nueva (los que NO se arrastran)
-function flipMove(cont,mutate){
+// anima los vecinos de las REFERENCIAS desde su posición previa hasta la nueva (los que NO se arrastran)
+// (nombre propio para no colisionar con el flipMove de 3 args de los grids de imágenes)
+function flipRefs(cont,mutate){
  const before=new Map([...cont.children].map(el=>[el.dataset.k,el.getBoundingClientRect()]));
  mutate();
  [...cont.children].forEach(el=>{
@@ -2633,7 +2634,7 @@ $('thumbs').addEventListener('dragover',e=>{if(!refReordering)return;e.preventDe
  const r=t.getBoundingClientRect();
  const ref=(e.clientX>=r.left+r.width/2)?t.nextElementSibling:t;   // ¿antes o después del objetivo?
  if(ref===dragged||dragged.nextElementSibling===ref)return;        // ya está ahí → nada que hacer
- flipMove(cont,()=>cont.insertBefore(dragged,ref))});              // mueve en vivo y desliza a los vecinos
+ flipRefs(cont,()=>cont.insertBefore(dragged,ref))});              // mueve en vivo y desliza a los vecinos
 $('thumbs').addEventListener('drop',e=>{if(!refReordering)return;e.preventDefault();e.stopPropagation()});
 $('thumbs').addEventListener('dragend',()=>{const d=$('thumbs').querySelector('.thumb.dragging');
  if(d)d.classList.remove('dragging');
