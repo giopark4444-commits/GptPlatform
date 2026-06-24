@@ -900,9 +900,7 @@ input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
 .thumbs{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
 .thumb{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1px solid var(--line2);cursor:grab}
 .thumb:active{cursor:grabbing}
-.thumb.dragging{opacity:.35}
-.thumb.over-l{box-shadow:inset 3px 0 0 var(--accent)}
-.thumb.over-r{box-shadow:inset -3px 0 0 var(--accent)}
+.thumb.dragging{opacity:.4;transform:scale(.92);box-shadow:0 6px 16px rgba(0,0,0,.28);z-index:2}
 .thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
 .thumb .x{position:absolute;top:2px;right:2px;width:17px;height:17px;border:0;border-radius:5px;background:rgba(0,0,0,.6);
  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -2521,7 +2519,9 @@ $('trashGrid').onclick=async e=>{const rest=e.target.closest('.trest'),del=e.tar
  if(rest){const t=rest.dataset.t;const r=await tpost('/trashrestore',{token:t});if(r&&r.ok){toast('Restaurada ✓');if(typeof loadGal==='function')loadGal();if(typeof loadShelf==='function')loadShelf();renderTrash()}else toast((r&&r.error)||'No se pudo restaurar','bad');return}
  if(del){const t=del.dataset.t;if(!del.classList.contains('arm')){del.classList.add('arm');toast('Clic otra vez para borrar para siempre','bad');setTimeout(()=>del.classList.remove('arm'),2500);return}await tpost('/trashdelete',{token:t});renderTrash();return}};
 $('trashEmpty').onclick=async()=>{const b=$('trashEmpty');if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='¿Vaciar todo?';setTimeout(()=>{b.classList.remove('arm');b.textContent='Vaciar papelera'},2500);return}await tpost('/trashdelete',{all:true});b.classList.remove('arm');b.textContent='Vaciar papelera';renderTrash();toast('Papelera vaciada')};
-function renderThumbs(){$('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" draggable="true" data-i="${i}"><img draggable="false" src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Arrastra para reordenar · clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
+let _refKeyc=0;
+function renderThumbs(){refs.forEach(r=>{if(r._k===undefined)r._k=++_refKeyc});
+ $('thumbs').innerHTML=refs.map((r,i)=>`<div class="thumb" draggable="true" data-i="${i}" data-k="${r._k}"><img draggable="false" src="data:image/png;base64,${r.b64}" alt="${esc(r.name)}" title="Arrastra para reordenar · clic para ampliar"><button class="x" data-i="${i}" title="Quitar">${xicon()}</button></div>`).join('')}
 // formatos que acepta OpenAI para entrada de imagen
 const OK_IMG_TYPES=new Set(['image/png','image/jpeg','image/webp','image/gif']);
 // ===== video → fotogramas de referencia (gpt-image-2 no acepta video) =====
@@ -2604,33 +2604,46 @@ async function addFiles(list){let added=0,bad=0;
  if(added)renderThumbs();return added}
 $('drop').onclick=()=>$('files').click();
 $('files').onchange=e=>{routeRefFiles(e.target.files,'local');e.target.value=''};
-$('thumbs').onclick=e=>{const b=e.target.closest('.x');if(b){refs.splice(+b.dataset.i,1);renderThumbs();return}
+$('thumbs').onclick=e=>{const b=e.target.closest('.x');
+ if(b){flipMove($('thumbs'),()=>{refs.splice(+b.dataset.i,1);renderThumbs()});return}
  const t=e.target.closest('.thumb');if(t){const r=refs[+t.dataset.i];if(r)openLb('data:image/png;base64,'+r.b64,'',null)}};
-// ===== reordenar referencias arrastrándolas =====
-let refDragFrom=null;
-function clearRefDragMarks(){[...$('thumbs').querySelectorAll('.thumb')].forEach(t=>t.classList.remove('over-l','over-r'))}
+// ===== reordenar referencias arrastrándolas, con animación fluida (FLIP) =====
+let refReordering=false;
+// anima los vecinos desde su posición previa hasta la nueva (los que NO se arrastran)
+function flipMove(cont,mutate){
+ const before=new Map([...cont.children].map(el=>[el.dataset.k,el.getBoundingClientRect()]));
+ mutate();
+ [...cont.children].forEach(el=>{
+  if(el.classList.contains('dragging'))return;
+  const b=before.get(el.dataset.k);if(!b)return;
+  const a=el.getBoundingClientRect();const dx=b.left-a.left,dy=b.top-a.top;
+  if(dx||dy){el.style.transition='none';el.style.transform='translate('+dx+'px,'+dy+'px)';
+   requestAnimationFrame(()=>{el.style.transition='transform .22s cubic-bezier(.2,.85,.25,1)';el.style.transform=''});
+   el.addEventListener('transitionend',()=>{el.style.transition='';el.style.transform=''},{once:true})}})}
+// reconstruye el array refs según el orden actual del DOM (tras mover nodos en vivo)
+function syncRefsFromDOM(){const order=[...$('thumbs').children].map(el=>+el.dataset.k);
+ refs.sort((x,y)=>order.indexOf(x._k)-order.indexOf(y._k));renderThumbs()}
 $('thumbs').addEventListener('dragstart',e=>{const t=e.target.closest('.thumb');if(!t)return;
- refDragFrom=+t.dataset.i;t.classList.add('dragging');
+ refReordering=true;requestAnimationFrame(()=>t.classList.add('dragging'));
  try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/x-studio-reorder','1')}catch(_){}});
-$('thumbs').addEventListener('dragover',e=>{if(refDragFrom===null)return;e.preventDefault();e.stopPropagation();
+$('thumbs').addEventListener('dragover',e=>{if(!refReordering)return;e.preventDefault();e.stopPropagation();
  try{e.dataTransfer.dropEffect='move'}catch(_){}
- const t=e.target.closest('.thumb');clearRefDragMarks();
- if(t&&+t.dataset.i!==refDragFrom){const r=t.getBoundingClientRect();
-  t.classList.add(e.clientX<r.left+r.width/2?'over-l':'over-r')}});
-$('thumbs').addEventListener('drop',e=>{if(refDragFrom===null)return;e.preventDefault();e.stopPropagation();
- const t=e.target.closest('.thumb');clearRefDragMarks();
- if(t){let to=+t.dataset.i;const r=t.getBoundingClientRect();if(e.clientX>=r.left+r.width/2)to++;
-  const item=refs.splice(refDragFrom,1)[0];if(to>refDragFrom)to--;refs.splice(to,0,item);renderThumbs();
-  validate();if(typeof updGenChip==='function')updGenChip();}
- refDragFrom=null});
-$('thumbs').addEventListener('dragend',()=>{refDragFrom=null;clearRefDragMarks();
- [...$('thumbs').querySelectorAll('.dragging')].forEach(t=>t.classList.remove('dragging'))});
-['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{if(refDragFrom!==null)return;e.preventDefault();$('drop').classList.add('hot')}));
+ const cont=$('thumbs'),dragged=cont.querySelector('.thumb.dragging');if(!dragged)return;
+ const t=e.target.closest('.thumb');if(!t||t===dragged)return;
+ const r=t.getBoundingClientRect();
+ const ref=(e.clientX>=r.left+r.width/2)?t.nextElementSibling:t;   // ¿antes o después del objetivo?
+ if(ref===dragged||dragged.nextElementSibling===ref)return;        // ya está ahí → nada que hacer
+ flipMove(cont,()=>cont.insertBefore(dragged,ref))});              // mueve en vivo y desliza a los vecinos
+$('thumbs').addEventListener('drop',e=>{if(!refReordering)return;e.preventDefault();e.stopPropagation()});
+$('thumbs').addEventListener('dragend',()=>{const d=$('thumbs').querySelector('.thumb.dragging');
+ if(d)d.classList.remove('dragging');
+ if(refReordering){refReordering=false;syncRefsFromDOM();validate();if(typeof updGenChip==='function')updGenChip()}});
+['dragover','dragenter'].forEach(ev=>$('drop').addEventListener(ev,e=>{if(refReordering)return;e.preventDefault();$('drop').classList.add('hot')}));
 ['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('hot')}));
 // arrastrar a cualquier parte de la ventana
-window.addEventListener('dragover',e=>{if(refDragFrom!==null)return;e.preventDefault();$('drop').classList.add('hot')});
+window.addEventListener('dragover',e=>{if(refReordering)return;e.preventDefault();$('drop').classList.add('hot')});
 window.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop').classList.remove('hot')});
-window.addEventListener('drop',async e=>{if(refDragFrom!==null){refDragFrom=null;return}e.preventDefault();$('drop').classList.remove('hot');
+window.addEventListener('drop',async e=>{if(refReordering){e.preventDefault();return}e.preventDefault();$('drop').classList.remove('hot');
  const dt=e.dataTransfer;if(!dt)return;
  const audF=[...dt.files].find(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|wav|webm|ogg|oga|flac|mpga)$/i.test(f.name));
  if(audF){setSttFile(audF);return}
