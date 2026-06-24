@@ -137,6 +137,49 @@ El front actual se conserva al máximo. Cambios acotados:
 - Todo lo visual (6 temas, editor máscara/anotar/pins, lightbox, historial, motion, accesibilidad)
   **queda igual** — la app se ve idéntica a la local.
 
+**Principio de diseño clave (para poder sincronizar después):** el front del SaaS NO se edita a mano
+salvo lo imprescindible. `server.py` local sigue siendo la **fuente de la verdad** del UI; las
+diferencias del SaaS (login, quitar modal de key, costo→saldo, lecturas-de-archivo→API) se expresan
+como una **capa fina y nombrada de adaptadores**, no como ediciones dispersas. Así una mejora local
+se puede re-incorporar sin perder lo del SaaS. Ver sección "Sincronización local → SaaS".
+
+---
+
+## Sincronización local → SaaS (mantener el SaaS al día con la app local)
+
+Gio seguirá mejorando la app **local** (`server.py`). Cada mejora debe poder llevarse al SaaS sin
+re-clonar a ciegas ni perder las adaptaciones del SaaS. Mecanismo:
+
+1. **Fuente de la verdad = `server.py` local.** El UI (HTML/CSS/JS) se sigue editando ahí, como hoy.
+
+2. **Extracción repetible (no clon único).** Un script `extract_web.py` saca el HTML/CSS/JS embebido
+   de `server.py` y genera `web/` de forma **determinista**. Se puede re-ejecutar tantas veces como
+   haga falta; no es una copia manual de una sola vez.
+
+3. **Capa de adaptadores SaaS (`web/saas-adapter.js`).** Todo lo específico del SaaS vive en un
+   único shim pequeño y documentado que: inyecta login, oculta el modal de API key, cambia la
+   etiqueta costo→saldo, y **redirige las lecturas de archivo a la API** (`/history`, `/projects`,
+   `/shelf`, `/galeria`, `/config`, etc.). La regla de oro: las diferencias del SaaS se concentran
+   aquí, no se esparcen por el front extraído.
+
+4. **Marcador de sincronización.** Un archivo `SYNC.md` registra el **commit de `server.py`** desde
+   el que se sincronizó el SaaS por última vez, más un mini-changelog de qué se portó.
+
+5. **Procedimiento de actualización** (documentado en `SYNC.md`, ejecutable en cualquier sesión):
+   1. Leer el último hash sincronizado.
+   2. `git diff <hash>..HEAD -- server.py` → interpretar qué cambió.
+   3. **Clasificar** los cambios: (a) solo-UI → se re-extraen solos; (b) comportamiento/lógica de
+      generación → portar al backend FastAPI; (c) toca rutas de datos → revisar adaptadores/API.
+   4. Re-ejecutar `extract_web.py`; re-aplicar adaptadores (que no necesitan cambios si la regla de
+      oro se respetó).
+   5. Probar (test de humo) y desplegar.
+   6. Actualizar el hash y el changelog en `SYNC.md`.
+
+> En la práctica, cuando Gio diga "actualicé la app local", la acción es: hacer el diff de
+> `server.py` desde el último hash sincronizado, resumir los cambios, y portarlos por estas vías.
+> Esto solo funciona bien si se respeta el principio de la capa de adaptadores (paso 3); por eso es
+> un principio de diseño, no un añadido opcional.
+
 ---
 
 ## Despliegue
