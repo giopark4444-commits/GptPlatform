@@ -1063,19 +1063,22 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .gfbtn.fav{border-color:var(--accent);background:rgba(0,0,0,.6)}.gfbtn.fav svg{stroke:var(--accent)}
 .gfbtn.busy{opacity:.4;pointer-events:none}
 /* etiquetas de color en imágenes (Historial y Mis imágenes) */
-.cdots{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;z-index:3;pointer-events:none}
-.gcard .cdots{bottom:30px}
+.cdots,.cpick{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:5px;z-index:3}
+.gcard .cdots,.gcard .cpick{bottom:30px}
+.cdots{pointer-events:none;transition:opacity .15s}
 .cdot{width:10px;height:10px;border-radius:50%;opacity:.72;box-shadow:0 0 0 1.5px rgba(0,0,0,.4)}
-.cpick{display:flex;gap:3px;width:100%;justify-content:flex-end;margin-top:1px}
-.cpdot{width:17px;height:17px;border-radius:50%;border:2px solid rgba(255,255,255,.3);cursor:pointer;padding:0;flex:none}
+.cpick{z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;padding:5px 7px;background:rgba(12,12,14,.5);backdrop-filter:blur(6px);border-radius:999px}
+.gcard:hover .cpick,.scard:hover .cpick{opacity:1;pointer-events:auto}
+.gcard:hover .cdots,.scard:hover .cdots{opacity:0}
+.cpdot{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0;flex:none}
 .cpdot.on,.cpdot:hover{border-color:#fff}
 .cdot.r,.cpdot.r,.cfdot.r,.cflash.r{background:#e5484d}.cdot.y,.cpdot.y,.cfdot.y,.cflash.y{background:#f5b400}.cdot.g,.cpdot.g,.cfdot.g,.cflash.g{background:#46a758}.cdot.b,.cpdot.b,.cfdot.b,.cflash.b{background:#3b82f6}
-.cflash{position:absolute;inset:0;z-index:4;pointer-events:none;border-radius:inherit;opacity:0;animation:cflash .4s ease-out forwards}
-@keyframes cflash{0%{opacity:0}28%{opacity:.5}100%{opacity:0}}
+.cflash{position:absolute;inset:0;z-index:4;pointer-events:none;border-radius:inherit;opacity:0;transform-origin:50% 100%;animation:cflash .62s cubic-bezier(.37,0,.25,1) forwards}
+@keyframes cflash{0%{opacity:0;transform:scale(.5)}38%{opacity:.5}100%{opacity:0;transform:scale(1.12)}}
 .cfilt{display:inline-flex;gap:4px;align-items:center;vertical-align:middle;margin:0 2px}
 .cfdot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;opacity:.45}
 .cfdot:hover{opacity:.8}.cfdot.on{opacity:1;border-color:var(--txt)}
-.gal.selmode .cdots,.shelfgrid.selmode .cdots{display:none}
+.gal.selmode .cdots,.shelfgrid.selmode .cdots,.gal.selmode .cpick,.shelfgrid.selmode .cpick{display:none}
 .gcard.reordering,.scard.reordering{opacity:.35;transition:opacity .15s}
 .sharepop{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 16px 44px rgba(0,0,0,.32);display:flex;flex-direction:column;gap:2px;min-width:210px}
 .sharepop button{display:block;width:100%;background:none;border:0;color:var(--txt);text-align:left;padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer}
@@ -3088,7 +3091,7 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
  const pq='&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');
  const drg=(selMode&&!selFiles.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
-   ${colDots(it.colors)}
+   ${colDots(it.colors)}${colPick(it.colors)}
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
    <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
    <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
@@ -3097,7 +3100,7 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
    <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
    <button class="gfbtn gshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
-   <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button>${colPick(it.colors)}</div>
+   <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
 function renderGal(){const items=galFiltered();
  if(histGroups.length>1){
@@ -4573,13 +4576,13 @@ let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false,shAnchor=-1;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
  const drg=(shelfSelMode&&!shelfSel.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
  return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
-  ${colDots(it.colors)}
+  ${colDots(it.colors)}${colPick(it.colors)}
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
   <button class="sbtn sshare" data-file="${esc(it.file)}" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
-  <button class="sbtn del" data-file="${esc(it.file)}" title="Quitar del estante">${xicon()}</button>${colPick(it.colors)}</div></div>`}
+  <button class="sbtn del" data-file="${esc(it.file)}" title="Desechar (quitar de Mis imágenes)">${GTR}</button></div></div>`}
 function renderShelf(){
  $('shelfEmpty').classList.toggle('hide',shelfItems.length>0);
  $('shelfGrid').classList.toggle('selmode',shelfSelMode);
@@ -4962,14 +4965,18 @@ body.gdrop::after{content:"Suelta para añadir a Mis imágenes";position:fixed;i
 .tile>img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .acts{position:absolute;top:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap;max-width:108px;justify-content:flex-end;opacity:0;transition:opacity .15s}
 .tile:hover .acts{opacity:1}
-.cdots{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;display:flex;gap:4px;z-index:3;pointer-events:none}
+.cdots,.cpick{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;display:flex;gap:5px;z-index:3}
+.cdots{pointer-events:none;transition:opacity .15s}
 .cdot{width:11px;height:11px;border-radius:50%;opacity:.72;box-shadow:0 0 0 1.6px rgba(0,0,0,.4)}
-.cpick{display:flex;gap:3px;flex-wrap:wrap;width:100%;justify-content:flex-end}
-.cpdot{width:17px;height:17px;border-radius:50%;border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0}
+.cpick{z-index:5;opacity:0;pointer-events:none;transition:opacity .15s;padding:5px 7px;background:rgba(12,12,14,.5);backdrop-filter:blur(6px);border-radius:999px}
+.tile:hover .cpick{opacity:1;pointer-events:auto}
+.tile:hover .cdots{opacity:0}
+.cpdot{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0}
 .cpdot.on,.cpdot:hover{border-color:#fff}
 .cdot.r,.cpdot.r,.cfdot.r,.cflash.r{background:#e5484d}.cdot.y,.cpdot.y,.cfdot.y,.cflash.y{background:#f5b400}.cdot.g,.cpdot.g,.cfdot.g,.cflash.g{background:#46a758}.cdot.b,.cpdot.b,.cfdot.b,.cflash.b{background:#3b82f6}
-.cflash{position:absolute;inset:0;z-index:4;pointer-events:none;border-radius:inherit;opacity:0;animation:cflash .4s ease-out forwards}
-@keyframes cflash{0%{opacity:0}28%{opacity:.5}100%{opacity:0}}
+.cflash{position:absolute;inset:0;z-index:4;pointer-events:none;border-radius:inherit;opacity:0;transform-origin:50% 100%;animation:cflash .62s cubic-bezier(.37,0,.25,1) forwards}
+@keyframes cflash{0%{opacity:0;transform:scale(.5)}38%{opacity:.5}100%{opacity:0;transform:scale(1.12)}}
+body.selmode .cpick{display:none}
 .cfilt{margin-left:10px;display:inline-flex;gap:5px;align-items:center}
 .cfdot{width:15px;height:15px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;opacity:.5}
 .cfdot:hover{opacity:.85}.cfdot.on{opacity:1;border-color:#2a2620}
@@ -5131,16 +5138,16 @@ def gallery_html(src, fav=False, proj="", sub="", subs_filter=""):
             btns.append('<button class="gb" data-act="move" title="Mover a otro proyecto">' + GMV + '</button>')
         btns.append('<button class="gb" data-act="open" title="Abrir en grande (flotante)">' + GOP + '</button>')
         cols = [c for c in (it.get("colors") or []) if c in ("r", "y", "g", "b")]
-        btns.append('<span class="cpick">' + "".join(
+        cpick = ('<div class="cpick">' + "".join(
             '<button class="cpdot ' + c + (' on' if c in cols else '') + '" data-act="col" data-col="' + c + '" title="Etiqueta de color"></button>'
-            for c in ("r", "y", "g", "b")) + '</span>')
+            for c in ("r", "y", "g", "b")) + '</div>')
         cdots = ('<div class="cdots">' + "".join('<span class="cdot ' + c + '"></span>' for c in cols) + '</div>') if cols else ''
         capt = pa if (not is_shelf) else _h.escape(str(it.get("name", "") or ""))
         cap = ('<span class="cap">' + capt + '</span>') if capt else ""
         return ('<figure class="tile" draggable="true" data-file="' + fa + '" data-sub="' + _h.escape(gk) + '" data-fav="'
                 + ('1' if favon else '0') + '" data-colors="' + ",".join(cols) + '" data-prompt="' + pa + '">'
                 '<img src="' + u + '&thumb=1" loading="lazy" alt="">'
-                + cdots +
+                + cdots + cpick +
                 '<div class="acts">' + "".join(btns) + '</div>' + cap + '</figure>')
 
     # cargar cada grupo (raíz + subproyectos seleccionados) y construir su grilla
