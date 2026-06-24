@@ -6128,7 +6128,7 @@ class H(BaseHTTPRequestHandler):
         self._emit({"type": "done", "result": res})
         return True
 
-    def _gen_via_stream(self, url, stream_data, nostream_data, hdr, meta, model_used, partial, via_visual=False, attempts=3):
+    def _gen_via_stream(self, url, stream_data, nostream_data, hdr, meta, model_used, partial, via_visual=False, attempts=2):
         # Genera SIEMPRE pidiendo streaming a OpenAI (stream_data ya lleva stream=true/partial_images),
         # lo que mantiene viva la conexión en generaciones lentas (>60s). OpenAI corta de forma
         # INTERMITENTE los streams largos (a veces un hueco entre eventos supera ~60s), así que
@@ -7291,11 +7291,23 @@ class H(BaseHTTPRequestHandler):
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
         if n == 1:
-            # SIEMPRE vía streaming a OpenAI: mantiene viva la conexión en gens lentas (>60s).
-            # partial>0 reenvía el preview en vivo; si no, consume en silencio y devuelve JSON.
             sp = dict(payload); sp["stream"] = True; sp["partial_images"] = partial if partial > 0 else 3
-            res = self._gen_via_stream(API_GEN, json.dumps(sp).encode(), json.dumps(payload).encode(),
-                                       hdr, meta, model, partial)
+            stream_data = json.dumps(sp).encode(); nostream_data = json.dumps(payload).encode()
+            # Preview en vivo o calidad alta (casi siempre >60s) → streaming directo, que evita el
+            # corte de ~60s de OpenAI a las conexiones silenciosas.
+            if partial > 0 or quality == "high":
+                res = self._gen_via_stream(API_GEN, stream_data, nostream_data, hdr, meta, model, partial)
+                return self._json(res) if res is not None else None
+            # Resto (auto/media/baja, sin preview): intento RÁPIDO sin streaming (sin overhead de
+            # parciales). Solo si OpenAI corta la conexión (gen que pasó de ~60s) reintento con streaming.
+            try:
+                with urllib.request.urlopen(urllib.request.Request(API_GEN, data=nostream_data, headers=hdr), timeout=240) as r:
+                    return self._json(self._save_results(json.loads(r.read()), meta, model_used=model))
+            except urllib.error.HTTPError as e:
+                return self._json({"error": self._err(e)})
+            except Exception:
+                pass   # conexión cortada (límite ~60s) → reintento con streaming
+            res = self._gen_via_stream(API_GEN, stream_data, nostream_data, hdr, meta, model, 0)
             return self._json(res) if res is not None else None
         # n>1 no soporta streaming → petición normal
         try:
@@ -7374,12 +7386,23 @@ class H(BaseHTTPRequestHandler):
         nostream_body = b"".join(parts) + closing   # cuerpo sin streaming (para respaldo y n>1)
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
         if int(b.get("n", 1)) == 1:
-            # SIEMPRE vía streaming a OpenAI: mantiene viva la conexión en ediciones lentas (>60s).
             pcount = partial if partial > 0 else 3
             sfields = (f'--{boundary}\r\nContent-Disposition: form-data; name="stream"\r\n\r\ntrue\r\n'
                        f'--{boundary}\r\nContent-Disposition: form-data; name="partial_images"\r\n\r\n{pcount}\r\n').encode()
             stream_body = b"".join(parts) + sfields + closing
-            res = self._gen_via_stream(API_EDIT, stream_body, nostream_body, hdr, meta, model, partial, via_visual)
+            # Preview en vivo o calidad alta (casi siempre >60s) → streaming directo (evita el corte de ~60s).
+            if partial > 0 or quality == "high":
+                res = self._gen_via_stream(API_EDIT, stream_body, nostream_body, hdr, meta, model, partial, via_visual)
+                return self._json(res) if res is not None else None
+            # Resto sin preview: intento RÁPIDO sin streaming; reintento con streaming solo si OpenAI corta.
+            try:
+                with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=nostream_body, headers=hdr), timeout=240) as r:
+                    return self._json(self._save_results(json.loads(r.read()), meta, via_visual, model))
+            except urllib.error.HTTPError as e:
+                return self._json({"error": self._err(e)})
+            except Exception:
+                pass   # conexión cortada (límite ~60s) → reintento con streaming
+            res = self._gen_via_stream(API_EDIT, stream_body, nostream_body, hdr, meta, model, 0, via_visual)
             return self._json(res) if res is not None else None
         # n>1 no soporta streaming → petición normal
         try:
