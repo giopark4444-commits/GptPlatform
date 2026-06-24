@@ -6091,8 +6091,11 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-    def _pump_sse(self, resp, meta, model_used="gpt-image-2"):
-        # lee el SSE de OpenAI: emite cada imagen parcial y, al final, guarda y emite el resultado
+    def _read_image_sse(self, resp, forward):
+        # lee el SSE de imágenes de OpenAI. Devuelve (b64_final, usage).
+        # Pedir streaming mantiene la conexión con datos: las generaciones lentas (>60s)
+        # en modo silencioso se cortan a los ~60s; con parciales fluyendo, sobreviven.
+        # forward=True reenvía cada imagen parcial al navegador (preview en vivo).
         final_b64, usage = None, {}
         for raw in resp:
             line = raw.decode("utf-8", "ignore").strip()
@@ -6108,16 +6111,59 @@ class H(BaseHTTPRequestHandler):
             t = ev.get("type", "")
             if "partial_image" in t:
                 b64 = ev.get("b64_json") or ev.get("b64") or ""
-                if b64:
+                if b64 and forward:
                     self._emit({"type": "partial", "b64": b64, "i": ev.get("partial_image_index", 0)})
             elif "completed" in t:
                 final_b64 = ev.get("b64_json") or final_b64
                 usage = ev.get("usage") or usage
+        return final_b64, usage
+
+    def _pump_sse(self, resp, meta, model_used="gpt-image-2"):
+        # variante que reenvía parciales y, al terminar, guarda y emite el resultado por ndjson
+        final_b64, usage = self._read_image_sse(resp, True)
         if not final_b64:
             return False   # sin imagen final → el llamador reintenta sin streaming
         res = self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model_used)
         self._emit({"type": "done", "result": res})
         return True
+
+    def _gen_via_stream(self, url, stream_data, nostream_data, hdr, meta, model_used, partial, via_visual=False, attempts=3):
+        # Genera SIEMPRE pidiendo streaming a OpenAI (stream_data ya lleva stream=true/partial_images),
+        # lo que mantiene viva la conexión en generaciones lentas (>60s). OpenAI corta de forma
+        # INTERMITENTE los streams largos (a veces un hueco entre eventos supera ~60s), así que
+        # reintentamos el streaming hasta `attempts` veces. Si partial>0, abre canal ndjson y
+        # reenvía el preview en vivo; si no, consume en silencio y devuelve la imagen como JSON.
+        # Devuelve dict-resultado (modo silencioso) o None (modo ndjson: ya emitió 'done'/error).
+        forward = partial > 0
+        if forward:
+            self._stream_open()
+
+        def _ok(res):
+            if forward:
+                self._emit({"type": "done", "result": res}); return None
+            return res
+
+        def _fail(msg):
+            if forward:
+                self._emit({"type": "error", "error": msg}); return None
+            return {"error": msg}
+
+        for i in range(attempts):
+            final_b64, usage = None, {}
+            try:
+                req = urllib.request.Request(url, data=stream_data, headers={**hdr, "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=600) as r:
+                    final_b64, usage = self._read_image_sse(r, forward)
+            except urllib.error.HTTPError as e:
+                return _fail(self._err(e))   # error real de la API (cuota/política/parámetros) → no reintentar
+            except Exception:
+                final_b64 = None             # conexión caída a media generación → reintentar
+            if final_b64:
+                return _ok(self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, via_visual, model_used))
+        # agotados los reintentos de streaming
+        return _fail("OpenAI cortó la generación varias veces (le pasa a las imágenes lentas: "
+                     "calidad alta + tamaños grandes, o conexión lenta). Reintenté "
+                     f"{attempts} veces. Prueba calidad media o un tamaño menor.")
 
     def _stream_fallback(self, url, payload_or_body, hdr, meta, model_used, via_visual=False):
         # el streaming se cayó (o no entregó imagen): reintenta SIN streaming para que la imagen no se pierda
@@ -7243,21 +7289,14 @@ class H(BaseHTTPRequestHandler):
                 "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
-        if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
-            payload["stream"] = True
-            payload["partial_images"] = partial
-            self._stream_open()
-            ok = False
-            try:
-                req = urllib.request.Request(API_GEN, data=json.dumps(payload).encode(), headers={**hdr, "Accept": "text/event-stream"})
-                with urllib.request.urlopen(req, timeout=300) as r:
-                    ok = self._pump_sse(r, meta, model)
-            except Exception:
-                ok = False   # conexión SSE caída → respaldo sin streaming
-            if not ok:
-                fb = {k: v for k, v in payload.items() if k not in ("stream", "partial_images")}
-                self._stream_fallback(API_GEN, fb, hdr, meta, model)
-            return
+        if n == 1:
+            # SIEMPRE vía streaming a OpenAI: mantiene viva la conexión en gens lentas (>60s).
+            # partial>0 reenvía el preview en vivo; si no, consume en silencio y devuelve JSON.
+            sp = dict(payload); sp["stream"] = True; sp["partial_images"] = partial if partial > 0 else 3
+            res = self._gen_via_stream(API_GEN, json.dumps(sp).encode(), json.dumps(payload).encode(),
+                                       hdr, meta, model, partial)
+            return self._json(res) if res is not None else None
+        # n>1 no soporta streaming → petición normal
         try:
             with urllib.request.urlopen(urllib.request.Request(API_GEN, data=json.dumps(payload).encode(),
                     headers=hdr), timeout=240) as r:
@@ -7330,28 +7369,20 @@ class H(BaseHTTPRequestHandler):
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True),
                 "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
-        stream = partial > 0 and int(b.get("n", 1)) == 1
         closing = f"--{boundary}--\r\n".encode()
-        nostream_body = b"".join(parts) + closing   # cuerpo sin streaming (para respaldo y modo normal)
+        nostream_body = b"".join(parts) + closing   # cuerpo sin streaming (para respaldo y n>1)
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
-        if stream:   # preview en vivo (imágenes parciales)
-            field("stream", "true")
-            field("partial_images", str(partial))
-            parts.append(closing)
-            stream_body = b"".join(parts)
-            self._stream_open()
-            ok = False
-            try:
-                req = urllib.request.Request(API_EDIT, data=stream_body, headers={**hdr, "Accept": "text/event-stream"})
-                with urllib.request.urlopen(req, timeout=300) as r:
-                    ok = self._pump_sse(r, meta, model)
-            except Exception:
-                ok = False   # conexión SSE caída → respaldo sin streaming
-            if not ok:
-                self._stream_fallback(API_EDIT, nostream_body, hdr, meta, model, via_visual)
-            return
+        if int(b.get("n", 1)) == 1:
+            # SIEMPRE vía streaming a OpenAI: mantiene viva la conexión en ediciones lentas (>60s).
+            pcount = partial if partial > 0 else 3
+            sfields = (f'--{boundary}\r\nContent-Disposition: form-data; name="stream"\r\n\r\ntrue\r\n'
+                       f'--{boundary}\r\nContent-Disposition: form-data; name="partial_images"\r\n\r\n{pcount}\r\n').encode()
+            stream_body = b"".join(parts) + sfields + closing
+            res = self._gen_via_stream(API_EDIT, stream_body, nostream_body, hdr, meta, model, partial, via_visual)
+            return self._json(res) if res is not None else None
+        # n>1 no soporta streaming → petición normal
         try:
-            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=nostream_body, headers=hdr), timeout=300) as r:
+            with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=nostream_body, headers=hdr), timeout=240) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
