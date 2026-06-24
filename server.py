@@ -4762,7 +4762,8 @@ $('shelfGrid').addEventListener('click',e=>{
 function exitShelfSel(){if(!shelfSelMode)return;shelfSelMode=false;shelfSel.clear();$('shelfSelBtn').classList.remove('on');renderShelf();renderShelfBulk();}
 document.addEventListener('click',e=>{
  if(!shelfSelMode||shMarqueed)return;
- if(e.target.closest('#shelf')||e.target.closest('#shelfBulk')||e.target.closest('.movepop')||e.target.closest('.sharepop'))return;
+ // mantener la selección solo si se interactúa con una tarjeta, los controles de sección, la barra de acciones, el botón Seleccionar o un popup; cualquier otro clic (zona vacía o fuera) sale
+ if(e.target.closest('.scard')||e.target.closest('.secacts')||e.target.closest('#shelfSelBtn')||e.target.closest('#shelfBulk')||e.target.closest('.movepop')||e.target.closest('.sharepop'))return;
  exitShelfSel();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&shelfSelMode){const t=(document.activeElement||{}).tagName;if(t==='INPUT'||t==='TEXTAREA')return;exitShelfSel();}});
