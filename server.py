@@ -7265,6 +7265,14 @@ class H(BaseHTTPRequestHandler):
                 "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
+        # ¿generación LENTA (probable >60s)? las grandes (≥2MP, p.ej. 1920×1088 o 4K) o en calidad
+        # alta cruzan el corte de ~60s de OpenAI → necesitan streaming keepalive. Las pequeñas/rápidas
+        # van sin streaming (rápidas, sin overhead).
+        try:
+            _w, _h = (int(x) for x in size.lower().split("x"))
+            slow = quality == "high" or (_w * _h) >= 2_000_000
+        except Exception:
+            slow = quality == "high"
         if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
             payload["stream"] = True
             payload["partial_images"] = partial
@@ -7276,6 +7284,21 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 self._stream_err(e)
             return
+        if slow and n == 1:   # grande/alta calidad → streaming keepalive silencioso (devuelve JSON normal)
+            sp = dict(payload); sp["stream"] = True; sp["partial_images"] = 3
+            try:
+                req = urllib.request.Request(API_GEN, data=json.dumps(sp).encode(), headers={**hdr, "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    final_b64, usage = self._read_final_b64(r)
+            except urllib.error.HTTPError as e:
+                return self._json({"error": self._err(e)})
+            except Exception as e:
+                return self._json({"error": self._conn_msg(e)})
+            if not final_b64:
+                return self._json({"error": "OpenAI tardó demasiado con esta imagen y cortó la conexión. "
+                                            "Las imágenes muy grandes (cerca de 4K) o en calidad alta a veces pasan "
+                                            "del límite de tiempo de OpenAI. Reintenta, o baja un poco el tamaño/calidad."})
+            return self._json(self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model))
         try:
             with urllib.request.urlopen(urllib.request.Request(API_GEN, data=json.dumps(payload).encode(),
                     headers=hdr), timeout=240) as r:
