@@ -6134,6 +6134,27 @@ class H(BaseHTTPRequestHandler):
         res = self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model_used)
         self._emit({"type": "done", "result": res})
 
+    def _read_final_b64(self, resp):
+        # lee el SSE de OpenAI en silencio (sin reenviar parciales) y devuelve (b64_final, usage).
+        # Pedir streaming mantiene la conexión con datos fluyendo → las ediciones lentas (>60s) no
+        # se cortan al límite de ~60s de OpenAI a las conexiones silenciosas.
+        final_b64, usage = None, {}
+        for raw in resp:
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            chunk = line[5:].strip()
+            if chunk == "[DONE]":
+                break
+            try:
+                ev = json.loads(chunk)
+            except Exception:
+                continue
+            if "completed" in ev.get("type", ""):
+                final_b64 = ev.get("b64_json") or final_b64
+                usage = ev.get("usage") or usage
+        return final_b64, usage
+
     def _stream_err(self, e):
         if isinstance(e, urllib.error.HTTPError):
             self._emit({"type": "error", "error": self._err(e)})
@@ -7327,13 +7348,17 @@ class H(BaseHTTPRequestHandler):
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True),
                 "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
-        stream = partial > 0 and int(b.get("n", 1)) == 1
-        if stream:
+        n1 = int(b.get("n", 1)) == 1
+        forward = partial > 0 and n1   # preview en vivo
+        # Editar es LENTO (a tamaños grandes pasa de 60s, y OpenAI corta las conexiones silenciosas a
+        # los ~60s). Pedimos streaming para mantener viva la conexión: forward=preview en vivo; si no,
+        # se consume en silencio y se devuelve la imagen como JSON (idéntico para el navegador).
+        if n1:
             field("stream", "true")
-            field("partial_images", str(partial))
+            field("partial_images", str(partial if partial > 0 else 3))
         parts.append(f"--{boundary}--\r\n".encode())
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
-        if stream:   # preview en vivo (imágenes parciales)
+        if forward:   # preview en vivo (imágenes parciales por streaming)
             self._stream_open()
             try:
                 req = urllib.request.Request(API_EDIT, data=b"".join(parts), headers={**hdr, "Accept": "text/event-stream"})
@@ -7342,6 +7367,22 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 self._stream_err(e)
             return
+        if n1:   # sin preview: streaming silencioso (keepalive) → devuelve JSON normal.
+                 # El streaming mantiene viva la conexión (evita el corte de ~60s a conexiones silenciosas).
+            try:
+                req = urllib.request.Request(API_EDIT, data=b"".join(parts), headers={**hdr, "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    final_b64, usage = self._read_final_b64(r)
+            except urllib.error.HTTPError as e:
+                return self._json({"error": self._err(e)})
+            except Exception as e:
+                return self._json({"error": self._conn_msg(e)})
+            if not final_b64:
+                return self._json({"error": "OpenAI tardó demasiado con esta imagen y cortó la conexión. "
+                                            "Le pasa a las ediciones grandes (1920×1088). Prueba con un tamaño "
+                                            "menor como 1536×1024, que sale más rápido y fiable."})
+            return self._json(self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, via_visual, model))
+        # n>1 no soporta streaming → petición normal
         try:
             with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts), headers=hdr), timeout=300) as r:
                 data = json.loads(r.read())
