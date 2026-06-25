@@ -7291,7 +7291,7 @@ class H(BaseHTTPRequestHandler):
                 final_b64, usage = None, {}
                 try:
                     req = urllib.request.Request(API_GEN, data=sd, headers={**hdr, "Accept": "text/event-stream"})
-                    with urllib.request.urlopen(req, timeout=300) as r:
+                    with urllib.request.urlopen(req, timeout=90) as r:   # cuelgue → falla en 90s y reintenta (no se congela)
                         final_b64, usage = self._read_final_b64(r)
                 except urllib.error.HTTPError as e:
                     return self._json({"error": self._err(e)})   # error real de la API → no reintentar
@@ -7400,7 +7400,7 @@ class H(BaseHTTPRequestHandler):
                 final_b64, usage = None, {}
                 try:
                     req = urllib.request.Request(API_EDIT, data=edit_body, headers={**hdr, "Accept": "text/event-stream"})
-                    with urllib.request.urlopen(req, timeout=300) as r:
+                    with urllib.request.urlopen(req, timeout=90) as r:   # cuelgue → falla en 90s y reintenta (no se congela)
                         final_b64, usage = self._read_final_b64(r)
                 except urllib.error.HTTPError as e:
                     return self._json({"error": self._err(e)})   # error real de la API → no reintentar
