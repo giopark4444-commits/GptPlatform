@@ -744,6 +744,7 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .secbtn{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--surface);border:1px solid var(--line2);color:var(--mut);cursor:pointer;padding:0}
 .secbtn:hover{color:var(--txt);border-color:var(--mut)}
 .secbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+.secbtn.secdedup:hover{color:#e5484d;border-color:#e5484d}
 .movepop{position:fixed;z-index:1300;background:var(--elev);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.5);max-height:60vh;overflow-y:auto;min-width:220px}
 .movepop .mphdr{font-size:11px;color:var(--mut);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.04em}
 .movepop .mpdest{display:flex;gap:3px;padding:3px;margin:0 4px 6px;background:var(--surface2);border-radius:9px}
@@ -1035,6 +1036,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 .shelfgrid:empty{display:none}
 .scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
+/* imágenes repetidas (mismo contenido): marco rojo en todas las copias */
+.scard.dup{box-shadow:inset 0 0 0 2.5px #e5484d, 0 0 0 1px #e5484d}
+.dupbadge{position:absolute;top:6px;right:6px;z-index:4;background:#e5484d;color:#fff;font-size:9.5px;font-weight:700;letter-spacing:.03em;padding:2px 6px;border-radius:6px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.shelfgrid.selmode .dupbadge{display:none}
 .sov{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:4px;padding:5px;opacity:0;
  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 70%);transition:.15s}
 .scard:hover .sov{opacity:1}
@@ -2136,6 +2141,7 @@ html,body{overflow-x:hidden}
         <span class="shelftitle"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>Mis imágenes <span class="shelfsub">· siempre a la mano, en tu equipo</span></span>
         <div style="display:flex;gap:7px;flex:none;align-items:center">
         <span class="cfilt" id="shelfColFilt" title="Filtrar por color"><button class="cfdot r" data-col="r" title="Rojo"></button><button class="cfdot y" data-col="y" title="Amarillo"></button><button class="cfdot g" data-col="g" title="Verde"></button><button class="cfdot b" data-col="b" title="Azul"></button></span>
+        <button class="ghost sm" id="shelfDedupBtn" title="Eliminar imágenes repetidas (deja solo una)"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Repetidas</button>
         <button class="ghost sm" id="shelfSelBtn" title="Seleccionar varias (arrastra un recuadro o haz clic)"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Seleccionar</button>
         <button class="ghost sm" id="shelfAll" title="Ver todas en una ventana"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Ver todo</button>
         <button class="ghost sm" id="shelfAddBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>Cargar</button>
@@ -4675,7 +4681,14 @@ function buildMinis(){document.querySelectorAll('.chip[data-w]').forEach(c=>{con
  let bw,bh;if(W>=H){bw=m;bh=Math.max(3,Math.round(m*H/W))}else{bh=m;bw=Math.max(3,Math.round(m*W/H))}
  const s=document.createElement('span');s.className='mini';s.style.width=bw+'px';s.style.height=bh+'px';c.insertBefore(s,c.firstChild)})}
 // ===== Estante de imágenes propias (local, en tu equipo · no en OpenAI) =====
-let shelfItems=[],shelfSubs=new Set(['all']),shelfGroups=[];
+let shelfItems=[],shelfSubs=new Set(['all']),shelfGroups=[],shelfDups={};
+// calcula, por subproyecto, el conjunto de archivos REPETIDOS (mismo md5 de contenido, >1 copia)
+function computeShelfDups(){shelfDups={};for(const g of shelfGroups){const byh={};(g.items||[]).forEach(it=>{if(it.md5){(byh[it.md5]=byh[it.md5]||[]).push(it.file)}});const s=new Set();Object.values(byh).forEach(fs=>{if(fs.length>1)fs.forEach(f=>s.add(f))});shelfDups[g.k]=s}}
+function isDupFile(file,sub){const s=shelfDups[sub||''];return !!(s&&s.has(file))}
+async function shelfDedup(subs){if(!subs||!subs.length)return;let total=0;
+ for(const sk of subs){try{const r=await(await fetch('/shelfdedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:curProj(),sub:sk})})).json();total+=(r&&r.removed)||0;}catch(_){}}
+ await loadShelf();
+ toast(total>0?(total+(total>1?' repetidas eliminadas':' repetida eliminada')+' · se conservó una (recuperable en Papelera)'):'No había imágenes repetidas');}
 function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
 function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
  if(!subs.length){c.innerHTML='';return}
@@ -4703,13 +4716,15 @@ async function loadShelf(){const subs=curSubs();
  for(const g of groups){try{const r=await(await fetch('/shelf?project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(g.k))).json();
   const items=r.items||[];items.forEach(it=>it._sub=g.k);shelfGroups.push({k:g.k,items});if(r.dir&&g.k===(activeSub||''))dir=r.dir;if(r.dir&&!dir)dir=r.dir}catch(e){shelfGroups.push({k:g.k,items:[]})}}
  shelfItems=shelfGroups.length===1?shelfGroups[0].items:[].concat(...shelfGroups.map(g=>g.items));
+ computeShelfDups();
  if(dir)$('shelfDirLbl').textContent=dir;renderShelf()}
 let shelfSelMode=false;const shelfSel=new Set();
 let shMarqueed=false,shMarq=null,shMqStart=null,shMqMoved=false,shAnchor=-1;
 function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+(it._sub?'&sub='+encodeURIComponent(it._sub):'');const sb=esc(it._sub||'');
  const drg=(shelfSelMode&&!shelfSel.has(it.file))?'false':'true';  // en selección, solo las SELECCIONADAS se arrastran (a Referencias); las demás no, para que el recuadro reciba el puntero
- return `<div class="scard${shelfSel.has(it.file)?' sel':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
-  ${colDots(it.colors)}${colPick(it.colors)}
+ const dup=isDupFile(it.file,it._sub||'');
+ return `<div class="scard${shelfSel.has(it.file)?' sel':''}${dup?' dup':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
+  ${dup?'<span class="dupbadge">REPETIDA</span>':''}${colDots(it.colors)}${colPick(it.colors)}
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -4722,7 +4737,7 @@ function renderShelf(){
  const cf=shelfColFilter,passC=it=>!cf.size||((it.colors||[]).some(c=>cf.has(c)));
  if(shelfGroups.length>1){const subs=curSubs();
   const cn={r:'rojas',y:'amarillas',g:'verdes',b:'azules'};
-  const secActs='<span class="secacts"><span class="secdots">'+IMGCOLS.map(c=>'<button class="secdot '+c+'" data-col="'+c+'" title="Seleccionar las imágenes '+cn[c]+' de este proyecto"></button>').join('')+'</span><button class="secbtn secall" title="Seleccionar todo lo de este proyecto"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button><button class="secbtn secshare" title="Compartir las imágenes de este proyecto">'+GSHARE+'</button></span>';
+  const secActs='<span class="secacts"><span class="secdots">'+IMGCOLS.map(c=>'<button class="secdot '+c+'" data-col="'+c+'" title="Seleccionar las imágenes '+cn[c]+' de este proyecto"></button>').join('')+'</span><button class="secbtn secdedup" title="Eliminar repetidas (deja solo una)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="secbtn secall" title="Seleccionar todo lo de este proyecto"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button><button class="secbtn secshare" title="Compartir las imágenes de este proyecto">'+GSHARE+'</button></span>';
   $('shelfGrid').innerHTML=shelfGroups.map(g=>{const lbl=g.k===''?'Raíz':((subs.find(s=>s.key===g.k)||{}).label||g.k);
    const inner=(g.items||[]).filter(passC).map(it=>scardHtml(Object.assign({},it,{_sub:g.k}))).join('')||'<div class="hint">Vacío</div>';
    return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr"><span class="ghname">${esc(lbl)}</span>${secActs}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
@@ -4742,6 +4757,7 @@ async function shelfAddFiles(files,sub){const imgs=[];let bad=0;
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
  await shelfAddTo(imgs,sub===undefined?activeSub:sub);}
 $('shelfAddBtn').onclick=()=>$('shelfFile').click();
+$('shelfDedupBtn').onclick=()=>shelfDedup(shelfGroups.length?shelfGroups.map(g=>g.k):[activeSub||'']);
 $('shelfAll').onclick=()=>{const sp=shelfSubs.has('all')?'&subs=all':('&subs='+encodeURIComponent([...shelfSubs].join(',')));window.open('/galeria?src=shelf&project='+encodeURIComponent(curProj())+sp,'_blank','noopener')};
 $('shelfFile').onchange=e=>{const arr=[...e.target.files];e.target.value='';const vid=arr.find(isVideoFile);
  if(vid)openVideoFrames(vid,'shelf');const imgs=arr.filter(f=>!isVideoFile(f));if(imgs.length)shelfAddFiles(imgs);};
@@ -4823,11 +4839,12 @@ $('shelfGrid').addEventListener('dragend',()=>{[...$('shelfGrid').querySelectorA
 // controles en la cabecera de cada sección (proyecto/subproyecto): por color, todo, compartir — solo lo de ESA sección
 function enterShelfSel(){if(!shelfSelMode){shelfSelMode=true;if(selMode){selMode=false;selFiles.clear();renderGal();renderBulk();}$('shelfSelBtn').classList.add('on');}}
 $('shelfGrid').addEventListener('click',e=>{
- const sd=e.target.closest('.secdot'),sa=e.target.closest('.secall'),ss=e.target.closest('.secshare');
- if(!sd&&!sa&&!ss)return;
+ const sd=e.target.closest('.secdot'),sa=e.target.closest('.secall'),ss=e.target.closest('.secshare'),sdd=e.target.closest('.secdedup');
+ if(!sd&&!sa&&!ss&&!sdd)return;
  e.preventDefault();e.stopPropagation();
  const sec=e.target.closest('.shelfsec');if(!sec)return;
  const sub=sec.dataset.sub||'',cards=[...sec.querySelectorAll('.scard')];
+ if(sdd){shelfDedup([sub]);return;}
  if(ss){const items=cards.map(cd=>({url:'/shelffile?name='+encodeURIComponent(cd.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(sub),filename:cd.dataset.shelf}));
   if(!items.length){toast('No hay imágenes en este proyecto','bad');return}openSharePopMulti(ss,items);return;}
  const cardColors=cd=>[...cd.querySelectorAll('.cdots .cdot')].map(d=>[...d.classList].find(x=>x!=='cdot'));
@@ -6314,8 +6331,12 @@ class H(BaseHTTPRequestHandler):
             pr = self._proj()
             sb = self._sub()
             shdir = shelf_dir_sub(pr, sb)
-            return self._json({"items": load_json(pshelf_json(pr, sb), []),
-                               "dir": str(shdir).replace(str(HOME), "~")})
+            sj = pshelf_json(pr, sb)
+            with LOCK:
+                items = load_json(sj, [])
+                if self._fill_md5(items, pshelf_dir(pr, sb)):   # md5 del contenido (para detectar repetidas), cacheado
+                    save_json(sj, items)
+            return self._json({"items": items, "dir": str(shdir).replace(str(HOME), "~")})
         if self.path == "/pickfolder":
             # diálogo nativo de macOS para elegir carpeta (la app corre local)
             try:
@@ -6389,6 +6410,7 @@ class H(BaseHTTPRequestHandler):
                  "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
+                 "/shelfdedup": self.h_shelf_dedup,
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
                  "/restoreitems": self.h_restoreitems,
                  "/trashrestore": self.h_trashrestore, "/trashdelete": self.h_trashdelete,
@@ -6901,6 +6923,49 @@ class H(BaseHTTPRequestHandler):
             save_json(sj, items)
         return self._json({"ok": True, "items": items, "skipped": skipped,
                            "dir": str(ext_dir).replace(str(HOME), "~")})
+
+    def _fill_md5(self, items, sdir):
+        # calcula y cachea el md5 del contenido de cada imagen del estante (en su metadato).
+        # Devuelve True si hubo que calcular alguno (para guardar). Llamar DENTRO de LOCK.
+        changed = False
+        for it in items:
+            if not it.get("md5"):
+                try:
+                    it["md5"] = hashlib.md5((sdir / os.path.basename(it.get("file", ""))).read_bytes()).hexdigest()
+                except Exception:
+                    it["md5"] = None
+                changed = True
+        return changed
+
+    def h_shelf_dedup(self):
+        # quita las imágenes repetidas (mismo contenido) de Mis imágenes, conservando UNA (la 1ª/más antigua)
+        b = self._body()
+        pr = self._proj(b)
+        sb = self._sub(b)
+        removed = 0
+        with LOCK:
+            sj = pshelf_json(pr, sb)
+            sdir = pshelf_dir(pr, sb)
+            items = load_json(sj, [])
+            self._fill_md5(items, sdir)
+            seen, keep, drop = set(), [], []
+            for it in items:
+                h = it.get("md5")
+                if h and h in seen:
+                    drop.append(it)
+                else:
+                    if h:
+                        seen.add(h)
+                    keep.append(it)
+            for it in drop:
+                try:
+                    trash_put(sdir / os.path.basename(it.get("file", "")), "shelf", pr, sb, it)
+                except Exception:
+                    pass
+                removed += 1
+            if drop:
+                save_json(sj, keep)
+        return self._json({"ok": True, "removed": removed})
 
     def h_shelf_del(self):
         b = self._body()
