@@ -6113,9 +6113,9 @@ class H(BaseHTTPRequestHandler):
         low = s.lower()
         if ("closed connection" in low or "timed out" in low or "timeout" in low
                 or "eof occurred" in low or "reset by peer" in low or isinstance(e, TimeoutError)):
-            return ("OpenAI tardó demasiado con esta imagen y cortó la conexión. "
-                    "Le pasa a las imágenes pesadas (calidad alta o tamaños grandes). "
-                    "Prueba con calidad media o un tamaño más pequeño.")
+            return ("La conexión se cortó a mitad de la imagen. CAUSA #1: un VPN activo (Surfshark, etc.) "
+                    "suele matar las conexiones lentas a los ~60s — apágalo o excluye la app del VPN. "
+                    "Si no usas VPN, OpenAI puede estar lento: reintenta o baja calidad/tamaño.")
         return f"Sin conexión con OpenAI: {s}"
 
     def _pump_sse(self, resp, meta, model_used="gpt-image-2"):
@@ -7279,14 +7279,6 @@ class H(BaseHTTPRequestHandler):
                 "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
-        # ¿generación LENTA (probable >60s)? las grandes (≥2MP, p.ej. 1920×1088 o 4K) o en calidad
-        # alta cruzan el corte de ~60s de OpenAI → necesitan streaming keepalive. Las pequeñas/rápidas
-        # van sin streaming (rápidas, sin overhead).
-        try:
-            _w, _h = (int(x) for x in size.lower().split("x"))
-            slow = quality == "high" or (_w * _h) >= 2_000_000
-        except Exception:
-            slow = quality == "high"
         if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
             payload["stream"] = True
             payload["partial_images"] = partial
@@ -7298,26 +7290,9 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 self._stream_err(e)
             return
-        if slow and n == 1:   # grande/alta calidad → streaming keepalive silencioso (devuelve JSON normal)
-            sp = dict(payload); sp["stream"] = True; sp["partial_images"] = 3
-            sd = json.dumps(sp).encode()
-            for _try in range(4):   # OpenAI corta de forma intermitente → insiste hasta que entregue
-                final_b64, usage = None, {}
-                try:
-                    req = urllib.request.Request(API_GEN, data=sd, headers={**hdr, "Accept": "text/event-stream"})
-                    with urllib.request.urlopen(req, timeout=90) as r:   # cuelgue → falla en 90s y reintenta (no se congela)
-                        final_b64, usage = self._read_final_b64(r)
-                except urllib.error.HTTPError as e:
-                    return self._json({"error": self._err(e)})   # error real de la API → no reintentar
-                except Exception:
-                    final_b64 = None                              # conexión cortada → reintentar
-                if final_b64:
-                    return self._json(self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, model_used=model))
-            return self._json({"error": "OpenAI está muy lento ahora mismo y cortó la conexión tras varios intentos. "
-                                        "Vuelve a darle a Generar en un momento, o baja un poco el tamaño/calidad."})
         try:
             with urllib.request.urlopen(urllib.request.Request(API_GEN, data=json.dumps(payload).encode(),
-                    headers=hdr), timeout=240) as r:
+                    headers=hdr), timeout=300) as r:
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
@@ -7387,17 +7362,13 @@ class H(BaseHTTPRequestHandler):
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True),
                 "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
-        n1 = int(b.get("n", 1)) == 1
-        forward = partial > 0 and n1   # preview en vivo
-        # Editar es LENTO (a tamaños grandes pasa de 60s, y OpenAI corta las conexiones silenciosas a
-        # los ~60s). Pedimos streaming para mantener viva la conexión: forward=preview en vivo; si no,
-        # se consume en silencio y se devuelve la imagen como JSON (idéntico para el navegador).
-        if n1:
+        stream = partial > 0 and int(b.get("n", 1)) == 1
+        if stream:
             field("stream", "true")
-            field("partial_images", str(partial if partial > 0 else 3))
+            field("partial_images", str(partial))
         parts.append(f"--{boundary}--\r\n".encode())
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": f"multipart/form-data; boundary={boundary}"}
-        if forward:   # preview en vivo (imágenes parciales por streaming)
+        if stream:   # preview en vivo (imágenes parciales por streaming)
             self._stream_open()
             try:
                 req = urllib.request.Request(API_EDIT, data=b"".join(parts), headers={**hdr, "Accept": "text/event-stream"})
@@ -7406,25 +7377,6 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 self._stream_err(e)
             return
-        if n1:   # sin preview: streaming silencioso (keepalive) → devuelve JSON normal.
-                 # El streaming mantiene viva la conexión; y como OpenAI corta de forma intermitente,
-                 # insistimos hasta que entregue (las ediciones son lentas y a veces cruzan los ~60s).
-            edit_body = b"".join(parts)
-            for _try in range(4):
-                final_b64, usage = None, {}
-                try:
-                    req = urllib.request.Request(API_EDIT, data=edit_body, headers={**hdr, "Accept": "text/event-stream"})
-                    with urllib.request.urlopen(req, timeout=90) as r:   # cuelgue → falla en 90s y reintenta (no se congela)
-                        final_b64, usage = self._read_final_b64(r)
-                except urllib.error.HTTPError as e:
-                    return self._json({"error": self._err(e)})   # error real de la API → no reintentar
-                except Exception:
-                    final_b64 = None                              # conexión cortada → reintentar
-                if final_b64:
-                    return self._json(self._save_results({"data": [{"b64_json": final_b64}], "usage": usage}, meta, via_visual, model))
-            return self._json({"error": "OpenAI está muy lento ahora mismo y cortó la conexión tras varios intentos. "
-                                        "Vuelve a intentarlo en un momento, o usa un tamaño menor como 1536×1024."})
-        # n>1 no soporta streaming → petición normal
         try:
             with urllib.request.urlopen(urllib.request.Request(API_EDIT, data=b"".join(parts), headers=hdr), timeout=300) as r:
                 data = json.loads(r.read())
