@@ -926,7 +926,20 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 #go.busy{background:var(--surface2);color:var(--accent);cursor:progress;box-shadow:none;transform:none}
 #go.busy svg{display:none}
 #go.busy::before{content:"";width:15px;height:15px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
-#resultImg.gen-busy{opacity:.45;filter:saturate(.6);transition:opacity .2s}
+/* mientras genera: un haz de luz recorre el borde del recuadro (la imagen queda intacta) */
+@property --beamang{syntax:"<angle>";initial-value:0deg;inherits:false}
+.canvas.gen{border-color:transparent;box-shadow:0 0 24px -6px var(--accent)}
+.canvas.gen::after{content:"";position:absolute;inset:0;border-radius:16px;padding:2.5px;pointer-events:none;z-index:6;
+ background:conic-gradient(from var(--beamang),transparent 0deg,transparent 235deg,color-mix(in srgb,var(--accent) 55%,transparent) 300deg,#fff 345deg,color-mix(in srgb,var(--accent) 55%,transparent) 360deg);
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+ mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;
+ animation:beamrot 1.5s linear infinite}
+@keyframes beamrot{to{--beamang:360deg}}
+@keyframes beampulse{0%,100%{opacity:.35}50%{opacity:1}}
+/* fallback si el navegador no soporta @property: un borde de acento que pulsa */
+@supports not (background:conic-gradient(from var(--beamang),#000,#000)){
+ .canvas.gen::after{background:none;border:2px solid var(--accent);animation:beampulse 1.1s ease-in-out infinite}}
+@media (prefers-reduced-motion:reduce){.canvas.gen::after{animation:beampulse 1.6s ease-in-out infinite}}
 .hint{font-size:11px;color:var(--faint);margin-top:10px;line-height:1.55}
 .hint.warn{color:#e0b070;border-left:2px solid #e0b070;padding-left:9px}
 
@@ -3585,8 +3598,9 @@ function updGenChip(){const n=activeJobs;const gchip=$('genChip');
  // feedback inmediato en el propio botón (aunque ya haya un resultado en el lienzo)
  const go=$('go'),gt=$('goTxt');
  if(go){go.classList.toggle('busy',n>0);if(gt)gt.textContent=n>0?(n>1?('Generando '+n+'…'):'Generando…'):'Generar';}
- // atenúa el resultado actual mientras se genera, para que se note que está trabajando
- if($('resultImg'))$('resultImg').classList.toggle('gen-busy',n>0)}
+ // mientras se genera: la imagen actual queda TAL CUAL (sin velo) y el recuadro muestra
+ // un haz de luz recorriendo el borde
+ if($('canvas'))$('canvas').classList.toggle('gen',n>0)}
 // el chip "Generando" debe vivir en <body>: su columna tiene transform y eso rompe el position:fixed
 try{document.body.appendChild($('genChip'))}catch(e){}
 async function run(){
