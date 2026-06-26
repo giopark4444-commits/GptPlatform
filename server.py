@@ -4750,24 +4750,34 @@ async function shelfAddImages(imgs){return shelfAddTo(imgs,activeSub)}
 // ancestro que hace scroll (para conservar la posición al recargar el estante)
 function _scrollParent(el){for(let p=el&&el.parentElement;p;p=p.parentElement){const o=getComputedStyle(p).overflowY;if((o==='auto'||o==='scroll')&&p.scrollHeight>p.clientHeight+2)return p;}return document.scrollingElement||document.documentElement;}
 async function shelfAddTo(imgs,sub){if(!imgs.length)return;
- const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:curProj(),sub:sub||''})})).json();
- if(r.error){toast(r.error,'bad');return;}
- if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
- // FLIP: recordar dónde estaba cada tarjeta + el scroll, para no "reiniciar" y animar la entrada
- const grid=$('shelfGrid'),sp=_scrollParent(grid),st=sp?sp.scrollTop:0;
- const before=new Map();[...grid.querySelectorAll('.scard')].forEach(c=>before.set(c.dataset.shelf+'|'+(c.dataset.sub||''),c.getBoundingClientRect()));
+ // subir en LOTES para no pasar el límite de tamaño por petición → así puedes arrastrar CUALQUIER cantidad
+ const LIMIT=300*1024*1024, MAXN=50, batches=[]; let cur=[],csz=0;
+ for(const im of imgs){const sz=(im.b64||'').length;
+  if(cur.length&&(csz+sz>LIMIT||cur.length>=MAXN)){batches.push(cur);cur=[];csz=0;}
+  cur.push(im);csz+=sz;}
+ if(cur.length)batches.push(cur);
+ let added=0,skipped=0,err=null;
+ for(let i=0;i<batches.length;i++){
+  if(batches.length>1)toast('Guardando… '+added+'/'+imgs.length);
+  try{const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:batches[i],project:curProj(),sub:sub||''})})).json();
+   if(r&&r.error){err=r.error;break;}
+   skipped+=(r&&r.skipped?r.skipped.length:0);added+=batches[i].length-(r&&r.skipped?r.skipped.length:0);
+  }catch(e){err='No se pudo guardar (lote '+(i+1)+' de '+batches.length+')';break;}}
+ if(err)toast(err,'bad');
+ if(skipped)toast(skipped+' descartada(s) por formato no válido','bad');
+ // FLIP: recordar scroll y posiciones para no "reiniciar"; animación de entrada solo para añadidos pequeños
+ const grid=$('shelfGrid'),sp=_scrollParent(grid),st=sp?sp.scrollTop:0,small=added>0&&added<=12;
+ const before=new Map();if(small)[...grid.querySelectorAll('.scard')].forEach(c=>before.set(c.dataset.shelf+'|'+(c.dataset.sub||''),c.getBoundingClientRect()));
  await loadShelf();
  if(sp)sp.scrollTop=st;   // conservar la posición de scroll (no saltar a la primera posición)
- // las que ya existían se deslizan suavemente a su nuevo lugar; las NUEVAS entran creciendo (abren el espacio)
- [...grid.querySelectorAll('.scard')].forEach(c=>{
+ if(small)[...grid.querySelectorAll('.scard')].forEach(c=>{
   const b=before.get(c.dataset.shelf+'|'+(c.dataset.sub||''));
   if(b){const a=c.getBoundingClientRect(),dx=b.left-a.left,dy=b.top-a.top;
    if(dx||dy){c.style.transition='none';c.style.transform='translate('+dx+'px,'+dy+'px)';
     requestAnimationFrame(()=>{c.style.transition='transform .34s cubic-bezier(.2,.8,.2,1)';c.style.transform='';});}}
   else{c.style.transition='none';c.style.transform='scale(.3)';c.style.opacity='0';
    requestAnimationFrame(()=>{c.style.transition='transform .36s cubic-bezier(.2,.9,.3,1),opacity .3s';c.style.transform='';c.style.opacity='1';});}});
- const n=imgs.length-(r.skipped?r.skipped.length:0);
- if(n>0){const subs=curSubs();const lbl=sub?((subs.find(s=>s.key===sub)||{}).label||sub):'Raíz';toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en Mis imágenes · '+lbl);}}
+ if(added>0){const subs=curSubs();const lbl=sub?((subs.find(s=>s.key===sub)||{}).label||sub):'Raíz';toast(added+(added>1?' imágenes guardadas':' imagen guardada')+' en Mis imágenes · '+lbl);}}
 async function shelfAddFiles(files,sub){const imgs=[];let bad=0;
  for(const f of files){if(!OK_IMG_TYPES.has(f.type)){bad++;continue}imgs.push({name:f.name,b64:await fileToB64(f)});}
  if(bad)toast(bad+(bad>1?' archivos ignorados':' archivo ignorado')+': solo PNG/JPEG/WebP/GIF','bad');
