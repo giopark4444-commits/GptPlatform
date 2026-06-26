@@ -56,6 +56,7 @@ DISTILL_MODEL = "gpt-4o-mini"
 DETECT_MODEL = "gpt-4o"   # detección de personas/objetos + orientación (mejor localización que mini)
 API_GEN = "https://api.openai.com/v1/images/generations"
 API_EDIT = "https://api.openai.com/v1/images/edits"
+API_RESPONSES = "https://api.openai.com/v1/responses"   # modo background (enviar+sondear, sin conexión sostenida)
 API_CHAT = "https://api.openai.com/v1/chat/completions"
 API_MODELS = "https://api.openai.com/v1/models"
 API_SPEECH = "https://api.openai.com/v1/audio/speech"
@@ -3633,7 +3634,7 @@ async function run(){
  const showSpin = activeJobs===0 && $('resultImg').classList.contains('hide');
  if(showSpin){$('resbar').classList.add('hide');$('strip').classList.add('hide');showState('spin');}
  activeJobs++;updGenChip();
- const ac=new AbortController(),killer=setTimeout(()=>{try{ac.abort()}catch(_){}} ,360000);  // red de seguridad: nunca quedarse pegado
+ const ac=new AbortController(),killer=setTimeout(()=>{try{ac.abort()}catch(_){}} ,600000);  // red de seguridad: nunca quedarse pegado (10 min, da espacio al respaldo background)
  try{
   let d;
   const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ac.signal});
@@ -7269,6 +7270,59 @@ class H(BaseHTTPRequestHandler):
                 out.append({"file": fn, "name": name})
         return out
 
+    def _est_out_tokens(self, size, quality):
+        # estima los tokens de salida de la imagen por tamaño/calidad (espejo de estTokens del frontend),
+        # para calcular el costo de las imágenes hechas por modo background (que no reporta tokens de imagen)
+        try:
+            w, h = (int(x) for x in str(size).lower().split("x"))
+        except Exception:
+            return 4000
+        mp = w * h / 1e6
+        q = quality or "auto"
+        if q == "low":
+            t = 129 + 64 * mp
+        elif q in ("medium", "auto"):
+            t = 1150 + 577 * mp
+        else:
+            t = 4600 + 2308 * mp
+        t *= min(w, h) / max(w, h)
+        return max(80, round(t))
+
+    def _bg_image(self, prompt, size, quality, fmt, meta, input_images=None, via_visual=False):
+        # MODO BACKGROUND: envía el trabajo a la Responses API y SONDEA hasta que termina, sin mantener
+        # una conexión larga abierta → inmune al corte de ~60s (de VPN o de la red). Devuelve el
+        # resultado (dict de _save_results) o None si falla. Se usa como respaldo cuando la vía normal corta.
+        content = [{"type": "input_text", "text": prompt}]
+        for du in (input_images or []):
+            content.append({"type": "input_image", "image_url": du})
+        tool = {"type": "image_generation", "size": size, "quality": quality, "output_format": fmt}
+        payload = {"model": "gpt-4.1", "background": True, "store": True,
+                   "input": [{"role": "user", "content": content}],
+                   "tools": [tool], "tool_choice": {"type": "image_generation"}}
+        hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
+        try:
+            with urllib.request.urlopen(urllib.request.Request(API_RESPONSES, data=json.dumps(payload).encode(), headers=hdr), timeout=60) as r:
+                d = json.loads(r.read())
+            rid = d.get("id")
+            if not rid:
+                return None
+            for _ in range(80):   # sondeo cada 4s, ~320s máx (bajo el límite de 360s del navegador)
+                if d.get("status") in ("completed", "failed", "incomplete", "cancelled"):
+                    break
+                time.sleep(4)
+                with urllib.request.urlopen(urllib.request.Request(API_RESPONSES + "/" + rid, headers=hdr), timeout=60) as r:
+                    d = json.loads(r.read())
+            b64 = None
+            for o in d.get("output", []):
+                if o.get("type") == "image_generation_call" and o.get("result"):
+                    b64 = o["result"]
+            if not b64:
+                return None
+            usage = {"output_tokens": self._est_out_tokens(size, quality)}
+            return self._save_results({"data": [{"b64_json": b64}], "usage": usage}, meta, via_visual, "gpt-image-2 (background)")
+        except Exception:
+            return None
+
     def _save_results(self, data, meta, via_visual=False, model_used="gpt-image-2"):
         ext = meta.get("output_format", "png")
         mime = "image/" + ("jpeg" if ext == "jpeg" else ext)
@@ -7362,6 +7416,10 @@ class H(BaseHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except Exception as e:
+            if n == 1:   # la conexión se cortó (VPN/red) → respaldo por modo background, que lo esquiva
+                res = self._bg_image(prompt, size, quality, fmt, meta)
+                if res:
+                    return self._json(res)
             return self._json({"error": self._conn_msg(e)})
         return self._json(self._save_results(data, meta, model_used=model))
 
@@ -7448,6 +7506,24 @@ class H(BaseHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             return self._json({"error": self._err(e)})
         except Exception as e:
+            if int(b.get("n", 1)) == 1:   # la conexión se cortó (VPN/red) → respaldo por modo background
+                idu = []
+                for im in b.get("images", []):
+                    try:
+                        ex = sniff_image(base64.b64decode(im.get("b64", ""))) or "png"
+                        idu.append(f"data:image/{ex};base64,{im.get('b64','')}")
+                    except Exception:
+                        pass
+                if b.get("use_project_refs"):
+                    for f in load_projects().get(b.get("project") or "", {}).get("refs", []):
+                        fp = proj_folder(b.get("project") or "") / f
+                        if fp.exists():
+                            rb = fp.read_bytes()
+                            idu.append(f"data:image/{sniff_image(rb) or 'png'};base64," + base64.b64encode(rb).decode())
+                if idu:
+                    res = self._bg_image(prompt, size, quality, fmt, meta, input_images=idu, via_visual=via_visual)
+                    if res:
+                        return self._json(res)
             return self._json({"error": self._conn_msg(e)})
         return self._json(self._save_results(data, meta, via_visual, model))
 
