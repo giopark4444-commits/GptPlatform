@@ -4747,11 +4747,25 @@ function renderShelf(){
   $('shelfGrid').innerHTML=shelfItems.filter(passC).map(it=>scardHtml(it)).join('');
  }}
 async function shelfAddImages(imgs){return shelfAddTo(imgs,activeSub)}
+// ancestro que hace scroll (para conservar la posición al recargar el estante)
+function _scrollParent(el){for(let p=el&&el.parentElement;p;p=p.parentElement){const o=getComputedStyle(p).overflowY;if((o==='auto'||o==='scroll')&&p.scrollHeight>p.clientHeight+2)return p;}return document.scrollingElement||document.documentElement;}
 async function shelfAddTo(imgs,sub){if(!imgs.length)return;
  const r=await(await fetch('/shelfadd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:imgs,project:curProj(),sub:sub||''})})).json();
  if(r.error){toast(r.error,'bad');return;}
  if(r.skipped&&r.skipped.length)toast(r.skipped.length+' descartada(s) por formato no válido','bad');
+ // FLIP: recordar dónde estaba cada tarjeta + el scroll, para no "reiniciar" y animar la entrada
+ const grid=$('shelfGrid'),sp=_scrollParent(grid),st=sp?sp.scrollTop:0;
+ const before=new Map();[...grid.querySelectorAll('.scard')].forEach(c=>before.set(c.dataset.shelf+'|'+(c.dataset.sub||''),c.getBoundingClientRect()));
  await loadShelf();
+ if(sp)sp.scrollTop=st;   // conservar la posición de scroll (no saltar a la primera posición)
+ // las que ya existían se deslizan suavemente a su nuevo lugar; las NUEVAS entran creciendo (abren el espacio)
+ [...grid.querySelectorAll('.scard')].forEach(c=>{
+  const b=before.get(c.dataset.shelf+'|'+(c.dataset.sub||''));
+  if(b){const a=c.getBoundingClientRect(),dx=b.left-a.left,dy=b.top-a.top;
+   if(dx||dy){c.style.transition='none';c.style.transform='translate('+dx+'px,'+dy+'px)';
+    requestAnimationFrame(()=>{c.style.transition='transform .34s cubic-bezier(.2,.8,.2,1)';c.style.transform='';});}}
+  else{c.style.transition='none';c.style.transform='scale(.3)';c.style.opacity='0';
+   requestAnimationFrame(()=>{c.style.transition='transform .36s cubic-bezier(.2,.9,.3,1),opacity .3s';c.style.transform='';c.style.opacity='1';});}});
  const n=imgs.length-(r.skipped?r.skipped.length:0);
  if(n>0){const subs=curSubs();const lbl=sub?((subs.find(s=>s.key===sub)||{}).label||sub):'Raíz';toast(n+(n>1?' imágenes guardadas':' imagen guardada')+' en Mis imágenes · '+lbl);}}
 async function shelfAddFiles(files,sub){const imgs=[];let bad=0;
