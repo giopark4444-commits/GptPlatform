@@ -2353,7 +2353,8 @@ async function streamDownload(url,name,prepLabel){
  prog.classList.remove('hide');fill.classList.add('prep');fill.style.width='0%';
  // PASO 1/2 · Preparando: el servidor arma el zip; la barra llena la PRIMERA mitad (asíntota hacia 48%)
  const t0=performance.now();let shown=0;txt.textContent='Paso 1/2 · '+(prepLabel||'Preparando copia…');
- let prepTimer=setInterval(()=>{shown+=(48-shown)*0.06;fill.style.width=shown.toFixed(1)+'%';txt.textContent='Paso 1/2 · '+(prepLabel||'Preparando copia…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},180);
+ // avance 3× más lento (0.06→0.02): la barra sigue creciendo durante todo el armado del zip (~60s) en vez de llenarse rápido y quedarse parada
+ let prepTimer=setInterval(()=>{shown+=(48-shown)*0.02;fill.style.width=shown.toFixed(1)+'%';txt.textContent='Paso 1/2 · '+(prepLabel||'Preparando copia…')+' ('+Math.round((performance.now()-t0)/1000)+'s)';},180);
  try{
   const resp=await fetch(url);if(!resp.ok)throw new Error('HTTP '+resp.status);
   clearInterval(prepTimer);prepTimer=null;
