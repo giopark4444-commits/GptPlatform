@@ -6109,6 +6109,17 @@ class H(BaseHTTPRequestHandler):
         q = parse_qs(urlparse(self.path).query, keep_blank_values=True).get("sub")
         return q[0] if q is not None else ACTIVE_SUB
 
+    def _send_big(self, data):
+        # escribe la respuesta en trozos: macOS falla con OSError 22 (Invalid argument) al enviar un
+        # buffer enorme (~2GB, p.ej. el backup) de una sola vez. Trozos de 8MB lo evitan.
+        mv = memoryview(data)
+        n = len(mv)
+        ch = 8 * 1024 * 1024
+        i = 0
+        while i < n:
+            self.wfile.write(mv[i:i + ch])
+            i += ch
+
     # ---- streaming (imágenes parciales / preview en vivo) ----
     def _stream_open(self):
         self.send_response(200)
@@ -6252,7 +6263,7 @@ class H(BaseHTTPRequestHandler):
                              f'attachment; filename="studio-backup-{time.strftime("%Y%m%d_%H%M")}.zip"')
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            return self.wfile.write(data)
+            return self._send_big(data)
         if self.path == "/clone.zip":
             data = build_clone_zip()    # copia EXACTA de ~/image-studio (reimportable tal cual)
             self.send_response(200)
@@ -6261,7 +6272,7 @@ class H(BaseHTTPRequestHandler):
                              f'attachment; filename="gio-studio-copia-exacta-{time.strftime("%Y%m%d_%H%M")}.zip"')
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            return self.wfile.write(data)
+            return self._send_big(data)
         if self.path == "/falstatus":
             return self._json({"ok": bool(fal_key())})
         if self.path.startswith("/videostatus?"):
