@@ -1054,6 +1054,10 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
  display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
 .sbtn svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2}
 .sbtn:hover{background:rgba(0,0,0,.85)}
+/* cesta armada (1er clic): roja y pulsando · 2º clic la tira a la basura */
+.sbtn.del.arm{background:#e5484d;box-shadow:0 0 0 2px rgba(229,72,77,.45);animation:sbtnarm .9s ease-in-out infinite}
+.sbtn.del.arm svg{stroke:#fff}
+@keyframes sbtnarm{0%,100%{transform:scale(1.04)}50%{transform:scale(1.18)}}
 .shelfempty{font-size:12px;color:var(--faint);text-align:center;padding:18px;border:1px dashed var(--line2);border-radius:10px}
 .shelf.dragover{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
 .strip{display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap}
@@ -4817,9 +4821,15 @@ $('shelfGrid').onclick=async e=>{
    else{setMode('crear');$('prompt').value=d.prompt;validate();$('prompt').focus();toast('Prompt de la imagen copiado al panel Crear');}
   }catch(x){toast(String(x),'bad')}
   desc.classList.remove('busy');return;}
- if(del){const f=del.dataset.file;const ssub=shelfFileSub(f);
+ if(del){
+  if(!del.classList.contains('arm')){   // 1er clic: armar (cesta roja) y esperar confirmación
+   del.classList.add('arm');toast('Clic otra vez en la cesta para tirarla a la basura','bad');
+   setTimeout(()=>del.classList.remove('arm'),2800);return;}
+  const f=del.dataset.file;const ssub=shelfFileSub(f);
+  const card=del.closest('.scard');if(card){card.style.transition='transform .25s,opacity .25s';card.style.transform='scale(.4)';card.style.opacity='0';}
   await fetch('/shelfdel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:f,project:curProj(),sub:ssub})});
-  await loadShelf();return;}
+  const grid=$('shelfGrid'),sp=_scrollParent(grid),st=sp?sp.scrollTop:0;
+  await loadShelf();if(sp)sp.scrollTop=st;toast('A la basura · recuperable en Papelera');return;}
  if(e.target.closest('a,.sbtn'))return;     // descargar u otro botón → su acción nativa
  const card=e.target.closest('.scard');     // clic en la imagen → ampliar en lightbox flotante
  if(card){const it=shelfItems.find(x=>x.file===card.dataset.shelf);const ssub=card.dataset.sub||'';
