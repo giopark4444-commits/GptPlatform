@@ -1040,7 +1040,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 #shelfDirIn{font-size:12px;padding:5px 8px;min-width:210px}
 .shelfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:9px}
 .shelfgrid:empty{display:none}
-.scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface)}
+.scard{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--surface);content-visibility:auto;contain-intrinsic-size:auto 116px}
 .scard img{width:100%;height:100%;object-fit:cover;display:block}
 /* imágenes repetidas (mismo contenido): marco rojo en todas las copias */
 .scard.dup{box-shadow:inset 0 0 0 2.5px #e5484d, 0 0 0 1px #e5484d}
@@ -1090,7 +1090,7 @@ details.adv[open]>summary{border-bottom:1px solid var(--line)}
 #prompt{min-height:195px}
 #galFilter{font-size:12px;padding:8px 11px;margin-bottom:10px}
 .gal{display:grid;grid-template-columns:1fr;gap:8px}
-.gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s}
+.gcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;background:var(--surface);transition:.16s;content-visibility:auto;contain-intrinsic-size:auto 200px}
 .gcard:hover{border-color:var(--line2)}
 .gcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
 .gcard .c{font-family:var(--mono);font-size:9.5px;color:var(--faint);padding:5px 6px;display:flex;justify-content:space-between}
