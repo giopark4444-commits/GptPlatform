@@ -803,6 +803,11 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .subchipp .subren:hover,.subchipp .subout:hover{color:var(--accent)}
 .subchipp .subx:hover{color:var(--bad)}
 .subchipp .subx.arm{color:#fff;background:var(--bad);opacity:1}
+/* casillas para elegir qué subproyectos se ven en los filtros */
+.submaster{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);cursor:pointer;user-select:none;white-space:nowrap}
+.submaster input,.subchipp .subvis{cursor:pointer;accent-color:var(--accent);width:13px;height:13px;margin:0;flex:none}
+.subchipp.subhidden{opacity:.5}
+.subchipp.subhidden .scn{text-decoration:line-through}
 .subadd{flex:none;font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--line2);border-radius:20px;padding:3px 10px;cursor:pointer;font-family:inherit}
 .subadd:hover{border-color:var(--accent);background:var(--accent-dim)}
 .subconv{flex:none;font-size:11px;color:var(--mut);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:3px 6px;cursor:pointer;font-family:inherit;max-width:150px}
@@ -2842,6 +2847,16 @@ $('mApply').onclick=()=>{const img=$('maskBase');let made=[];
 let LANG=localStorage.getItem('studio_lang')||'es';
 let activeSub=localStorage.getItem('studio_sub')||'';
 function curSubs(){return (window.SUBS&&window.SUBS[curProj()])||[]}
+// visibilidad de subproyectos (elegir cuáles se ven en los filtros de Historial/Mis imágenes).
+// Se guarda el conjunto OCULTO por proyecto → los subproyectos nuevos salen visibles por defecto.
+let _subHidden={};
+function loadSubHidden(){try{const o=JSON.parse(localStorage.getItem('subHidden')||'{}');_subHidden={};for(const k in o)_subHidden[k]=new Set(o[k]||[]);}catch(_){_subHidden={};}}
+function saveSubHidden(){const o={};for(const k in _subHidden)if(_subHidden[k]&&_subHidden[k].size)o[k]=[..._subHidden[k]];localStorage.setItem('subHidden',JSON.stringify(o));}
+function subVisible(proj,key){const s=_subHidden[proj];return !(s&&s.has(key));}
+function setSubVisible(proj,key,vis){if(!_subHidden[proj])_subHidden[proj]=new Set();if(vis)_subHidden[proj].delete(key);else _subHidden[proj].add(key);saveSubHidden();}
+function visibleSubs(){const p=curProj();return curSubs().filter(s=>subVisible(p,s.key));}
+function refreshSubVisViews(){try{renderGalChips();renderShelfChips();loadGal();loadShelf();}catch(_){}}
+loadSubHidden();
 function pj(extra){return Object.assign({project:$('projSel').value,sub:activeSub},extra||{})}
 async function loadProjects(){const _r=await(await fetch('/projects')).json();projects=_r.projects||_r;window.SUBS=_r.subs||{};const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
@@ -2915,7 +2930,8 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
   const cnt=c.count+' '+(c.count===1?'imagen':'imágenes')+(active?' · activo':'');
   const subs=c.subs||[];
   const subrow=`<div class="subrow">`
-   +subs.map(s=>`<span class="subchipp" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subout" data-subpromote="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Sacar: volverlo un proyecto independiente"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
+   +(subs.length?`<label class="submaster" title="Mostrar u ocultar TODOS los subproyectos en los filtros de Historial y Mis imágenes"><input type="checkbox" class="subvisall"${subs.every(s=>subVisible(c.name,s.key))?' checked':''}><span>todos</span></label>`:'')
+   +subs.map(s=>`<span class="subchipp${subVisible(c.name,s.key)?'':' subhidden'}" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><input type="checkbox" class="subvis" data-subvis="${esc(s.key)}"${subVisible(c.name,s.key)?' checked':''} title="Mostrar este subproyecto en los filtros"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subout" data-subpromote="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Sacar: volverlo un proyecto independiente"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
@@ -2934,7 +2950,15 @@ $('projBtn').onclick=openProjModal;
 $('projModal').onclick=e=>{if(e.target===$('projModal'))$('projModal').classList.add('hide')};
 $('projCreate').onclick=async()=>{const ok=await createProject($('projNewName').value);if(ok)$('projModal').classList.add('hide')};
 $('projNewName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('projCreate').click()}});
+// casillas de visibilidad de subproyectos (elegir cuáles se ven en los filtros)
+$('projGrid').addEventListener('change',e=>{const cb=e.target;const pit=cb.closest('.projitem');if(!pit)return;const proj=pit.dataset.name;
+ if(cb.classList.contains('subvis')){setSubVisible(proj,cb.dataset.subvis,cb.checked);const sc=cb.closest('.subchipp');if(sc)sc.classList.toggle('subhidden',!cb.checked);
+  const subs=(lastProjCards.find(c=>c.name===proj)||{}).subs||[];const m=pit.querySelector('.subvisall');if(m)m.checked=subs.length>0&&subs.every(s=>subVisible(proj,s.key));refreshSubVisViews();}
+ else if(cb.classList.contains('subvisall')){const subs=(lastProjCards.find(c=>c.name===proj)||{}).subs||[];
+  if(cb.checked){if(_subHidden[proj])_subHidden[proj].clear();}else{_subHidden[proj]=new Set(subs.map(s=>s.key));}
+  saveSubHidden();renderProjCards(lastProjCards);refreshSubVisViews();}});
 $('projGrid').onclick=async e=>{
+ if(e.target.closest('.subvis')||e.target.closest('.subvisall'))return;   // casillas de visibilidad: las maneja el 'change'
  const item=e.target.closest('.projitem');if(!item)return;
  const name=item.dataset.name,label=item.dataset.label;
  const ed=e.target.closest('.pedit');
@@ -3354,7 +3378,7 @@ document.addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey))return;const 
  if(document.querySelector('.overlay:not(.hide)'))return;
  if(k==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}else if(k==='y'){e.preventDefault();doRedo();}});
 let galSubs=new Set(['all']),histGroups=[];
-function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=curSubs();
+function renderGalChips(){const c=$('galSubChips');if(!c)return;const subs=visibleSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${galSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
  c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')}
@@ -3364,7 +3388,7 @@ $('galSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;c
 async function loadGal(){const subs=curSubs();
  let groups;
  if(!subs.length){groups=[{k:activeSub||''}]}
- else if(galSubs.has('all')){groups=[{k:''}].concat(subs.map(s=>({k:s.key})))}
+ else if(galSubs.has('all')){groups=[{k:''}].concat(visibleSubs().map(s=>({k:s.key})))}
  else{groups=[...galSubs].map(k=>({k}))}
  if(!groups.length)groups=[{k:''}];
  histGroups=[];
@@ -4696,7 +4720,7 @@ async function shelfDedup(subs){if(!subs||!subs.length)return;let total=0;
  await loadShelf();
  toast(total>0?(total+(total>1?' repetidas eliminadas':' repetida eliminada')+' · se conservó una (recuperable en Papelera)'):'No había imágenes repetidas');}
 function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf="'+(window.CSS&&CSS.escape?CSS.escape(f):f)+'"]');return c?(c.dataset.sub||''):(activeSub||'')}
-function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=curSubs();
+function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=visibleSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${shelfSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
  c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')}
@@ -4715,7 +4739,7 @@ $('shelfSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return
 async function loadShelf(){const subs=curSubs();
  let groups;
  if(!subs.length){groups=[{k:activeSub||''}]}
- else if(shelfSubs.has('all')){groups=[{k:''}].concat(subs.map(s=>({k:s.key})))}
+ else if(shelfSubs.has('all')){groups=[{k:''}].concat(visibleSubs().map(s=>({k:s.key})))}
  else{groups=[...shelfSubs].map(k=>({k}))}
  if(!groups.length)groups=[{k:''}];
  shelfGroups=[];let dir='';
