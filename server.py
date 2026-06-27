@@ -1813,6 +1813,8 @@ html,body{overflow-x:hidden}
         <div><label>Moderación</label><select id="mod"><option value="low" selected>Low</option><option value="auto">Auto</option></select></div>
         <div style="margin-top:12px"><label>Imágenes parciales · preview en vivo</label><select id="partImg"><option value="0" selected>Ninguna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
         <p class="hint" style="margin-top:6px">Muestra 1–3 vistas previas mientras la imagen se va generando (solo al generar 1 imagen). Cada parcial añade un pequeño costo de tokens.</p></div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="bgMode"> Modo confiable (VPN o red que corta)</label>
+        <p class="hint" style="margin-top:6px">Envía el trabajo a OpenAI y consulta el resultado por turnos, sin mantener la conexión abierta — así NO se corta a los ~60s. Actívalo si usas <b>VPN</b> y se te cortan las imágenes. Tarda un poquito más por el sondeo.</p>
         <div id="compBox" class="hide" style="margin-top:12px"><div class="slabel"><label>Compresión</label><span class="v" id="compv">80%</span></div><input type="range" id="comp" min="0" max="100" step="5" value="80"></div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="saveDesk" checked> Guardar copia en una carpeta</label>
         <div id="dirBox" style="margin-top:10px">
@@ -2860,6 +2862,8 @@ function setSubVisible(proj,key,vis){if(!_subHidden[proj])_subHidden[proj]=new S
 function visibleSubs(){const p=curProj();return curSubs().filter(s=>subVisible(p,s.key));}
 function refreshSubVisViews(){try{renderGalChips();renderShelfChips();loadGal();loadShelf();}catch(_){}}
 loadSubHidden();
+// recordar el interruptor "Modo confiable (VPN)"
+(function(){const b=$('bgMode');if(!b)return;b.checked=localStorage.getItem('bgMode')==='1';b.addEventListener('change',()=>{localStorage.setItem('bgMode',b.checked?'1':'0');toast(b.checked?'Modo confiable ON · resistente a VPN (un poco más lento)':'Modo confiable OFF');});})();
 function pj(extra){return Object.assign({project:$('projSel').value,sub:activeSub},extra||{})}
 async function loadProjects(){const _r=await(await fetch('/projects')).json();projects=_r.projects||_r;window.SUBS=_r.subs||{};const s=$('projSel');
  const cur=s.value||localStorage.getItem('studio_proj')||'';
@@ -3652,7 +3656,7 @@ async function run(){
  const body={prompt,size:$('w').value+'x'+$('h').value,quality:$('quality').value,n:+$('n').value,
   output_format:fmt,moderation:$('mod').value,
   partial_images:+($('partImg').value||0),project:proj,sub:activeSub,
-  save_desktop:$('saveDesk').checked};
+  bg:!!($('bgMode')&&$('bgMode').checked),save_desktop:$('saveDesk').checked};
  if(fmt!=='png')body.output_compression=+$('comp').value;
  let url='/generate';const willEdit=mode==='editar'||useVisual||refs.length>0;
  const refsUsed=refs.map(r=>({name:r.name,b64:r.b64}));
@@ -7473,6 +7477,10 @@ class H(BaseHTTPRequestHandler):
                 "mode": "crear", "output_format": fmt, "project": b.get("project", ""),
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True)}
         hdr = {"Authorization": f"Bearer {key()}", "Content-Type": "application/json"}
+        if b.get("bg") and n == 1:   # Modo confiable (VPN): directo a background, sin mantener conexión abierta
+            res = self._bg_image(prompt, size, quality, fmt, meta)
+            return self._json(res) if res else self._json({"error":
+                "OpenAI no entregó la imagen (modo confiable). Reintenta en un momento."})
         if partial > 0 and n == 1:   # preview en vivo (imágenes parciales por streaming)
             payload["stream"] = True
             payload["partial_images"] = partial
@@ -7559,6 +7567,25 @@ class H(BaseHTTPRequestHandler):
                 "mode": "editar", "output_format": fmt, "project": b.get("project", ""),
                 "sub": b.get("sub", ""), "save_desktop": b.get("save_desktop", True),
                 "ref_files": self._persist_refs(b.get("project", ""), b.get("sub", ""), ref_saves)}
+        if b.get("bg") and int(b.get("n", 1)) == 1:   # Modo confiable (VPN): directo a background
+            idu = []
+            for im in b.get("images", []):
+                try:
+                    ex = sniff_image(base64.b64decode(im.get("b64", ""))) or "png"
+                    idu.append(f"data:image/{ex};base64,{im.get('b64','')}")
+                except Exception:
+                    pass
+            if b.get("use_project_refs"):
+                for f in load_projects().get(b.get("project") or "", {}).get("refs", []):
+                    fp = proj_folder(b.get("project") or "") / f
+                    if fp.exists():
+                        rb = fp.read_bytes()
+                        idu.append(f"data:image/{sniff_image(rb) or 'png'};base64," + base64.b64encode(rb).decode())
+            if idu:
+                res = self._bg_image(prompt, size, quality, fmt, meta, input_images=idu, via_visual=via_visual)
+                if res:
+                    return self._json(res)
+                return self._json({"error": "OpenAI no entregó la imagen (modo confiable). Reintenta en un momento."})
         partial = max(0, min(3, int(b.get("partial_images") or 0)))
         stream = partial > 0 and int(b.get("n", 1)) == 1
         if stream:
