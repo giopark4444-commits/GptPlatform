@@ -4787,6 +4787,7 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
   ${dup?'<span class="dupbadge">REPETIDA</span>':''}${colDots(it.colors)}${colPick(it.colors)}
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
+  <button class="sbtn sfolder" data-file="${esc(it.file)}" title="Guardar en una carpeta de tu equipo"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
   <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
   <button class="sbtn sshare" data-file="${esc(it.file)}" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
@@ -4862,7 +4863,11 @@ $('shelfGrid').onclick=async e=>{
  const ssh=e.target.closest('.sshare');
  if(ssh){e.stopPropagation();const c=e.target.closest('.scard');if(c){const ssub=c.dataset.sub||'';openSharePop(ssh,'/shelffile?name='+encodeURIComponent(c.dataset.shelf)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),c.dataset.shelf);}return;}
  const use=e.target.closest('.use'),del=e.target.closest('.del'),desc=e.target.closest('.desc');
- const smv=e.target.closest('.smove');
+ const smv=e.target.closest('.smove'),sfo=e.target.closest('.sfolder');
+ if(sfo){e.stopPropagation();const f=sfo.dataset.file;sfo.classList.add('busy');
+  try{const r=await(await fetch('/saveto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'shelf',file:f,sub:shelfFileSub(f),project:curProj()})})).json();
+   if(r&&r.error)toast(r.error,'bad');else if(r&&!r.canceled)toast('Guardada en '+r.dest+' ✓');}catch(x){toast('No se pudo guardar','bad');}
+  sfo.classList.remove('busy');return;}
  if(smv){e.stopPropagation();const f=smv.dataset.file;openShelfMovePop(smv,f,shelfFileSub(f));return;}
  if(use){const it=shelfItems.find(x=>x.file===use.dataset.file);if(!it)return;const ssub=shelfFileSub(it.file);
   const b=await(await fetch('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub))).blob();
@@ -4969,6 +4974,7 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
   +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="shBulkMove">'+GCM+'Mover</button>'
   +'<button id="shBulkCopy">'+GCP+'Copiar</button>'
+  +'<button id="shBulkSave" title="Guardar las seleccionadas en una carpeta de tu equipo"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>A carpeta</button>'
   +'<button id="shBulkShare">'+GSHARE+'Compartir</button>'
   +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="shBulkExit">Salir</button>';
@@ -4976,6 +4982,10 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
  $('shBulkNone').onclick=()=>{shelfSel.clear();renderShelf();renderShelfBulk()};
  $('shBulkMove').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'move')};
  $('shBulkCopy').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'copy')};
+ $('shBulkSave').onclick=async e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
+  const files=[...shelfSel].map(f=>({file:f,sub:shelfFileSub(f)}));
+  try{const r=await(await fetch('/saveto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'shelf',files,project:curProj()})})).json();
+   if(r&&r.error)toast(r.error,'bad');else if(r&&!r.canceled)toast(r.count+' imagen(es) guardadas en '+r.dest+' ✓');}catch(x){toast('No se pudo guardar','bad');}};
  $('shBulkShare').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
   const items=[...shelfSel].map(f=>({url:'/shelffile?name='+encodeURIComponent(f)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(shelfFileSub(f)),filename:f}));
   openSharePopMulti(e.currentTarget,items)};
@@ -6525,7 +6535,7 @@ class H(BaseHTTPRequestHandler):
                  "/detectsubjects": self.h_detectsubjects,
                  "/music": self.h_music, "/lipsync": self.h_lipsync,
                  "/shelfadd": self.h_shelf_add, "/shelfdel": self.h_shelf_del,
-                 "/shelfdedup": self.h_shelf_dedup,
+                 "/shelfdedup": self.h_shelf_dedup, "/saveto": self.h_saveto,
                  "/moveitem": self.h_moveitem, "/deleteitems": self.h_deleteitems,
                  "/restoreitems": self.h_restoreitems,
                  "/trashrestore": self.h_trashrestore, "/trashdelete": self.h_trashdelete,
@@ -7051,6 +7061,44 @@ class H(BaseHTTPRequestHandler):
                     it["md5"] = None
                 changed = True
         return changed
+
+    def h_saveto(self):
+        # copia una o varias imágenes (estante o historial) a una carpeta que el usuario elige con el
+        # selector nativo de macOS — alternativa confiable a arrastrar fuera del navegador
+        b = self._body()
+        src = b.get("src", "shelf")
+        files = b.get("files")
+        if not files:
+            one = b.get("file", "")
+            files = [{"file": one, "sub": b.get("sub", "")}] if one else []
+        pr = self._proj(b)
+        try:
+            osa = ('tell application "System Events" to activate\n'
+                   'POSIX path of (choose folder with prompt "Elige la carpeta donde guardar la(s) imagen(es)")')
+            r = subprocess.run(["osascript", "-e", osa], capture_output=True, text=True, timeout=180)
+            dest = (r.stdout or "").strip()
+        except Exception as e:
+            return self._json({"error": f"No pude abrir el selector: {e}"})
+        if not dest:
+            return self._json({"canceled": True})
+        destp = Path(dest)
+        n = 0
+        for it in files:
+            fn = os.path.basename(it.get("file", "") if isinstance(it, dict) else it)
+            sub = it.get("sub", "") if isinstance(it, dict) else ""
+            if not fn:
+                continue
+            sp = (pshelf_dir(pr, sub) if src == "shelf" else phist_dir(pr, sub)) / fn
+            if sp.is_file():
+                try:
+                    out = destp / fn
+                    i = 1
+                    while out.exists():   # no pisar archivos con el mismo nombre
+                        out = destp / (out.stem.split("__")[0] + f"__{i}" + out.suffix); i += 1
+                    shutil.copy2(sp, out); n += 1
+                except Exception:
+                    pass
+        return self._json({"ok": True, "count": n, "dest": str(destp).replace(str(HOME), "~")})
 
     def h_shelf_dedup(self):
         # quita las imágenes repetidas (mismo contenido) de Mis imágenes, conservando UNA (la 1ª/más antigua)
