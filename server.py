@@ -4723,16 +4723,18 @@ function shelfFileSub(f){const c=$('shelfGrid').querySelector('.scard[data-shelf
 function renderShelfChips(){const c=$('shelfSubChips');if(!c)return;const subs=visibleSubs();
  if(!subs.length){c.innerHTML='';return}
  const chip=(k,lbl,dr)=>`<button class="subchip${shelfSubs.has(k)?' on':''}${dr?' subdrag':''}" data-k="${esc(k)}"${dr?' draggable="true"':''}>${esc(lbl)}</button>`;
- c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,true)).join('')}
+ // chips de Mis imágenes NO arrastrables: el orden se manda SOLO desde la columna derecha (Historial)
+ c.innerHTML=chip('all',trVal('Todos',LANG))+chip('',trVal('Raíz',LANG))+subs.map(s=>chip(s.key,s.label,false)).join('')}
 function wireSubReorder(cid){const c=$(cid);if(!c)return;
  c.addEventListener('dragstart',e=>{const b=e.target.closest('.subdrag');if(!b)return;e.dataTransfer.setData('text/x-subk',b.dataset.k);e.dataTransfer.effectAllowed='move';window.__subck=b.dataset.k;b.classList.add('chipdrag')});
  c.addEventListener('dragend',()=>{[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdrag','chipdropt'))});
  c.addEventListener('dragover',e=>{if([...e.dataTransfer.types].indexOf('text/x-subk')<0)return;e.preventDefault();const b=e.target.closest('.subdrag');[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdropt'));if(b&&b.dataset.k!==window.__subck)b.classList.add('chipdropt')});
  c.addEventListener('drop',async e=>{if([...e.dataTransfer.types].indexOf('text/x-subk')<0)return;e.preventDefault();const b=e.target.closest('.subdrag');[...c.querySelectorAll('.subchip')].forEach(x=>x.classList.remove('chipdropt','chipdrag'));const src=window.__subck;if(!b||b.dataset.k===src)return;
-  const ord=[...c.querySelectorAll('.subdrag')].map(x=>x.dataset.k).filter(k=>k!==src);const i=ord.indexOf(b.dataset.k);ord.splice(i<0?ord.length:i,0,src);
-  const r=await jpost('/suborder',{project:curProj(),order:ord});if(r&&r.error){toast(r.error,'bad');return}
+  // usar la lista COMPLETA de subproyectos (incluidos los ocultos) para no perder su orden al guardar
+  const full=curSubs().map(s=>s.key).filter(k=>k!==src);const i=full.indexOf(b.dataset.k);full.splice(i<0?full.length:i,0,src);
+  const r=await jpost('/suborder',{project:curProj(),order:full});if(r&&r.error){toast(r.error,'bad');return}
   await loadProjects();renderGalChips();renderShelfChips();toast('Subproyectos reordenados')})}
-wireSubReorder('galSubChips');wireSubReorder('shelfSubChips');
+wireSubReorder('galSubChips');   // SOLO el Historial (columna derecha) reordena; Mis imágenes sigue ese orden
 $('shelfSubChips').onclick=e=>{const b=e.target.closest('.subchip');if(!b)return;const k=b.dataset.k;
  if(k==='all'){shelfSubs=new Set(['all'])}else{shelfSubs.delete('all');if(shelfSubs.has(k))shelfSubs.delete(k);else shelfSubs.add(k);if(!shelfSubs.size)shelfSubs.add('')}
  renderShelfChips();loadShelf()};
