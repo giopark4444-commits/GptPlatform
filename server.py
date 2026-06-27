@@ -3419,12 +3419,17 @@ function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload
 function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(id);if(el)el.classList.toggle('dzhi',on)})}
 window.addEventListener('dragend',()=>markDropZones(false));
 window.addEventListener('drop',()=>markDropZones(false));
+// permite arrastrar la imagen FUERA del navegador (a Finder, Photoshop, etc.) con el tipo DownloadURL
+function _dlData(file,base,sub){const u=location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'');
+ const f=(file||'').toLowerCase();const mime=f.endsWith('.jpg')||f.endsWith('.jpeg')?'image/jpeg':f.endsWith('.webp')?'image/webp':f.endsWith('.gif')?'image/gif':'image/png';
+ return mime+':'+(file||'imagen.png')+':'+u;}
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
  if(selMode&&selFiles.size>1&&selFiles.has(card.dataset.file)){
   const arr=[...$('gal').querySelectorAll('.gcard')].filter(c=>selFiles.has(c.dataset.file)).map(c=>({file:c.dataset.file,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-files',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
+ try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.file,'/file',card.dataset.sub||''));}catch(_){}
  e.dataTransfer.effectAllowed='copy';markDropZones(true);
  if(!selMode)gridReorderStart(card,$('gal'),'.gcard','file','history');});
 $('gal').addEventListener('dragover',e=>gridReorderOver(e,$('gal'),'.gcard'));
@@ -3609,7 +3614,9 @@ function openSharePopMulti(anchor,items){closeSharePop();
  setTimeout(()=>document.addEventListener('click',_shareOutside,true),0);}
 $('resultImg').onclick=()=>{if(results.length)openLb(results[active].image,lastResult?lastResult.prompt:'',null)};
 $('resultImg').addEventListener('dragstart',e=>{if(!results.length){e.preventDefault();return}
- e.dataTransfer.setData('text/x-studio-b64',results[active].image);e.dataTransfer.effectAllowed='copy';markDropZones(true)});
+ e.dataTransfer.setData('text/x-studio-b64',results[active].image);
+ try{const r=results[active];e.dataTransfer.setData('DownloadURL',r.file?_dlData(r.file,'/file',activeSub||''):('image/png:imagen.png:'+r.image));}catch(_){}
+ e.dataTransfer.effectAllowed='copy';markDropZones(true)});
 
 // ===== resultado(s) =====
 function showState(s){$('emptyState').classList.toggle('hide',s!=='empty');$('spinner').classList.toggle('hide',s!=='spin');
@@ -4872,7 +4879,9 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
  if(shelfSelMode&&shelfSel.size>1&&shelfSel.has(card.dataset.shelf)){
   const arr=[...$('shelfGrid').querySelectorAll('.scard')].filter(c=>shelfSel.has(c.dataset.shelf)).map(c=>({file:c.dataset.shelf,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
- e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
+ e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');
+ try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.shelf,'/shelffile',card.dataset.sub||''));}catch(_){}
+ e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
  if(!shelfSelMode)gridReorderStart(card,$('shelfGrid'),'.scard','shelf','shelf');});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
 const ANGSEC_TYPES=['text/x-studio-shelf','text/x-studio-file','text/x-studio-files'];
