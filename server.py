@@ -3434,9 +3434,20 @@ function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(i
 window.addEventListener('dragend',()=>markDropZones(false));
 window.addEventListener('drop',()=>markDropZones(false));
 // permite arrastrar la imagen FUERA del navegador (a Finder, Photoshop, etc.) con el tipo DownloadURL
-function _dlData(file,base,sub){const u=location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1';
+// caché de blobs en memoria: arrastrar la IMAGEN en memoria (no una URL de localhost, que Chrome rechaza al soltar fuera)
+const _blobCache=new Map();
+async function _prefetchBlob(file,base,sub){if(!file||_blobCache.has(file))return;_blobCache.set(file,'pending');
+ try{const u=base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'');
+  const bl=await(await fetch(u)).blob();_blobCache.set(file,URL.createObjectURL(bl));
+  if(_blobCache.size>30){const k=[..._blobCache.keys()][0];const v=_blobCache.get(k);if(typeof v==='string'&&v.indexOf('blob:')===0)URL.revokeObjectURL(v);_blobCache.delete(k);}
+ }catch(_){_blobCache.delete(file);}}
+function _dlData(file,base,sub){const c=_blobCache.get(file);
+ const u=(c&&typeof c==='string'&&c.indexOf('blob:')===0)?c:(location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1');
  const f=(file||'').toLowerCase();const mime=f.endsWith('.jpg')||f.endsWith('.jpeg')?'image/jpeg':f.endsWith('.webp')?'image/webp':f.endsWith('.gif')?'image/gif':'image/png';
  return mime+':'+(file||'imagen.png')+':'+u;}
+// precargar el blob al pasar el cursor (para que ya esté listo al arrastrar)
+$('shelfGrid').addEventListener('pointerover',e=>{const c=e.target.closest('.scard');if(c)_prefetchBlob(c.dataset.shelf,'/shelffile',c.dataset.sub||'');});
+$('gal').addEventListener('pointerover',e=>{const c=e.target.closest('.gcard');if(c)_prefetchBlob(c.dataset.file,'/file',c.dataset.sub||'');});
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
  if(selMode&&selFiles.size>1&&selFiles.has(card.dataset.file)){
   const arr=[...$('gal').querySelectorAll('.gcard')].filter(c=>selFiles.has(c.dataset.file)).map(c=>({file:c.dataset.file,sub:c.dataset.sub||''}));
