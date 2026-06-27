@@ -3434,7 +3434,7 @@ function markDropZones(on){['drop','dropPref','shelf'].forEach(id=>{const el=$(i
 window.addEventListener('dragend',()=>markDropZones(false));
 window.addEventListener('drop',()=>markDropZones(false));
 // permite arrastrar la imagen FUERA del navegador (a Finder, Photoshop, etc.) con el tipo DownloadURL
-function _dlData(file,base,sub){const u=location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'');
+function _dlData(file,base,sub){const u=location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1';
  const f=(file||'').toLowerCase();const mime=f.endsWith('.jpg')||f.endsWith('.jpeg')?'image/jpeg':f.endsWith('.webp')?'image/webp':f.endsWith('.gif')?'image/gif':'image/png';
  return mime+':'+(file||'imagen.png')+':'+u;}
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
@@ -6405,7 +6405,12 @@ class H(BaseHTTPRequestHandler):
                 if tp:
                     return self._send(200, tp.read_bytes(), "image/jpeg", {"Cache-Control": "private, max-age=86400"})
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
-            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
+            if not fp.is_file():
+                return self._send(404, "no", "text/plain")
+            extra = {"Cache-Control": "private, max-age=86400"}
+            if q.get("dl"):   # descarga directa (para arrastrar a Finder/otras apps)
+                extra["Content-Disposition"] = 'attachment; filename="' + safe_fn(os.path.basename(q.get("name", ["imagen.png"])[0])) + '"'
+            return self._send(200, fp.read_bytes(), ctype, extra)
         if self.path.startswith("/pfile?"):
             q = parse_qs(urlparse(self.path).query)
             fp = proj_folder(q.get("project", [""])[0]) / os.path.basename(q.get("name", [""])[0])
@@ -6465,7 +6470,12 @@ class H(BaseHTTPRequestHandler):
                 if tp:
                     return self._send(200, tp.read_bytes(), "image/jpeg", {"Cache-Control": "private, max-age=86400"})
             ctype = MIME.get(fp.suffix.lstrip(".").lower(), "application/octet-stream")
-            return self._send(200, fp.read_bytes(), ctype, {"Cache-Control": "private, max-age=86400"}) if fp.is_file() else self._send(404, "no", "text/plain")
+            if not fp.is_file():
+                return self._send(404, "no", "text/plain")
+            extra = {"Cache-Control": "private, max-age=86400"}
+            if q.get("dl"):   # descarga directa (para arrastrar a Finder/otras apps): fuerza guardar como archivo
+                extra["Content-Disposition"] = 'attachment; filename="' + safe_fn(os.path.basename(q.get("name", ["imagen.png"])[0])) + '"'
+            return self._send(200, fp.read_bytes(), ctype, extra)
         if self.path == "/stage":
             with STAGE_LOCK:
                 items = list(STAGE)
