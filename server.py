@@ -14,6 +14,7 @@ from urllib.parse import urlparse, parse_qs
 LOCK = threading.Lock()  # serializa lecturas-escrituras de los JSON
 
 PORT = int(os.environ.get("STUDIO_PORT", "7860"))
+APP_VER = str(int(time.time()))   # versión de esta instancia: cambia en cada reinicio → el cliente detecta la actualización
 HOME = Path.home()
 KEY_FILE = HOME / ".openai_key"
 EL_KEY_FILE = HOME / ".elevenlabs_key"
@@ -1383,6 +1384,11 @@ audio{width:100%;height:40px}
 .toast::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
 .toast.bad::before{background:var(--bad)}
 @keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+/* aviso de nueva versión */
+.updbanner{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:4000;background:var(--accent);color:var(--on-accent,#fff);font-size:13px;font-weight:600;padding:8px 10px 8px 16px;border-radius:24px;box-shadow:0 12px 34px rgba(0,0,0,.32);display:flex;align-items:center;gap:10px;animation:updin .3s ease}
+.updbanner button{background:rgba(255,255,255,.25);color:inherit;border:0;border-radius:16px;padding:5px 13px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12.5px}
+.updbanner button:hover{background:rgba(255,255,255,.42)}
+@keyframes updin{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
 /* comparador A/B */
 .cmpwrap{position:relative;max-width:90vw;max-height:78vh;cursor:default;line-height:0}
@@ -3186,6 +3192,14 @@ $('cmdk').addEventListener('click',e=>{if(e.target===$('cmdk'))closeCmdk()});
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){e.preventDefault();if($('cmdk').classList.contains('hide'))openCmdk();else closeCmdk()}},true);
 function pollAll(){pollStage();pollPromptStage();}
 setInterval(pollAll,2500);
+// aviso automático de nueva versión: el servidor cambia APP_VER al reiniciarse con código nuevo
+let _verNoticed=false;
+async function checkVersion(){if(_verNoticed)return;try{const r=await(await fetch('/version',{cache:'no-store'})).json();
+ if(r&&r.v&&window.APPVER&&r.v!==window.APPVER){_verNoticed=true;
+  const b=document.createElement('div');b.className='updbanner';
+  b.innerHTML='✨ Nueva versión lista <button>Recargar</button>';
+  b.querySelector('button').onclick=()=>location.reload(true);document.body.appendChild(b);}}catch(_){}}
+setTimeout(checkVersion,4000);setInterval(checkVersion,15000);
 window.addEventListener('focus',()=>{pollAll();if(!selMode)loadGal();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){pollAll();if(!selMode)loadGal();}});
 function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||''),sb=esc(it._sub||'');
@@ -6285,9 +6299,11 @@ class H(BaseHTTPRequestHandler):
         if not self._guard():
             return
         if urlparse(self.path).path in ("/", "/index.html"):
-            page = HTML.replace("<script>", "<script>\nwindow.I18N=" + I18N_JSON + ";\n", 1)
+            page = HTML.replace("<script>", "<script>\nwindow.I18N=" + I18N_JSON + ";\nwindow.APPVER=" + json.dumps(APP_VER) + ";\n", 1)
             return self._send(200, page, "text/html; charset=utf-8",
                               {"Content-Security-Policy": CSP, "X-Frame-Options": "DENY"})
+        if self.path == "/version":
+            return self._json({"v": APP_VER})
         if self.path == "/keystatus":
             try:
                 list((ROOT.resolve()).iterdir())
