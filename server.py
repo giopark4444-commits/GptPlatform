@@ -773,15 +773,18 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projitem{display:flex;flex-direction:column;gap:8px}
 .projitem.active .pname{color:var(--accent)}
 .projitem.active .projcard{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.projcard{aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
+.projcard{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface2);
  cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
+/* contador FUERA del pie (sobre la portada) para no quitarle espacio al nombre */
+.pcountb{position:absolute;left:7px;bottom:7px;z-index:2;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;pointer-events:none}
 .projcard:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.18);border-color:var(--mut)}
 .projcard .cov{width:100%;height:100%;background-size:cover;background-position:center;background-color:var(--elev)}
 .projcard .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700;
  color:color-mix(in srgb,var(--accent) 70%,var(--mut));background:linear-gradient(145deg,var(--elev),var(--surface))}
-.projfoot{display:flex;align-items:center;gap:8px;padding:0 3px}
+.projfoot{display:flex;align-items:center;gap:8px;padding:2px 3px;min-height:42px}
 .projfoot .mtext{flex:1;min-width:0}
-.projfoot .pname{font-size:13.5px;font-weight:600;color:var(--txt);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* el nombre usa todo el ancho y hasta 2 líneas (llega al fondo de la barra) */
+.projfoot .pname{font-size:13.5px;font-weight:600;color:var(--txt);line-height:1.22;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .projfoot .pcount{font-size:11.5px;color:var(--mut);margin-top:1px}
 .projfoot .pedit,.projfoot .pdel{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--mut);
  display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}
@@ -2936,8 +2939,8 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
   return `<div class="projitem${active?' active':''}" data-name="${esc(c.name)}" data-label="${esc(c.label)}" draggable="${c.name?'true':'false'}" title="${c.name?'Arrástrame para reordenar · para anidar usa «Convertir en sub de…»':''}">
-   <div class="projcard">${cov}</div>
-   <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div><div class="pcount">${cnt}</div></div>${acts}</div>${subrow}</div>`}).join('');}
+   <div class="projcard">${cov}<span class="pcountb">${c.count} ${c.count===1?'imagen':'imágenes'}</span></div>
+   <div class="projfoot"><div class="mtext"><div class="pname">${esc(c.label)}</div></div>${acts}</div>${subrow}</div>`}).join('');}
 async function renameProject(old,nw){nw=(nw||'').trim();
  if(!nw){renderProjCards(lastProjCards);return}
  const r=await(await fetch('/projectrename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old:old,new:nw})})).json();
