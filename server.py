@@ -3435,16 +3435,19 @@ window.addEventListener('dragend',()=>markDropZones(false));
 window.addEventListener('drop',()=>markDropZones(false));
 // permite arrastrar la imagen FUERA del navegador (a Finder, Photoshop, etc.) con el tipo DownloadURL
 // caché de blobs en memoria: arrastrar la IMAGEN en memoria (no una URL de localhost, que Chrome rechaza al soltar fuera)
-const _blobCache=new Map();
+const _blobCache=new Map();   // file -> {blob, url}
 async function _prefetchBlob(file,base,sub){if(!file||_blobCache.has(file))return;_blobCache.set(file,'pending');
  try{const u=base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'');
-  const bl=await(await fetch(u)).blob();_blobCache.set(file,URL.createObjectURL(bl));
-  if(_blobCache.size>30){const k=[..._blobCache.keys()][0];const v=_blobCache.get(k);if(typeof v==='string'&&v.indexOf('blob:')===0)URL.revokeObjectURL(v);_blobCache.delete(k);}
+  const bl=await(await fetch(u)).blob();_blobCache.set(file,{blob:bl,url:URL.createObjectURL(bl)});
+  if(_blobCache.size>30){const k=[..._blobCache.keys()][0];const v=_blobCache.get(k);if(v&&v.url)URL.revokeObjectURL(v.url);_blobCache.delete(k);}
  }catch(_){_blobCache.delete(file);}}
-function _dlData(file,base,sub){const c=_blobCache.get(file);
- const u=(c&&typeof c==='string'&&c.indexOf('blob:')===0)?c:(location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1');
+function _cachedBlob(file){const c=_blobCache.get(file);return (c&&typeof c==='object'&&c.blob)?c:null;}
+function _dlData(file,base,sub){const c=_cachedBlob(file);
+ const u=c?c.url:(location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1');
  const f=(file||'').toLowerCase();const mime=f.endsWith('.jpg')||f.endsWith('.jpeg')?'image/jpeg':f.endsWith('.webp')?'image/webp':f.endsWith('.gif')?'image/gif':'image/png';
  return mime+':'+(file||'imagen.png')+':'+u;}
+// mete la imagen como FILE real en el arrastre → así Claude/otras apps la reciben al soltar (si ya se precargó al pasar el cursor)
+function _addDragFile(e,file){const c=_cachedBlob(file);if(!c)return;try{e.dataTransfer.items.add(new File([c.blob],file||'imagen.png',{type:c.blob.type||'image/png'}));}catch(_){}}
 // precargar el blob al pasar el cursor (para que ya esté listo al arrastrar)
 $('shelfGrid').addEventListener('pointerover',e=>{const c=e.target.closest('.scard');if(c)_prefetchBlob(c.dataset.shelf,'/shelffile',c.dataset.sub||'');});
 $('gal').addEventListener('pointerover',e=>{const c=e.target.closest('.gcard');if(c)_prefetchBlob(c.dataset.file,'/file',c.dataset.sub||'');});
@@ -3455,6 +3458,7 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
  try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.file,'/file',card.dataset.sub||''));}catch(_){}
+ _addDragFile(e,card.dataset.file);
  e.dataTransfer.effectAllowed='copy';markDropZones(true);
  if(!selMode)gridReorderStart(card,$('gal'),'.gcard','file','history');});
 $('gal').addEventListener('dragover',e=>gridReorderOver(e,$('gal'),'.gcard'));
@@ -4911,6 +4915,7 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
   e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');
  try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.shelf,'/shelffile',card.dataset.sub||''));}catch(_){}
+ _addDragFile(e,card.dataset.shelf);
  e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
  if(!shelfSelMode)gridReorderStart(card,$('shelfGrid'),'.scard','shelf','shelf');});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
