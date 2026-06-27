@@ -792,24 +792,24 @@ kbd{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--sur
 .projfoot .pedit:hover{color:var(--accent);border-color:var(--accent)}
 .projfoot .pdel:hover{color:var(--bad);border-color:var(--bad)}
 .projfoot .pdel.arm{color:#fff;background:var(--bad);border-color:var(--bad);opacity:1}
-.subrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:2px 3px 0;margin-top:1px}
-.subchipp{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;font-size:11.5px;color:var(--txt);max-width:100%;cursor:pointer}
-.subchipp .scn{cursor:pointer}
-.subchipp:hover{border-color:var(--accent)}
+/* subproyectos = lista vertical alineada (checks alineados con TODOS, número fuera del recuadro) */
+.subrow{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:2px 1px 0;margin-top:3px}
+.subchipp{display:flex;align-items:center;gap:7px;background:none;border:1px solid transparent;border-radius:7px;padding:2px 5px;font-size:11.5px;color:var(--txt);cursor:pointer}
+.subchipp:hover{background:var(--surface2);border-color:var(--line)}
 .subchipp.pdrag{opacity:.4}
 .subchipp.subdropt{outline:2px solid var(--accent);outline-offset:1px}
-.subchipp .scn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
-.subchipp .scc{font-size:10px;color:var(--mut);background:var(--surface);border-radius:10px;padding:0 6px;font-variant-numeric:tabular-nums}
-.subchipp .subren,.subchipp .subx,.subchipp .subout{flex:none;width:20px;height:20px;border:0;background:none;color:var(--faint);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.14s}
-.subchipp:hover .subren,.subchipp:hover .subx,.subchipp:hover .subout{opacity:1}
+.subchipp .scn{cursor:pointer;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subchipp .scc{flex:none;font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+.subchipp .subren,.subchipp .subx,.subchipp .subout{flex:none;width:19px;height:19px;border:0;background:none;color:var(--faint);border-radius:50%;display:none;align-items:center;justify-content:center;cursor:pointer}
+.subchipp:hover .subren,.subchipp:hover .subx,.subchipp:hover .subout{display:flex}
 .subchipp .subren svg,.subchipp .subx svg,.subchipp .subout svg{width:12px;height:12px}
 .subchipp .subren:hover,.subchipp .subout:hover{color:var(--accent)}
 .subchipp .subx:hover{color:var(--bad)}
-.subchipp .subx.arm{color:#fff;background:var(--bad);opacity:1}
-/* casillas para elegir qué subproyectos se ven en los filtros */
-.submaster{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);cursor:pointer;user-select:none;white-space:nowrap}
-.submaster input,.subchipp .subvis{cursor:pointer;accent-color:var(--accent);width:13px;height:13px;margin:0;flex:none}
+.subchipp .subx.arm{color:#fff;background:var(--bad);display:flex}
+.submaster{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--mut);cursor:pointer;user-select:none;white-space:nowrap;padding:2px 5px;text-transform:uppercase;letter-spacing:.03em}
+.submaster input,.subchipp .subvis{cursor:pointer;accent-color:var(--accent);width:14px;height:14px;margin:0;flex:none}
 .subchipp.subhidden{opacity:.5}
+.subchipp.subhidden .scn{text-decoration:line-through}
 .subchipp.subhidden .scn{text-decoration:line-through}
 .subadd{flex:none;font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--line2);border-radius:20px;padding:3px 10px;cursor:pointer;font-family:inherit}
 .subadd:hover{border-color:var(--accent);background:var(--accent-dim)}
@@ -2934,7 +2934,7 @@ function renderProjCards(cards){lastProjCards=cards;const cur=$('projSel').value
   const subs=c.subs||[];
   const subrow=`<div class="subrow">`
    +(subs.length?`<label class="submaster" title="Mostrar u ocultar TODOS los subproyectos en los filtros de Historial y Mis imágenes"><input type="checkbox" class="subvisall"${subs.every(s=>subVisible(c.name,s.key))?' checked':''}><span>todos</span></label>`:'')
-   +subs.map(s=>`<span class="subchipp${subVisible(c.name,s.key)?'':' subhidden'}" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><input type="checkbox" class="subvis" data-subvis="${esc(s.key)}"${subVisible(c.name,s.key)?' checked':''} title="Mostrar este subproyecto en los filtros"><span class="scn">${esc(s.label)}</span><span class="scc">${s.count||0}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subout" data-subpromote="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Sacar: volverlo un proyecto independiente"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button></span>`).join('')
+   +subs.map(s=>`<span class="subchipp${subVisible(c.name,s.key)?'':' subhidden'}" data-sub="${esc(s.key)}" draggable="true" title="Clic para abrir · arrastra para reordenar · ${(s.count||0)} imagen(es)"><input type="checkbox" class="subvis" data-subvis="${esc(s.key)}"${subVisible(c.name,s.key)?' checked':''} title="Mostrar este subproyecto en los filtros"><span class="scn">${esc(s.label)}</span><button class="subren" data-subren="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Renombrar subproyecto">${PEN}</button><button class="subout" data-subpromote="${esc(s.key)}" data-sublabel="${esc(s.label)}" title="Sacar: volverlo un proyecto independiente"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button><button class="subx" data-subdel="${esc(s.key)}" title="Borrar subproyecto">${GTR}</button><span class="scc">${s.count||0}</span></span>`).join('')
    +`<button class="subadd" data-subadd="1" title="Crear subproyecto">+ subproyecto</button>`
    +(c.name?`<select class="subconv" data-conv="1" title="Convertir este proyecto en subproyecto de otro"><option value="">Convertir en sub de…</option>`+cards.filter(o=>o.name!==c.name).map(o=>`<option value="${esc(o.name)}">${esc(o.label)}</option>`).join('')+`</select>`:'')
    +`</div>`;
