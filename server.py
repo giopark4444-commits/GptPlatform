@@ -3236,7 +3236,8 @@ function renderGal(){const items=galFiltered();
  }
  $('galMore').classList.add('hide');
  $('gal').classList.toggle('selmode',selMode);
- $('galCount').textContent=items.length||''}
+ $('galCount').textContent=items.length||'';
+ _eagerPrefetch('gal','.gcard','file','/file');}
 // ===== selección múltiple del historial =====
 let selMode=false;const selFiles=new Set();
 let galMarqueed=false,galMarq=null,galMqStart=null,galMqMoved=false,galAnchor=-1;
@@ -3439,8 +3440,11 @@ const _blobCache=new Map();   // file -> {blob, url}
 async function _prefetchBlob(file,base,sub){if(!file||_blobCache.has(file))return;_blobCache.set(file,'pending');
  try{const u=base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'');
   const bl=await(await fetch(u)).blob();_blobCache.set(file,{blob:bl,url:URL.createObjectURL(bl)});
-  if(_blobCache.size>30){const k=[..._blobCache.keys()][0];const v=_blobCache.get(k);if(v&&v.url)URL.revokeObjectURL(v.url);_blobCache.delete(k);}
+  if(_blobCache.size>60){const k=[..._blobCache.keys()][0];const v=_blobCache.get(k);if(v&&v.url)URL.revokeObjectURL(v.url);_blobCache.delete(k);}
  }catch(_){_blobCache.delete(file);}}
+// precarga las imágenes visibles (para que el arrastre a otras apps lleve SIEMPRE el archivo real, sin depender del hover)
+function _eagerPrefetch(grid,sel,attr,base){const g=$(grid);if(!g)return;
+ [...g.querySelectorAll(sel)].slice(0,55).forEach(c=>_prefetchBlob(c.dataset[attr],base,c.dataset.sub||''));}
 function _cachedBlob(file){const c=_blobCache.get(file);return (c&&typeof c==='object'&&c.blob)?c:null;}
 function _dlData(file,base,sub){const c=_cachedBlob(file);
  const u=c?c.url:(location.origin+base+'?name='+encodeURIComponent(file)+'&project='+encodeURIComponent(curProj())+(sub?'&sub='+encodeURIComponent(sub):'')+'&dl=1');
@@ -3448,9 +3452,11 @@ function _dlData(file,base,sub){const c=_cachedBlob(file);
  return mime+':'+(file||'imagen.png')+':'+u;}
 // mete la imagen como FILE real en el arrastre → así Claude/otras apps la reciben al soltar (si ya se precargó al pasar el cursor)
 function _addDragFile(e,file){const c=_cachedBlob(file);if(!c)return;try{e.dataTransfer.items.add(new File([c.blob],file||'imagen.png',{type:c.blob.type||'image/png'}));}catch(_){}}
-// precargar el blob al pasar el cursor (para que ya esté listo al arrastrar)
-$('shelfGrid').addEventListener('pointerover',e=>{const c=e.target.closest('.scard');if(c)_prefetchBlob(c.dataset.shelf,'/shelffile',c.dataset.sub||'');});
-$('gal').addEventListener('pointerover',e=>{const c=e.target.closest('.gcard');if(c)_prefetchBlob(c.dataset.file,'/file',c.dataset.sub||'');});
+// precargar el blob al pasar el cursor Y al presionar (por si el cursor ya estaba encima)
+['pointerover','pointerdown'].forEach(ev=>{
+ $('shelfGrid').addEventListener(ev,e=>{const c=e.target.closest('.scard');if(c)_prefetchBlob(c.dataset.shelf,'/shelffile',c.dataset.sub||'');});
+ $('gal').addEventListener(ev,e=>{const c=e.target.closest('.gcard');if(c)_prefetchBlob(c.dataset.file,'/file',c.dataset.sub||'');});
+});
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
  if(selMode&&selFiles.size>1&&selFiles.has(card.dataset.file)){
   const arr=[...$('gal').querySelectorAll('.gcard')].filter(c=>selFiles.has(c.dataset.file)).map(c=>({file:c.dataset.file,sub:c.dataset.sub||''}));
@@ -4819,7 +4825,8 @@ function renderShelf(){
    return `<div class="histgroup shelfsec" data-sub="${esc(g.k)}" style="grid-column:1/-1"><div class="histgrouphdr"><span class="ghname">${esc(lbl)}</span>${secActs}</div><div class="shelfgrid">${inner}</div></div>`}).join('');
  }else{
   $('shelfGrid').innerHTML=shelfItems.filter(passC).map(it=>scardHtml(it)).join('');
- }}
+ }
+ _eagerPrefetch('shelfGrid','.scard','shelf','/shelffile');}
 async function shelfAddImages(imgs){return shelfAddTo(imgs,activeSub)}
 // ancestro que hace scroll (para conservar la posición al recargar el estante)
 function _scrollParent(el){for(let p=el&&el.parentElement;p;p=p.parentElement){const o=getComputedStyle(p).overflowY;if((o==='auto'||o==='scroll')&&p.scrollHeight>p.clientHeight+2)return p;}return document.scrollingElement||document.documentElement;}
