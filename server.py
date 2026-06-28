@@ -3208,12 +3208,12 @@ function gcardHtml(it){const fn=encodeURIComponent(it.file),p=esc(it.prompt||'')
  return `<div class="gcard${selFiles.has(it.file)?' sel':''}" data-file="${esc(it.file)}" data-sub="${sb}" data-p="${p}" draggable="${drg}"><img src="/file?name=${fn}${pq}&thumb=1" alt="${p.slice(0,60)}" title="${p}&#10;(arrástrame a Referencias, Mis imágenes o Memoria visual)" loading="lazy" draggable="${drg}">
    ${colDots(it.colors)}${colPick(it.colors)}
    <div class="gfloat"><button class="gfbtn gstar${it.fav?' fav':''}" title="${it.fav?'Quitar de favoritas':'Favorita'}">${GST}</button>
-   <button class="gfbtn gcmp" title="Comparar A/B (elige dos)">${GCM}</button>
-   <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
-   <a class="gfbtn" href="/file?name=${fn}${pq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
-   <button class="gfbtn gcopy" title="Copiar prompt + cargar las referencias que se usaron">${GCP}</button>
-   <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gref" title="Usar como referencia">${GPL}</button>
+   <button class="gfbtn giter" title="Iterar: editar con un cambio">${GIT}</button>
+   <button class="gfbtn gcopyimg" title="Copiar imagen (pégala con ⌘V en Claude, etc.)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
+   <button class="gfbtn gcopy" title="Copiar prompt + cargar las referencias que se usaron">${GCP}</button>
+   <a class="gfbtn" href="/file?name=${fn}${pq}" download="${esc(it.file)}" title="Descargar">${GDL}</a>
+   <button class="gfbtn glib" title="Enviar prompt a la biblioteca">${GLB}</button>
    <button class="gfbtn gshare" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
    <button class="gfbtn gdel" title="Borrar (doble clic)">${GTR}</button></div>
    <div class="c"><span>$${(it.cost||0).toFixed(4)}</span><span>${esc(it.size||'')}</span></div></div>`}
@@ -3508,14 +3508,13 @@ $('gal').onclick=async e=>{
  if(e.target.closest('a'))return;
  const cp=e.target.closest('.gcopy'),rf=e.target.closest('.gref'),del=e.target.closest('.gdel'),
   star=e.target.closest('.gstar'),lib=e.target.closest('.glib'),
-  cmp=e.target.closest('.gcmp'),iter=e.target.closest('.giter'),card=e.target.closest('.gcard');
+  cpi=e.target.closest('.gcopyimg'),iter=e.target.closest('.giter'),card=e.target.closest('.gcard');
  if(lib){const p=(hist.find(x=>x.file===card.dataset.file)||{}).prompt||card.dataset.p||'';
   if(!p.trim()){toast('Esta imagen no tiene prompt','bad');return}
   sendPromptToLib(p);flash(lib);return}
- if(cmp){if(!cmpA){cmpA=card.dataset.file;cmp.classList.add('fav');toast('A elegida · ahora pulsa comparar en otra imagen')}
-  else if(cmpA===card.dataset.file){cmpA=null;cmp.classList.remove('fav');toast('Comparación cancelada')}
-  else{openCmp(cmpA,card.dataset.file);cmpA=null;renderGal()}
-  return}
+ if(cpi){e.stopPropagation();const cs=card?(card.dataset.sub||''):'';
+  const url='/file?name='+encodeURIComponent(card.dataset.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(cs);
+  flash(cpi);const ok=await _copyImg(url);toast(ok?'Imagen copiada · pégala con ⌘V donde quieras':'No se pudo copiar la imagen',ok?'':'bad');return}
  const cardSub=card?(card.dataset.sub||''):'';const fileQ='&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(cardSub);
  if(iter){const b=await(await fetch('/file?name='+encodeURIComponent(card.dataset.file)+fileQ)).blob();
   refs=[{name:card.dataset.file,b64:await blobToB64(b)}];mask=null;renderThumbs();renderMaskThumb();
@@ -4812,10 +4811,10 @@ function scardHtml(it){const u='/shelffile?name='+encodeURIComponent(it.file)+'&
  return `<div class="scard${shelfSel.has(it.file)?' sel':''}${dup?' dup':''}" title="${esc(it.name||'')}" draggable="${drg}" data-shelf="${esc(it.file)}" data-sub="${sb}"><img src="${u}&thumb=1" alt="${esc(it.name||'')}" loading="lazy" draggable="${drg}">
   ${dup?'<span class="dupbadge">REPETIDA</span>':''}${colDots(it.colors)}${colPick(it.colors)}
   <div class="sov"><button class="sbtn use" data-file="${esc(it.file)}" title="Usar como referencia"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  <button class="sbtn scopy" data-file="${esc(it.file)}" title="Copiar imagen (luego pégala con ⌘V en Claude, etc.)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
   <a class="sbtn" href="${u}" download="${esc(it.name||it.file)}" title="Descargar"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></a>
   <button class="sbtn sfolder" data-file="${esc(it.file)}" title="Guardar en una carpeta de tu equipo"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
-  <button class="sbtn scopy" data-file="${esc(it.file)}" title="Copiar imagen (luego pégala con ⌘V en Claude, etc.)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-  <button class="sbtn desc" data-file="${esc(it.file)}" title="Describir → prompt (visión)"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button class="sbtn smove" data-file="${esc(it.file)}" title="Mover a otro proyecto o subproyecto"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H3"/></svg></button>
   <button class="sbtn sshare" data-file="${esc(it.file)}" title="Compartir · WhatsApp, Telegram, redes…">${GSHARE}</button>
   <button class="sbtn del" data-file="${esc(it.file)}" title="Desechar (quitar de Mis imágenes)">${GTR}</button></div></div>`}
