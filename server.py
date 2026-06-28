@@ -3365,13 +3365,18 @@ function renderBulk(){const bar=$('galBulk');if(!selMode){bar.classList.add('hid
   +'<button id="bulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="bulkLib">'+GLB+'A la biblioteca</button>'
   +'<button id="bulkMove">'+GCM+'Mover</button>'
-  +'<button id="bulkCopy">'+GCP+'Copiar</button>'
+  +'<button id="bulkCopy" title="Copiar la imagen al portapapeles (pégala con ⌘V en Claude, etc.)">'+GCP+'Copiar</button>'
   +'<button id="bulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="bulkExit">Salir</button>';
  $('bulkAll').onclick=()=>{[...document.querySelectorAll('#gal .gcard')].forEach(c=>selFiles.add(c.dataset.file));renderGal();renderBulk()};
  $('bulkNone').onclick=()=>{selFiles.clear();renderGal();renderBulk()};
  $('bulkMove').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget,'move')};
- $('bulkCopy').onclick=e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openMovePop(e.currentTarget,'copy')};
+ $('bulkCopy').onclick=async e=>{e.stopPropagation();if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
+  const files=[...selFiles];const f=files[0];const ssub=selFileSub(f);
+  const url='/file?name='+encodeURIComponent(f)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub);
+  const ok=await _copyImg(url);
+  if(!ok){toast('No se pudo copiar la imagen','bad');return;}
+  toast(files.length>1?'Copiada 1 imagen al portapapeles (guarda una a la vez). Pégala con ⌘V donde quieras':'Imagen copiada · pégala con ⌘V donde quieras');};
  $('bulkExit').onclick=()=>{selMode=false;selFiles.clear();renderGal();renderBulk()};
  $('bulkLib').onclick=async()=>{if(!selFiles.size){toast('Selecciona imágenes primero','bad');return}
   let n=0;for(const f of selFiles){const it=hist.find(x=>x.file===f);if(it&&(it.prompt||'').trim()){try{await fetch('/promptinbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:it.prompt})});n++}catch(e){}}}
@@ -5000,7 +5005,7 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
   +'<button id="shBulkAll" title="Seleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l2.8 2.8L16.5 9"/></svg>Todo</button>'
   +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="shBulkMove">'+GCM+'Mover</button>'
-  +'<button id="shBulkCopy">'+GCP+'Copiar</button>'
+  +'<button id="shBulkCopy" title="Copiar la imagen al portapapeles (pégala con ⌘V en Claude, etc.)">'+GCP+'Copiar</button>'
   +'<button id="shBulkSave" title="Guardar las seleccionadas en una carpeta de tu equipo"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>A carpeta</button>'
   +'<button id="shBulkShare">'+GSHARE+'Compartir</button>'
   +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
@@ -5008,7 +5013,12 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
  $('shBulkAll').onclick=()=>{[...document.querySelectorAll('#shelfGrid .scard')].forEach(c=>shelfSel.add(c.dataset.shelf));renderShelf();renderShelfBulk()};
  $('shBulkNone').onclick=()=>{shelfSel.clear();renderShelf();renderShelfBulk()};
  $('shBulkMove').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'move')};
- $('shBulkCopy').onclick=e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}if($('movePop')){closeMovePop();return}openShelfBulkMovePop(e.currentTarget,'copy')};
+ $('shBulkCopy').onclick=async e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
+  const files=[...shelfSel];const f=files[0];const ssub=shelfFileSub(f);
+  const url='/shelffile?name='+encodeURIComponent(f)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub);
+  const ok=await _copyImg(url);
+  if(!ok){toast('No se pudo copiar la imagen','bad');return;}
+  toast(files.length>1?'Copiada 1 imagen al portapapeles (solo guarda una a la vez · para varias usa «A carpeta»). Pégala con ⌘V':'Imagen copiada · pégala con ⌘V donde quieras');};
  $('shBulkSave').onclick=async e=>{e.stopPropagation();if(!shelfSel.size){toast('Selecciona imágenes primero','bad');return}
   const files=[...shelfSel].map(f=>({file:f,sub:shelfFileSub(f)}));
   try{const r=await(await fetch('/saveto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:'shelf',files,project:curProj()})})).json();
