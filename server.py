@@ -3471,8 +3471,8 @@ $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');
   e.dataTransfer.setData('text/x-studio-files',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
- if(!multi){try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.file,'/file',card.dataset.sub||''));}catch(_){}}
- if(multi){const n=_addDragFiles(e,[...selFiles]);if(n<selFiles.size)toast('Arrastrando '+n+' de '+selFiles.size+' (las demás aún no cargaron)');}else _addDragFile(e,card.dataset.file);
+ try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.file,'/file',card.dataset.sub||''));}catch(_){}
+ _addDragFile(e,card.dataset.file);   // arrastrar fuera = 1 imagen (para varias → botón «A carpeta»)
  e.dataTransfer.effectAllowed='copy';markDropZones(true);
  if(!selMode)gridReorderStart(card,$('gal'),'.gcard','file','history');});
 $('gal').addEventListener('dragover',e=>gridReorderOver(e,$('gal'),'.gcard'));
@@ -4933,9 +4933,8 @@ $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.sc
   const arr=[...$('shelfGrid').querySelectorAll('.scard')].filter(c=>shelfSel.has(c.dataset.shelf)).map(c=>({file:c.dataset.shelf,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');
- // DownloadURL es de UN solo archivo y tiene prioridad → en selección múltiple NO lo ponemos, para que valgan los varios Files
- if(!multi){try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.shelf,'/shelffile',card.dataset.sub||''));}catch(_){}}
- if(multi){const n=_addDragFiles(e,[...shelfSel]);if(n<shelfSel.size)toast('Arrastrando '+n+' de '+shelfSel.size+' (las demás aún no cargaron; usa «A carpeta» para todas)');}else _addDragFile(e,card.dataset.shelf);
+ try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.shelf,'/shelffile',card.dataset.sub||''));}catch(_){}
+ _addDragFile(e,card.dataset.shelf);   // arrastrar fuera = 1 imagen (el navegador no soporta varios archivos sueltos → para varias, botón «A carpeta»)
  e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
  if(!shelfSelMode)gridReorderStart(card,$('shelfGrid'),'.scard','shelf','shelf');});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
