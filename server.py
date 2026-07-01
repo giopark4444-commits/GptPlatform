@@ -5009,7 +5009,7 @@ function renderShelfBulk(){const bar=$('shelfBulk');if(!shelfSelMode){bar.classL
   +'<button id="shBulkNone" title="Deseleccionar todas"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>Ninguna</button>'
   +'<button id="shBulkMove">'+GCM+'Mover</button>'
   +'<button id="shBulkCopy" title="Copiar la imagen al portapapeles (pégala con ⌘V en Claude, etc.)">'+GCP+'Copiar</button>'
-  +'<button id="shBulkSave" title="Guardar las seleccionadas en una carpeta de tu equipo"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>A carpeta</button>'
+  +'<button id="shBulkSave" title="Copiar TODAS las seleccionadas a una carpeta de tu equipo (Escritorio, etc.)" style="border-color:var(--accent);color:var(--accent)"><svg viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Guardar en carpeta</button>'
   +'<button id="shBulkShare">'+GSHARE+'Compartir</button>'
   +'<button id="shBulkDel" class="bdel">'+GTR+'Borrar</button>'
   +'<button id="shBulkExit">Salir</button>';
