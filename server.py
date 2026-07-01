@@ -3457,19 +3457,22 @@ function _dlData(file,base,sub){const c=_cachedBlob(file);
  return mime+':'+(file||'imagen.png')+':'+u;}
 // mete la imagen como FILE real en el arrastre → así Claude/otras apps la reciben al soltar (si ya se precargó al pasar el cursor)
 function _addDragFile(e,file){const c=_cachedBlob(file);if(!c)return;try{e.dataTransfer.items.add(new File([c.blob],file||'imagen.png',{type:c.blob.type||'image/png'}));}catch(_){}}
+// varios archivos a la vez (para arrastrar fuera una SELECCIÓN completa)
+function _addDragFiles(e,files){let n=0;for(const f of files){const c=_cachedBlob(f);if(c){try{e.dataTransfer.items.add(new File([c.blob],f,{type:c.blob.type||'image/png'}));n++;}catch(_){}}}return n;}
 // precargar el blob al pasar el cursor Y al presionar (por si el cursor ya estaba encima)
 ['pointerover','pointerdown'].forEach(ev=>{
  $('shelfGrid').addEventListener(ev,e=>{const c=e.target.closest('.scard');if(c)_prefetchBlob(c.dataset.shelf,'/shelffile',c.dataset.sub||'');});
  $('gal').addEventListener(ev,e=>{const c=e.target.closest('.gcard');if(c)_prefetchBlob(c.dataset.file,'/file',c.dataset.sub||'');});
 });
 $('gal').addEventListener('dragstart',e=>{const card=e.target.closest('.gcard');if(!card)return;
- if(selMode&&selFiles.size>1&&selFiles.has(card.dataset.file)){
+ const multi=selMode&&selFiles.size>1&&selFiles.has(card.dataset.file);
+ if(multi){
   const arr=[...$('gal').querySelectorAll('.gcard')].filter(c=>selFiles.has(c.dataset.file)).map(c=>({file:c.dataset.file,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-files',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-file',card.dataset.file);
  if(card.dataset.sub)e.dataTransfer.setData('text/x-studio-filesub',card.dataset.sub);
  try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.file,'/file',card.dataset.sub||''));}catch(_){}
- _addDragFile(e,card.dataset.file);
+ if(multi){const n=_addDragFiles(e,[...selFiles]);if(n<selFiles.size)toast('Arrastrando '+n+' de '+selFiles.size+' (las demás aún no cargaron)');}else _addDragFile(e,card.dataset.file);
  e.dataTransfer.effectAllowed='copy';markDropZones(true);
  if(!selMode)gridReorderStart(card,$('gal'),'.gcard','file','history');});
 $('gal').addEventListener('dragover',e=>gridReorderOver(e,$('gal'),'.gcard'));
@@ -4925,12 +4928,13 @@ $('shelfGrid').onclick=async e=>{
   if(it){openLb('/shelffile?name='+encodeURIComponent(it.file)+'&project='+encodeURIComponent(curProj())+'&sub='+encodeURIComponent(ssub),'','');lbScope='shelf';lbCurFile=it.file;lbSyncNav()}}};
 // arrastrar una imagen DEL estante hacia otra zona (p.ej. memoria visual o referencias)
 $('shelfGrid').addEventListener('dragstart',e=>{const card=e.target.closest('.scard');if(!card)return;
- if(shelfSelMode&&shelfSel.size>1&&shelfSel.has(card.dataset.shelf)){
+ const multi=shelfSelMode&&shelfSel.size>1&&shelfSel.has(card.dataset.shelf);
+ if(multi){
   const arr=[...$('shelfGrid').querySelectorAll('.scard')].filter(c=>shelfSel.has(c.dataset.shelf)).map(c=>({file:c.dataset.shelf,sub:c.dataset.sub||''}));
   e.dataTransfer.setData('text/x-studio-shelfs',JSON.stringify(arr));}
  e.dataTransfer.setData('text/x-studio-shelf',card.dataset.shelf);e.dataTransfer.setData('text/x-studio-shelfsub',card.dataset.sub||'');
  try{e.dataTransfer.setData('DownloadURL',_dlData(card.dataset.shelf,'/shelffile',card.dataset.sub||''));}catch(_){}
- _addDragFile(e,card.dataset.shelf);
+ if(multi){const n=_addDragFiles(e,[...shelfSel]);if(n<shelfSel.size)toast('Arrastrando '+n+' de '+shelfSel.size+' (las demás aún no cargaron; usa «A carpeta» para todas)');}else _addDragFile(e,card.dataset.shelf);
  e.dataTransfer.effectAllowed='copyMove';markDropZones(true);
  if(!shelfSelMode)gridReorderStart(card,$('shelfGrid'),'.scard','shelf','shelf');});
 // soltar sobre una sección de subproyecto: del estante = mover ahí; del historial = copiar ahí
